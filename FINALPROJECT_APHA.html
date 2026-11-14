@@ -647,6 +647,12 @@
         /* cena 1: palco fixo 1920x1080 escalado pelo JS (igual às cenas 2 e 3), centrado no quadro */
         #scene-1 #s1-stage{position:absolute;left:0;top:0;transform-origin:0 0}
     </style>
+<style>
+#nova-comparison-header{text-align:center;padding:12px 10px 22px;opacity:0;transform:translateY(9px);transition:opacity .65s ease,transform .65s ease;pointer-events:none}
+#nova-comparison-header.is-visible{opacity:1;transform:translateY(0)}
+#nova-comparison-header .comparison-title{font-family:'Montserrat','Inter',sans-serif;font-size:clamp(19px,2.1vw,29px);line-height:1.2;font-weight:800;letter-spacing:.065em;color:#FFFFFF;margin:0}
+#nova-comparison-header .comparison-subtitle{font-family:'Montserrat','Inter',sans-serif;font-size:clamp(12px,1.25vw,17px);line-height:1.35;font-weight:700;letter-spacing:.12em;color:#7c8b9e;margin:7px 0 0}
+</style>
 </head>
 <body class="min-h-screen flex flex-col font-sans antialiased selection:bg-cad-cyan selection:text-white">
 
@@ -5658,6 +5664,10 @@ function xrayRun(ms) {
                 <button onclick="exportBinsPNG()" class="py-2 px-4 rounded-lg font-mono font-semibold text-xs transition" style="border:1px solid #5b7b9e;color:#d4dce6;background:transparent" onmouseover="this.style.background='rgba(91,123,158,.14)'" onmouseout="this.style.background='transparent'">Export both bins (PNG, transparent)</button>
                 <button onclick="exportBinsPNG(2.5, 'alpha')" class="py-2 px-4 rounded-lg font-mono font-semibold text-xs transition" style="border:1px solid #5b7b9e;color:#d4dce6;background:transparent" onmouseover="this.style.background='rgba(91,123,158,.14)'" onmouseout="this.style.background='transparent'">Export Alpha bin only</button>
             </div>
+            <div id="nova-comparison-header">
+                <h2 class="comparison-title">SPACE EFFICIENCY COMPARISON</h2>
+                <p class="comparison-subtitle">BIN TOP VIEW</p>
+            </div>
             <div class="bg-cad-panel border border-cad-border rounded-xl overflow-hidden sim-card">
                 <div class="grid grid-cols-1 lg:grid-cols-[1fr_1.3fr]">
                     <div class="min-w-0">
@@ -5671,7 +5681,9 @@ function xrayRun(ms) {
                     <div class="min-w-0">
                         <div class="px-4 py-2 bg-cad-bg border-b border-cad-border text-xs font-mono font-semibold text-slate-700">CONVENTIONAL BIN — TOP VIEW</div>
                         <div id="conv-top-container" class="relative w-full h-[540px] sm:h-[620px] sim-bg select-none overflow-hidden">
-                            <canvas id="convTopCanvas" class="absolute inset-0 w-full h-full block" role="img" aria-label="3D top view of the conventional 56 inch bin with four identically shaded indigo IATA bags and translucent acrylic walls"></canvas>
+                            <canvas id="convStructureBackCanvas" class="absolute inset-0 w-full h-full block pointer-events-none" aria-hidden="true"></canvas>
+                            <canvas id="convTopCanvas" class="absolute inset-0 w-full h-full block" role="img" aria-label="56 inch bin: original SVG shell with four grey-blue 3D suitcases"></canvas>
+                            <canvas id="convStructureFrontCanvas" class="absolute inset-0 w-full h-full block pointer-events-none" aria-hidden="true"></canvas>
                             <canvas id="convDimCanvas" class="absolute inset-0 w-full h-full block pointer-events-none" aria-hidden="true"></canvas>
                         </div>
                         <div class="sim-bg select-none" style="text-align:center;padding:6px 0 18px;font:700 26px/1.2 'Montserrat','Inter',sans-serif;letter-spacing:.02em;color:#9ba9b5">CONVENTIONAL</div>
@@ -6027,6 +6039,7 @@ function xrayRun(ms) {
             if (tab !== 'tour' && window.tourAbort) window.tourAbort();
             currentTab = tab;
             if (tab !== 'unified' && window.uniPause) window.uniPause();
+            if (tab !== 'nova' && window.novaShowHeader) window.novaShowHeader(false);
             if (tab !== 'pax' && window.paxPause) window.paxPause();
             if (tab !== 'closing' && window.closingReset && !document.querySelector('#tour-stage #module-closing')) window.closingReset();   // sai da aba de encerramento: para as animações
             ['pax', 'sim', 'cad3d', 'nova', 'topview', 'unified', 'closing', 'tour'].forEach(t => {
@@ -6047,7 +6060,7 @@ function xrayRun(ms) {
                     if (eg && eg.style.display !== 'none') updateErgonomics();
                 }
                 if (tab === 'pax' && window.paxEnter) window.paxEnter();
-                if (tab === 'nova' && window.novaEnter) window.novaEnter();
+                if (tab === 'nova' && window.novaEnter) { window.novaEnter(); if(window.novaShowHeader)window.novaShowHeader(true); }
                 if (tab === 'unified' && window.uniEnter) window.uniEnter();
                 
                 if (tab === 'cad3d' && window.resizeCAD3D) window.resizeCAD3D();
@@ -9058,8 +9071,15 @@ function xrayRun(ms) {
 
             const mat=new THREE.MeshBasicMaterial({color:0xc6cbdb,side:THREE.DoubleSide,...po});   // lateral do bin: lavanda acinzentada (cor do render SVG)
             const lmat=new THREE.LineBasicMaterial({color:0x1e293b});   // contornos do bin: azul-marinho técnico #1e293b (mesmo traço CAD da cena 1)
-            const eg=new THREE.EdgesGeometry(g,20);
-            const solids=[],sideWallParts=[],profileBandMaterials=[],group=new THREE.Group(); scene.add(group);
+            // Contorno externo liso: nenhum furo ou ranhura do trilho nesta face.
+            const outerEdges=[];
+            SUBS[0].forEach((p,i)=>{
+                const q=SUBS[0][(i+1)%SUBS[0].length];
+                outerEdges.push(0,p[1],-p[0],0,q[1],-q[0]);
+            });
+            const eg=new THREE.BufferGeometry();
+            eg.setAttribute('position',new THREE.Float32BufferAttribute(outerEdges,3));
+            const solids=[],sideWallParts=[],profileBandMaterials=[],profileBandMeshes=[],internalRailParts=[],group=new THREE.Group(); scene.add(group);
             [0,DIST].forEach(x=>{
                 const m=new THREE.Mesh(g,mat);m.position.x=x;group.add(m);solids.push(m);
                 const l=new THREE.LineSegments(eg,lmat);l.position.x=x;group.add(l);
@@ -9067,7 +9087,7 @@ function xrayRun(ms) {
             });
 
             // Perfis de extrusão e assentamento: tiras CAD em cinza/azul, nunca vermelho ou verde.
-            // A ranhura da porta e os encaixes são peças em baixo-relevo no lado externo das chapas.
+            // A ranhura e os encaixes são exclusivamente da face INTERNA das chapas.
             function addProfileBand(pts, color) {
                 if (pts.length < 3) return;
                 const shape = new THREE.Shape(pts.map(p => new THREE.Vector2(p[0],p[1])));
@@ -9078,8 +9098,10 @@ function xrayRun(ms) {
                 profileBandMaterials.push(bandMat);
                 [0,DIST].forEach(x => {
                     const band = new THREE.Mesh(geo,bandMat);
-                    band.position.x = x === 0 ? -TH/2-0.65 : DIST+TH/2+0.65;
+                    band.position.x = x === 0 ? TH/2+0.85 : DIST-TH/2-0.85;
                     band.userData.novaSideDetail=1;
+                    band.userData.innerWallSide=x===0?0:1;
+                    profileBandMeshes.push(band);
                     group.add(band);
                     if (x === DIST) sideWallParts.push(band);
                 });
@@ -9144,7 +9166,10 @@ function xrayRun(ms) {
                 }
                 const rg=new THREE.BufferGeometry();
                 rg.setAttribute('position',new THREE.Float32BufferAttribute(arr,3));
-                group.add(new THREE.LineSegments(rg,railLineMat));
+                const guide=new THREE.LineSegments(rg,railLineMat);
+                guide.userData.innerWallSide=xPos<DIST/2?0:1;
+                internalRailParts.push(guide);
+                group.add(guide);
             });
 
             const DOOR_THICK = 5.0;
@@ -9383,6 +9408,8 @@ function xrayRun(ms) {
             function upd(){
                 cam.position.set(T.x + R*Math.cos(el)*Math.cos(az), T.y + R*Math.sin(el), T.z + R*Math.cos(el)*Math.sin(az));
                 cam.lookAt(T);
+                const exterior=cam.position.x<-TH/2?0:(cam.position.x>DIST+TH/2?1:-1);
+                [...profileBandMeshes,...internalRailParts].forEach(o=>{o.visible=exterior!==o.userData.innerWallSide;});
                 ren.render(scene, cam);
                 placeBalloons();
             }
@@ -9806,137 +9833,122 @@ function xrayRun(ms) {
             })();
 
 
-            // ---- Top View, convencional de 56": MESMO motor Three.js, shaders e geometria do Alpha de 44" ----
-            (function conventional3DTopView() {
-                const rightCanvas = document.getElementById('convTopCanvas');
-                const rightBox = document.getElementById('conv-top-container');
-                const rightDim = document.getElementById('convDimCanvas');
-                if (!rightCanvas || !rightBox) return;
 
-                const WIDTH56 = 56 * 25.4, DEPTH = 893.5, WALL = TH;
-                const rightScene = new THREE.Scene();
-                // As mesmas três luzes da cena Alpha (cores, posição, intensidade).
-                scene.children.filter(o => o.isLight).forEach(light => rightScene.add(light.clone()));
-                const rightCam = new THREE.PerspectiveCamera(15, 1, 10, 25000);
-                const target = new THREE.Vector3(WIDTH56 / 2, 360, -DEPTH / 2);
-                let rightRenderer = null;
-
-                // Mesmo material básico das paredes Alpha, agora com transparência de acrílico.
-                const acrylic = wm.clone();
-                acrylic.transparent = true; acrylic.opacity = 0.19; acrylic.depthWrite = false;
-                acrylic.polygonOffset = true; acrylic.polygonOffsetFactor = 1;
-                const glassFloor = fm.clone();
-                glassFloor.transparent = true; glassFloor.opacity = 0.26; glassFloor.depthWrite = false;
-                const lipMat = new THREE.MeshLambertMaterial({ color: 0x9ba9b5, side: THREE.DoubleSide });
-                const latchMat = new THREE.MeshLambertMaterial({ color: 0x707fa5, side: THREE.DoubleSide });
-                const cyanTrim = new THREE.LineBasicMaterial({ color: 0x8cdeff, transparent: true, opacity: 0.45, depthWrite: false });
-                function panel(w, ht, d, x, y, z, material) {
-                    const m = new THREE.Mesh(new THREE.BoxGeometry(w, ht, d), material);
-                    m.position.set(x, y, z);
-                    rightScene.add(m);
-                    return m;
-                }
-                // Laje, laterais estruturais e fechamento frontal/traseiro translúcidos:
-                // as malas aparecem através da estrutura, não sob um desenho 2D.
-                panel(WIDTH56 + WALL, 14, DEPTH, WIDTH56 / 2, 78, -DEPTH / 2, glassFloor);
-                [0, WIDTH56].forEach(x => panel(WALL, 510, DEPTH, x, 332, -DEPTH / 2, acrylic));
-                [-DEPTH, 0].forEach(z => panel(WIDTH56, 510, WALL, WIDTH56 / 2, 332, z, acrylic));
-                // Perfis 3D finos e fechos inferiores, no mesmo cinza-azulado do Alpha.
-                [0, WIDTH56].forEach(x => {
-                    panel(13, 13, DEPTH, x, 593, -DEPTH / 2, lipMat);
-                    panel(13, 16, DEPTH, x, 81, -DEPTH / 2, latchMat);
-                });
-                [-DEPTH, 0].forEach(z => {
-                    panel(WIDTH56, 13, 12, WIDTH56 / 2, 593, z, lipMat);
-                    panel(WIDTH56, 16, 14, WIDTH56 / 2, 81, z, latchMat);
-                });
-                for (let i = 0; i < 4; i++) {
-                    // Travessas/travas junto ao piso da abertura, visíveis em profundidade.
-                    panel(88, 16, 35, (i + 0.5) * WIDTH56 / 4, 94, -56, latchMat);
-                }
-
-                // Usar a malha original (ExtrudeGeometry arredondada), não retângulos Canvas.
-                // As quatro malas são cópias do modelo Alpha, com a mesma escala e cor base.
-                const ribMat = new THREE.MeshLambertMaterial({ color: 0x40508b, ...po });
-                const wheelMat = new THREE.MeshLambertMaterial({ color: 0x2e3b73, ...po });
-                const metalMat = new THREE.MeshLambertMaterial({ color: 0x6375a0, ...po });
-                for (let i = 0; i < 4; i++) {
-                    const bag = bags[2].root.clone(true), inner = bag.children[0];
-                    bag.visible = true;
-                    bag.position.set((i + 0.5) * WIDTH56 / 4, 333, -DEPTH / 2);
-                    // Girada para que 22" ocupem a profundidade, e 14" a largura.
-                    bag.rotation.set(-Math.PI / 2, 0, 0);
-                    bag.traverse(o => {
-                        if (o.isLineSegments || o.isLineLoop) o.visible = false; // remove strokes blueprint
-                        if (o.isMesh) {
-                            if (o.material === mPl) o.material = ribMat;
-                            else if (o.material === mBlk) o.material = wheelMat;
-                            else if (o.material === mMet) o.material = metalMat;
-                            else if (o.material === bags[2].mBody) o.material = bags[2].mBody;
+            // SVG binsup.svg: contorno REAL, cantos, inclinações e duas travas.
+            // As quatro malas continuam renderizadas em Three.js sob as mesmas luzes do bin Alpha.
+            (function conventionalSVGTopView(){
+                const cv=document.getElementById('convTopCanvas');
+                const box=document.getElementById('conv-top-container');
+                const back=document.getElementById('convStructureBackCanvas');
+                const front=document.getElementById('convStructureFrontCanvas');
+                const dim=document.getElementById('convDimCanvas');
+                if(!cv||!box||!back||!front||!dim)return;
+                const svgPath="M14187.55 20551.27l2623.57 -0.1 -2.71 304.41 -2639.8 3.32 18.94 -307.63zm-9441.52 7.86l2610.61 1.72 8.59 294.65 -2627.14 -0.63 7.94 -295.74zm9598.64 -268.29l379.13 -7.21 1777.18 7.21 189.56 0.08 112.66 -0.44 -0.06 162.1 -2625.57 0.46 -0.87 -162.59 167.97 0.39zm-6988.09 -0.36l-0.03 162.69 -2633.55 -0.13 -0.88 -162.57 2634.46 0.01zm9538.14 -91.59c-288.07,-32.42 -2618.27,-47.13 -2809.58,15.57l-0.5 530.51 -6631.85 -8.64c4.84,-679.36 106.48,-545.59 -643.34,-545.53 -236.96,0.02 -473.92,-0.03 -710.88,-0.03 -1632.81,0 -1467.43,-209.11 -1467.43,538.12 -176.98,62.4 -1717.54,12.35 -2039.53,14.74 -333.22,2.49 -654.5,44.79 -885.29,-151.64 -162.88,-138.63 -257.16,-474.52 -206.4,-774.23l17979.72 -0.08c35.9,238.57 -42.47,587.91 -159.86,719.99 -48.29,54.33 -182.38,129.37 -283.29,161.59 -269.62,86.07 -1856.79,62.6 -2141.09,44.64l-0.68 -545.01zm2499.33 -488.41c-263.52,46.7 -819.23,14.97 -1115.9,15.57 -1724.28,3.51 -16595.78,24.98 -16712.01,-15.57l4.36 -99.18c128.51,-46.57 3902.62,3.39 4456.99,-17.29 732.2,-27.31 1490.96,1.39 2227.39,1.65 742.41,0.26 1484.96,0.02 2227.4,0.02 250.7,0 8643.21,-33.45 8916.13,15.62l-4.36 99.18zm-82.36 -301.16c45.32,-85.93 -15.69,-138.93 -22.65,-245.55 -5.69,-86.97 16.43,-214.37 20.38,-308.54l44.83 -1729.78c31.45,-764.42 39.52,-1533.68 66.76,-2297.9l115.76 -4052.6c10.84,-87.03 140.51,-399.42 206.62,-509.9l-255.06 9191.89c-62.09,-21.29 -126.39,-29.57 -176.64,-47.62zm-17779.38 -8666.68l15537.37 0.1c509.28,-1.03 1879.21,26.3 2364.63,-0.16l-239.02 8468.81 -17425.25 -0.12 -237.73 -8468.63zm-24.08 -92.71c4.84,-0.13 -161.32,-332.68 -240.7,-538.71 -21.11,-54.78 60.49,-95.09 162.99,-95.09l18214.98 0c-4.59,26.37 -283.02,608.15 -300.06,630.76l-15071.44 2.36c-438.06,0.3 -855.24,3.03 -1297.83,4.36 -442.58,1.32 -910.58,1.24 -1450.25,-4.08 -90.5,1.52 -93.05,5.91 -93.17,124.96l220.12 8642.44c-71.98,19.68 -128.22,36.3 -175.57,62.97 -22.19,-1528.15 -117.06,-3080.31 -118.12,-4605.65 -0.35,-499.11 -139.08,-4315.5 -103.6,-4589.85 61.75,129.67 181.16,405.62 181.18,405.53 5.42,-45.07 54.63,-39.18 71.47,-40zm3126.6 10195.75c-15.21,72.57 -36.31,51.7 -144.96,50.35l-1613.9 -1.33c-646.76,-1.39 -1131.81,65.51 -1414.02,-386.86 -148.15,-237.48 -103.14,-510.32 -110.27,-799.56 -7.43,-301.52 -16.44,-599.44 -28.69,-900.43 -71.67,-1760.81 -94.32,-3591.5 -145.08,-5355.22 -33.93,-1179.08 -80.82,-2385.99 -80.82,-3563.67 141.81,-49.99 15065.38,-7.38 16446.5,-7.38 448.99,0 2034.06,-28.02 2331.25,-7.97 0,1650.5 -77.54,3323.69 -118.95,4977.07 -20.65,824.39 -42.07,1640.46 -62.99,2464.35 -10.64,419.47 -23.37,837.5 -37.16,1256.72l-24.91 924.36c-3.69,302.36 18.15,210.09 -49.41,225.17 -21.66,-386.64 17.9,-810.68 22.54,-1200.28 28.63,-2401.67 139.97,-4929.24 190.32,-7365.89 6.94,-335.58 75.41,-939.94 -8.68,-1207.75 -302.21,-53.55 -677.21,-24.79 -1009.83,-24.77l-15520.68 0c-275.44,0 -1943.74,-53.38 -2051.1,32.92 -110.63,88.92 -45.92,776.29 -38.47,961.68 13.38,332.72 2.94,660.89 19.06,995.21 64.15,1330.3 57.07,2674.04 106.97,4005.69 50.65,1351.87 67.34,2700.23 109.71,4051.81 17.28,551.2 218.67,828.35 715.22,861.65 523.47,35.11 2329.79,-48.65 2518.35,14.13zm15322.28 -11021.71c-270.29,-71.15 -3210.78,-30.41 -3740.48,-30.41 -1249.41,0 -2492.34,-3.33 -3743.92,-3.48l-9430.88 -0.01c-614.5,0.11 -1290.64,-27.78 -1896.26,-5.35 -223.68,8.29 -138.68,396.55 -124.53,753.31 12.49,314.72 13.58,630.65 17.1,946.06 6.68,600.88 35.48,1220.87 51.39,1826.36 32.2,1225.39 56.77,2450.81 98.42,3672.83 21.09,618.61 29.19,1233.11 49.73,1848.24 13.74,411.63 -23.8,1457.82 159.43,1738.58 42.53,65.17 156.46,194.36 217.89,234.43 375.86,245.18 743.39,171.05 1212.62,169.57l15095.12 -0.02c348.94,-0.12 994.97,60.07 1291.93,-89.02 616.06,-309.29 494.1,-1077.59 518.11,-1840.26 86.65,-2752.19 118.54,-5547.97 209.77,-8293.54 8.72,-262.31 38.43,-678.44 14.56,-927.29z";
+                const shell=new Path2D(svgPath);
+                // Limites geométricos calculados a partir do path fornecido.
+                const B={x0:993.48,y0:9776,x1:19966.2,y1:20986};
+                const s3=new THREE.Scene();
+                scene.children.filter(o=>o.isLight).forEach(l=>s3.add(l.clone()));
+                const camera=new THREE.PerspectiveCamera(15,1,10,25000);
+                const center=new THREE.Vector3(0,300,0);
+                let renderer=null;
+                const body=new THREE.MeshLambertMaterial({color:0x7c8b9e,...po});
+                const ribs=new THREE.MeshLambertMaterial({color:0x8090a3,...po});
+                const wheels=new THREE.MeshLambertMaterial({color:0x697b90,...po});
+                const metal=new THREE.MeshLambertMaterial({color:0x92a3b6,...po});
+                const trim=new THREE.LineBasicMaterial({color:0xb1e4f0,transparent:true,opacity:.23,depthWrite:false});
+                const caseModels=[];
+                for(let i=0;i<4;i++){
+                    const b=bags[2].root.clone(true);
+                    b.visible=true;
+                    b.rotation.set(-Math.PI/2,0,0);
+                    b.traverse(o=>{
+                        if(o.isLineSegments||o.isLineLoop){o.visible=false;return;}
+                        if(o.isMesh){
+                            if(o.material===bags[2].mBody)o.material=body;
+                            else if(o.material===mPl)o.material=ribs;
+                            else if(o.material===mBlk)o.material=wheels;
+                            else if(o.material===mMet)o.material=metal;
                         }
                     });
-                    // Filete ciano apenas no chanfro do tampo e no relevo interno.
-                    const ch = bagShape.getPoints(24).map(p => new THREE.Vector3(p.x * 0.975, p.y, 128.5));
-                    const bevelLine = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(ch), cyanTrim);
-                    inner.add(bevelLine);
-                    const grooves = [];
-                    for (let k = -4; k <= 4; k++) {
-                        const x = k * 32 + 2.6;
-                        grooves.push(x, 110, 130, x, 484, 130);
-                    }
-                    const gLines = new THREE.BufferGeometry();
-                    gLines.setAttribute('position', new THREE.Float32BufferAttribute(grooves, 3));
-                    inner.add(new THREE.LineSegments(gLines, new THREE.LineBasicMaterial({
-                        color: 0x86dfff, transparent: true, opacity: 0.23, depthWrite: false
-                    })));
-                    rightScene.add(bag);
+                    const ch=bagShape.getPoints(20).map(p=>new THREE.Vector3(p.x*.97,p.y,127.5));
+                    b.children[0].add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(ch),trim));
+                    s3.add(b);caseModels.push(b);
                 }
-
-                function draw() {
-                    const r = rightBox.getBoundingClientRect();
-                    if (!r.width || !r.height) return null;
-                    if (!rightRenderer) {
-                        rightRenderer = new THREE.WebGLRenderer({
-                            canvas: rightCanvas, antialias: true, alpha: true, preserveDrawingBuffer: true
-                        });
-                        rightRenderer.setClearColor(0xffffff, 0);
-                    }
-                    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-                    rightRenderer.setPixelRatio(dpr);
-                    rightRenderer.setSize(r.width, r.height, false);
-                    rightCam.aspect = r.width / r.height;
-                    rightCam.updateProjectionMatrix();
-                    const tan = Math.tan(rightCam.fov * Math.PI / 360);
-                    const distance = Math.max((WIDTH56 + 190) / (2 * tan * rightCam.aspect), 1080 / (2 * tan));
-                    rightCam.up.set(0, 0, 1);
-                    rightCam.position.set(target.x, target.y + distance, target.z);
-                    rightCam.lookAt(target);
-                    rightRenderer.render(rightScene, rightCam);
-                    if (rightDim) {
-                        const pd = window.devicePixelRatio || 1;
-                        rightDim.width = Math.round(r.width * pd);
-                        rightDim.height = Math.round(r.height * pd);
-                        const dc = rightDim.getContext('2d');
-                        dc.setTransform(pd, 0, 0, pd, 0, 0);
-                        dc.clearRect(0, 0, r.width, r.height);
-                        if (!window.__convNoDim) {
-                            rightCam.updateMatrixWorld(true);
-                            const coord = (x, z) => {
-                                const v = new THREE.Vector3(x, 593, z).project(rightCam);
-                                return [(v.x + 1) * 0.5 * r.width, (1 - v.y) * 0.5 * r.height];
-                            };
-                            const [x1, top] = coord(WALL / 2, -4);
-                            const [x2] = coord(WIDTH56 - WALL / 2, -4);
-                            drawTopDimension(dc, x1, x2, Math.max(24, top - 30), top - 3, '56"');
-                        }
-                    }
-                    return rightCanvas;
+                function ctxFor(c,W,H,dpr){
+                    const cw=Math.round(W*dpr),ch=Math.round(H*dpr);
+                    if(c.width!==cw||c.height!==ch){c.width=cw;c.height=ch;}
+                    const ctx=c.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);return ctx;
                 }
-                window.__convDraw = draw;
-                new ResizeObserver(draw).observe(rightBox);
-                const alphaBox = document.getElementById('nova-container');
-                if (alphaBox) new ResizeObserver(draw).observe(alphaBox);
-                if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+                function structure(W,H,dpr){
+                    const sc=Math.min((W-42)/(B.x1-B.x0),(H-110)/(B.y1-B.y0));
+                    const ox=(W-(B.x1-B.x0)*sc)/2,oy=(H-(B.y1-B.y0)*sc)/2+22;
+                    const p=(x,y)=>[ox+(x-B.x0)*sc,oy+(y-B.y0)*sc];
+                    const transform=c=>{c.translate(ox-B.x0*sc,oy-B.y0*sc);c.scale(sc,sc);c.lineJoin='round';c.lineCap='round';};
+                    const b=ctxFor(back,W,H,dpr);b.save();transform(b);
+                    const gradient=b.createLinearGradient(0,9850,0,21000);
+                    gradient.addColorStop(0,'rgba(190,205,223,.34)');
+                    gradient.addColorStop(.56,'rgba(126,151,183,.19)');
+                    gradient.addColorStop(1,'rgba(103,126,154,.29)');
+                    b.fillStyle=gradient;b.fill(shell,'evenodd');
+                    const cavity=new Path2D();
+                    cavity.moveTo(1460,10780);cavity.lineTo(19570,10780);
+                    cavity.lineTo(19300,19325);cavity.lineTo(1710,19325);cavity.closePath();
+                    const cg=b.createLinearGradient(0,10800,0,19400);
+                    cg.addColorStop(0,'rgba(102,129,163,.15)');
+                    cg.addColorStop(1,'rgba(39,57,86,.24)');
+                    b.fillStyle=cg;b.fill(cavity);b.restore();
+                    const f=ctxFor(front,W,H,dpr);f.save();transform(f);
+                    f.strokeStyle='rgba(191,211,233,.78)';f.lineWidth=1.2/sc;f.stroke(shell);f.restore();
+                    return {sc,p};
+                }
+                function draw(){
+                    const r=box.getBoundingClientRect(),W=r.width,H=r.height;
+                    if(!W||!H)return null;
+                    if(!renderer){
+                        renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true,preserveDrawingBuffer:true});
+                        renderer.setClearColor(0xffffff,0);
+                    }
+                    const dpr=Math.min(window.devicePixelRatio||1,2),geo=structure(W,H,dpr);
+                    renderer.setPixelRatio(dpr);renderer.setSize(W,H,false);
+                    camera.aspect=W/H;
+                    const worldPerPixel=560/(8300*geo.sc);
+                    const distance=H*worldPerPixel/(2*Math.tan(camera.fov*Math.PI/360));
+                    camera.up.set(0,0,1);
+                    camera.position.set(0,center.y+distance,0);
+                    camera.lookAt(center);camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
+                    const q0=new THREE.Vector3(0,center.y,0).project(camera);
+                    const xs=new THREE.Vector3(1,center.y,0).project(camera).x>q0.x?1:-1;
+                    const zs=new THREE.Vector3(0,center.y,1).project(camera).y>q0.y?1:-1;
+                    const left=1620,slot=(19400-left)/4;
+                    caseModels.forEach((b,i)=>{
+                        const px=geo.p(left+(i+.5)*slot,14930);
+                        b.position.set(xs*(px[0]-W/2)*worldPerPixel,center.y,zs*(H/2-px[1])*worldPerPixel);
+                        b.scale.set(slot*.91*geo.sc*worldPerPixel/346,8100*geo.sc*worldPerPixel/559,1);
+                    });
+                    renderer.render(s3,camera);
+                    const c=ctxFor(dim,W,H,dpr);
+                    if(!window.__convNoDim){
+                        const a=geo.p(1415,10023),b=geo.p(19646,10023);
+                        drawTopDimension(c,a[0],b[0],Math.max(25,a[1]-34),a[1]-5,'56"');
+                    }
+                    return cv;
+                }
+                window.__convDraw=draw;
+                window.__convCapture=()=>{
+                    const out=document.createElement('canvas');out.width=cv.width;out.height=cv.height;
+                    const c=out.getContext('2d');
+                    [back,cv,front].forEach(layer=>c.drawImage(layer,0,0,out.width,out.height));
+                    return out;
+                };
+                window.novaShowHeader=show=>{
+                    const el=document.getElementById('nova-comparison-header');
+                    if(el)el.classList.toggle('is-visible',!!show);
+                };
+                new ResizeObserver(draw).observe(box);
+                const alphaBox=document.getElementById('nova-container');
+                if(alphaBox)new ResizeObserver(draw).observe(alphaBox);
+                if(document.fonts&&document.fonts.ready)document.fonts.ready.then(draw);
                 draw();
             })();
 
@@ -9959,12 +9971,12 @@ function xrayRun(ms) {
                 mPl.color.setHex(saved.plCol);
                 const surfaceMats = [mat, wm, fm, ...profileBandMaterials];
                 const surfaceSaved = surfaceMats.map(m => [m, m.transparent, m.opacity, m.depthWrite]);
-                surfaceMats.forEach((m, i) => { m.transparent = true; m.opacity = i === 2 ? 0.34 : 0.20; m.depthWrite = false; m.needsUpdate = true; });
+                surfaceMats.forEach((m, i) => { m.transparent = true; m.opacity = i === 2 ? 0.39 : (i<2 ? 0.27 : 0.25); m.depthWrite = false; m.needsUpdate = true; });
                 solids.forEach(m => { if (m.material === mat) m.renderOrder = 10; });
                 az = views.iso[0]; el = views.iso[1]; R = 2400;   // vista isométrica (mesmo ângulo do botão), enquadrada para 16:9
                 ren.setPixelRatio(1); ren.setSize(EW, EH, false);
                 cam.aspect = EW / EH; cam.updateProjectionMatrix();
-                ren.setClearColor(0x000223, 1);
+                ren.setClearColor(0x000000, 0); // transparência alfa real
 
                 const shots = [['closed', 0], ['80pct_open', 0.8]];
                 const grab = (name, prog, view = 'isometric') => {
@@ -10000,9 +10012,9 @@ function xrayRun(ms) {
                         group.children.forEach((o, i) => { o.visible = groupVisibility[i]; });
                         bags.forEach((b, i) => { b.root.visible = bagVisibility[i]; });
                         sideWallParts.forEach((o, i) => { o.renderOrder = wallOrders[i]; });
-                        mat.transparent = true; mat.opacity = 0.2; mat.depthWrite = false; mat.needsUpdate = true;
+                        mat.transparent = true; mat.opacity = 0.27; mat.depthWrite = false; mat.needsUpdate = true;
                         T.copy(saved.T);
-                        ren.setClearColor(0x000223, 1);
+                        ren.setClearColor(0x000000, 0);
                     }
                 };
                 grab(shots[0][0], shots[0][1]);
@@ -10077,13 +10089,13 @@ function xrayRun(ms) {
                     });
                     state.surfaces.forEach(([m], i) => {
                         m.transparent = true;
-                        m.opacity = i === 2 ? 0.30 : (i < 2 ? 0.16 : 0.19);
+                        m.opacity = i === 2 ? 0.37 : (i < 2 ? 0.23 : 0.25);
                         m.depthWrite = false;
                         m.needsUpdate = true;
                     });
                     ren.setPixelRatio(1); ren.setSize(EW, EH, false);
                     cam.aspect = EW / EH; cam.updateProjectionMatrix();
-                    ren.setClearColor(0x000223, 1);
+                    ren.setClearColor(0x000000, 0); // transparência alfa real
                     exportShot('lateral_with_four_bags', 0, 0.08, 2600);
                     setTimeout(() => {
                         try { exportShot('side_isometric_with_four_bags', -0.47, 0.17, 2650); }
@@ -10189,7 +10201,7 @@ function xrayRun(ms) {
             saved.forEach(([b]) => { const r = b.getBoundingClientRect(); b.style.width = Math.round(r.width * K) + 'px'; b.style.height = Math.round(r.height * K) + 'px'; });
             window.__novaNoDim = true; window.__convNoDim = true; window.__novaK = K;
             if (which !== 'conv' && boxA && window.__novaRender) { const c = window.__novaRender(); if (c) cA = grab(c); }
-            if (which !== 'alpha') { window.__convDraw(); cC = grab(document.getElementById('convTopCanvas')); }
+            if (which !== 'alpha') { window.__convDraw(); cC = grab(window.__convCapture ? window.__convCapture() : document.getElementById('convTopCanvas')); }
         } finally {
             saved.forEach(([b, w, h]) => { b.style.width = w; b.style.height = h; });
             window.__novaNoDim = false; window.__convNoDim = false; window.__novaK = 1;
@@ -10640,7 +10652,8 @@ function xrayRun(ms) {
         async function fxNovaIn(my) {
             const sec = active.sec, grid = sec.querySelector('.sim-card .grid'); if (!grid) return false;
             const [c0, c1] = grid.children, lab0 = c0.lastElementChild, lab1 = c1.lastElementChild;
-            const dim = $('novaDimCanvas'), cvc = $('convTopCanvas');
+            const dim = $('novaDimCanvas'), cvc = $('convDimCanvas');
+            call(window.novaShowHeader,false);
             fitRec(sec, active.step);
             call(window.novaEnter);
             // bin convencional: desenho sem cota no canvas e, por cima, uma cópia com a cota (entra em fade junto com os nomes)
@@ -10658,6 +10671,7 @@ function xrayRun(ms) {
             if (!(await tween(650 + 200, my, () => {}))) return true;
             show([dim, ov, lab0, lab1], 550);                    // cotas 44" / 56" junto com os nomes ALPHA / CONVENTIONAL
             await tween(550, my, () => {});
+            call(window.novaShowHeader,true);
             return true;
         }
         function fxNovaClean() {
