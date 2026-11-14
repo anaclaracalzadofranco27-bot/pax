@@ -5579,6 +5579,9 @@ function xrayRun(ms) {
                         <button id="cad3d-export" type="button" onclick="cad3dExportImages()" class="cad-btn" title="Downloads 3 4K images (3840 × 2160): isometric view with door closed, isometric view with door 80% open, and an isolated side wall (transparent PNG, without luggage or door)">
                             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>Exportar imagens 4K
                         </button>
+                        <button id="cad3d-export-side" type="button" onclick="cad3dExportSideTransparent()" class="cad-btn" title="Exports two 4K views of the complete bin with four visible bags and translucent side panels: lateral and side-oblique">
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>Exportar lateral c/ malas (2 PNG)
+                        </button>
                         <button id="cad3d-export-door" type="button" onclick="cad3dExportDoor()" class="cad-btn" title="Downloads 2 transparent PNGs of the roll-up door only, closed: side view and isometric view">
                             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>Exportar porta (2 PNG)
                         </button>
@@ -5668,7 +5671,8 @@ function xrayRun(ms) {
                     <div class="min-w-0">
                         <div class="px-4 py-2 bg-cad-bg border-b border-cad-border text-xs font-mono font-semibold text-slate-700">CONVENTIONAL BIN — TOP VIEW</div>
                         <div id="conv-top-container" class="relative w-full h-[540px] sm:h-[620px] sim-bg select-none overflow-hidden">
-                            <canvas id="convTopCanvas" class="absolute inset-0 w-full h-full block" role="img" aria-label="Top view of the conventional bin with 4 IATA bags (22x14x10 in) side by side"></canvas>
+                            <canvas id="convTopCanvas" class="absolute inset-0 w-full h-full block" role="img" aria-label="3D top view of the conventional 56 inch bin with four identically shaded indigo IATA bags and translucent acrylic walls"></canvas>
+                            <canvas id="convDimCanvas" class="absolute inset-0 w-full h-full block pointer-events-none" aria-hidden="true"></canvas>
                         </div>
                         <div class="sim-bg select-none" style="text-align:center;padding:6px 0 18px;font:700 26px/1.2 'Montserrat','Inter',sans-serif;letter-spacing:.02em;color:#9ba9b5">CONVENTIONAL</div>
                     </div>
@@ -9641,6 +9645,44 @@ function xrayRun(ms) {
             });
 
 
+
+            // Cotas comuns aos dois bins: branco puro, setas externas e etiqueta escura.
+            // Compartilhar o mesmo desenhador garante que 44" e 56" mantenham a mesma linguagem visual.
+            function drawTopDimension(ctx, x1, x2, yDim, yExt, label) {
+                ctx.save();
+                ctx.setLineDash([]);
+                ctx.strokeStyle = '#FFFFFF';
+                ctx.fillStyle = '#FFFFFF';
+                ctx.lineWidth = 1.3;
+                ctx.beginPath();
+                ctx.moveTo(x1, yExt); ctx.lineTo(x1, yDim - 7);
+                ctx.moveTo(x2, yExt); ctx.lineTo(x2, yDim - 7);
+                ctx.moveTo(x1, yDim); ctx.lineTo(x2, yDim);
+                ctx.stroke();
+                // Setas triangulares sólidas, apontadas para fora da medida.
+                [[x1, -1], [x2, 1]].forEach(([x, d]) => {
+                    ctx.beginPath();
+                    ctx.moveTo(x + d * 10, yDim);
+                    ctx.lineTo(x, yDim - 3.6);
+                    ctx.lineTo(x, yDim + 3.6);
+                    ctx.closePath();
+                    ctx.fill();
+                });
+                ctx.font = '700 14px "JetBrains Mono", monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const tw = ctx.measureText(label).width + 16;
+                const xm = (x1 + x2) / 2;
+                ctx.fillStyle = '#000223';
+                ctx.fillRect(xm - tw / 2, yDim - 11, tw, 22);
+                ctx.strokeStyle = '#FFFFFF';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(xm - tw / 2, yDim - 11, tw, 22);
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillText(label, xm, yDim + 0.5);
+                ctx.restore();
+            }
+
             // ---- Aba 2 (Vista Frontal): cópia da cena vista de frente; as 2 malas do fundo aparecem só em contorno tracejado ----
             (function novaFront() {
                 const nvCanvas = document.getElementById('novaCanvas'), nvBox = document.getElementById('nova-container');
@@ -9745,20 +9787,7 @@ function xrayRun(ms) {
                         nvCam.updateMatrixWorld(true);
                         const P = (x, z) => { const v = new THREE.Vector3(x, 655, z).project(nvCam); return [(v.x + 1) / 2 * r.width, (1 - v.y) / 2 * r.height]; };
                         const [xa, yTop] = P(TH / 2, 0), [xb] = P(DIST - TH / 2, 0);
-                        const dimH = function(ctx, x1, x2, yDim, yExt, label) {   // cota horizontal: linhas de extensão, linha de cota com setas e valor
-            const col = '#d4dce6';   // linhas/texto claros (tema escuro)
-            ctx.save(); ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.3; ctx.setLineDash([]);
-            ctx.beginPath(); ctx.moveTo(x1, yExt); ctx.lineTo(x1, yDim - 7); ctx.moveTo(x2, yExt); ctx.lineTo(x2, yDim - 7); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(x1, yDim); ctx.lineTo(x2, yDim); ctx.stroke();
-            [[x1, 1], [x2, -1]].forEach(([x, d]) => { ctx.beginPath(); ctx.moveTo(x, yDim); ctx.lineTo(x + d * 9, yDim - 3.4); ctx.lineTo(x + d * 9, yDim + 3.4); ctx.closePath(); ctx.fill(); });
-            ctx.font = '700 14px "JetBrains Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            const tw = ctx.measureText(label).width + 16, cx = (x1 + x2) / 2;
-            ctx.fillStyle = '#000223'; ctx.fillRect(cx - tw / 2, yDim - 11, tw, 22);   // caixa opaca, cor do fundo
-            ctx.strokeRect(cx - tw / 2, yDim - 11, tw, 22);
-            ctx.fillStyle = col; ctx.fillText(label, cx, yDim + 0.5);
-            ctx.restore();
-        };
-                        dimH(dx, xa, xb, Math.max(24, yTop - 30), yTop - 3, '44"');
+                        drawTopDimension(dx, xa, xb, Math.max(24, yTop - 30), yTop - 3, '44"');
                     }
                 }
                 window.novaEnter = () => {
@@ -9774,6 +9803,141 @@ function xrayRun(ms) {
                 };
                 window.__novaRender = () => { if (!nvRen || !size()) return null; frame(); return nvCanvas; };   // usado por exportBinsPNG()
                 window.addEventListener('resize', () => { if ((currentTab === 'nova' || nvBox.closest('#tour-stage')) && nvRen && size()) frame(); });
+            })();
+
+
+            // ---- Top View, convencional de 56": MESMO motor Three.js, shaders e geometria do Alpha de 44" ----
+            (function conventional3DTopView() {
+                const rightCanvas = document.getElementById('convTopCanvas');
+                const rightBox = document.getElementById('conv-top-container');
+                const rightDim = document.getElementById('convDimCanvas');
+                if (!rightCanvas || !rightBox) return;
+
+                const WIDTH56 = 56 * 25.4, DEPTH = 893.5, WALL = TH;
+                const rightScene = new THREE.Scene();
+                // As mesmas três luzes da cena Alpha (cores, posição, intensidade).
+                scene.children.filter(o => o.isLight).forEach(light => rightScene.add(light.clone()));
+                const rightCam = new THREE.PerspectiveCamera(15, 1, 10, 25000);
+                const target = new THREE.Vector3(WIDTH56 / 2, 360, -DEPTH / 2);
+                let rightRenderer = null;
+
+                // Mesmo material básico das paredes Alpha, agora com transparência de acrílico.
+                const acrylic = wm.clone();
+                acrylic.transparent = true; acrylic.opacity = 0.19; acrylic.depthWrite = false;
+                acrylic.polygonOffset = true; acrylic.polygonOffsetFactor = 1;
+                const glassFloor = fm.clone();
+                glassFloor.transparent = true; glassFloor.opacity = 0.26; glassFloor.depthWrite = false;
+                const lipMat = new THREE.MeshLambertMaterial({ color: 0x9ba9b5, side: THREE.DoubleSide });
+                const latchMat = new THREE.MeshLambertMaterial({ color: 0x707fa5, side: THREE.DoubleSide });
+                const cyanTrim = new THREE.LineBasicMaterial({ color: 0x8cdeff, transparent: true, opacity: 0.45, depthWrite: false });
+                function panel(w, ht, d, x, y, z, material) {
+                    const m = new THREE.Mesh(new THREE.BoxGeometry(w, ht, d), material);
+                    m.position.set(x, y, z);
+                    rightScene.add(m);
+                    return m;
+                }
+                // Laje, laterais estruturais e fechamento frontal/traseiro translúcidos:
+                // as malas aparecem através da estrutura, não sob um desenho 2D.
+                panel(WIDTH56 + WALL, 14, DEPTH, WIDTH56 / 2, 78, -DEPTH / 2, glassFloor);
+                [0, WIDTH56].forEach(x => panel(WALL, 510, DEPTH, x, 332, -DEPTH / 2, acrylic));
+                [-DEPTH, 0].forEach(z => panel(WIDTH56, 510, WALL, WIDTH56 / 2, 332, z, acrylic));
+                // Perfis 3D finos e fechos inferiores, no mesmo cinza-azulado do Alpha.
+                [0, WIDTH56].forEach(x => {
+                    panel(13, 13, DEPTH, x, 593, -DEPTH / 2, lipMat);
+                    panel(13, 16, DEPTH, x, 81, -DEPTH / 2, latchMat);
+                });
+                [-DEPTH, 0].forEach(z => {
+                    panel(WIDTH56, 13, 12, WIDTH56 / 2, 593, z, lipMat);
+                    panel(WIDTH56, 16, 14, WIDTH56 / 2, 81, z, latchMat);
+                });
+                for (let i = 0; i < 4; i++) {
+                    // Travessas/travas junto ao piso da abertura, visíveis em profundidade.
+                    panel(88, 16, 35, (i + 0.5) * WIDTH56 / 4, 94, -56, latchMat);
+                }
+
+                // Usar a malha original (ExtrudeGeometry arredondada), não retângulos Canvas.
+                // As quatro malas são cópias do modelo Alpha, com a mesma escala e cor base.
+                const ribMat = new THREE.MeshLambertMaterial({ color: 0x40508b, ...po });
+                const wheelMat = new THREE.MeshLambertMaterial({ color: 0x2e3b73, ...po });
+                const metalMat = new THREE.MeshLambertMaterial({ color: 0x6375a0, ...po });
+                for (let i = 0; i < 4; i++) {
+                    const bag = bags[2].root.clone(true), inner = bag.children[0];
+                    bag.visible = true;
+                    bag.position.set((i + 0.5) * WIDTH56 / 4, 333, -DEPTH / 2);
+                    // Girada para que 22" ocupem a profundidade, e 14" a largura.
+                    bag.rotation.set(-Math.PI / 2, 0, 0);
+                    bag.traverse(o => {
+                        if (o.isLineSegments || o.isLineLoop) o.visible = false; // remove strokes blueprint
+                        if (o.isMesh) {
+                            if (o.material === mPl) o.material = ribMat;
+                            else if (o.material === mBlk) o.material = wheelMat;
+                            else if (o.material === mMet) o.material = metalMat;
+                            else if (o.material === bags[2].mBody) o.material = bags[2].mBody;
+                        }
+                    });
+                    // Filete ciano apenas no chanfro do tampo e no relevo interno.
+                    const ch = bagShape.getPoints(24).map(p => new THREE.Vector3(p.x * 0.975, p.y, 128.5));
+                    const bevelLine = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(ch), cyanTrim);
+                    inner.add(bevelLine);
+                    const grooves = [];
+                    for (let k = -4; k <= 4; k++) {
+                        const x = k * 32 + 2.6;
+                        grooves.push(x, 110, 130, x, 484, 130);
+                    }
+                    const gLines = new THREE.BufferGeometry();
+                    gLines.setAttribute('position', new THREE.Float32BufferAttribute(grooves, 3));
+                    inner.add(new THREE.LineSegments(gLines, new THREE.LineBasicMaterial({
+                        color: 0x86dfff, transparent: true, opacity: 0.23, depthWrite: false
+                    })));
+                    rightScene.add(bag);
+                }
+
+                function draw() {
+                    const r = rightBox.getBoundingClientRect();
+                    if (!r.width || !r.height) return null;
+                    if (!rightRenderer) {
+                        rightRenderer = new THREE.WebGLRenderer({
+                            canvas: rightCanvas, antialias: true, alpha: true, preserveDrawingBuffer: true
+                        });
+                        rightRenderer.setClearColor(0xffffff, 0);
+                    }
+                    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+                    rightRenderer.setPixelRatio(dpr);
+                    rightRenderer.setSize(r.width, r.height, false);
+                    rightCam.aspect = r.width / r.height;
+                    rightCam.updateProjectionMatrix();
+                    const tan = Math.tan(rightCam.fov * Math.PI / 360);
+                    const distance = Math.max((WIDTH56 + 190) / (2 * tan * rightCam.aspect), 1080 / (2 * tan));
+                    rightCam.up.set(0, 0, 1);
+                    rightCam.position.set(target.x, target.y + distance, target.z);
+                    rightCam.lookAt(target);
+                    rightRenderer.render(rightScene, rightCam);
+                    if (rightDim) {
+                        const pd = window.devicePixelRatio || 1;
+                        rightDim.width = Math.round(r.width * pd);
+                        rightDim.height = Math.round(r.height * pd);
+                        const dc = rightDim.getContext('2d');
+                        dc.setTransform(pd, 0, 0, pd, 0, 0);
+                        dc.clearRect(0, 0, r.width, r.height);
+                        if (!window.__convNoDim) {
+                            rightCam.updateMatrixWorld(true);
+                            const coord = (x, z) => {
+                                const v = new THREE.Vector3(x, 593, z).project(rightCam);
+                                return [(v.x + 1) * 0.5 * r.width, (1 - v.y) * 0.5 * r.height];
+                            };
+                            const [x1, top] = coord(WALL / 2, -4);
+                            const [x2] = coord(WIDTH56 - WALL / 2, -4);
+                            drawTopDimension(dc, x1, x2, Math.max(24, top - 30), top - 3, '56"');
+                        }
+                    }
+                    return rightCanvas;
+                }
+                window.__convDraw = draw;
+                new ResizeObserver(draw).observe(rightBox);
+                const alphaBox = document.getElementById('nova-container');
+                if (alphaBox) new ResizeObserver(draw).observe(alphaBox);
+                if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+                draw();
             })();
 
             // ---- Exportação 4K (3840 × 2160): vista isométrica, laterais do bin transparentes, malas no mesmo lilás ----
@@ -9793,7 +9957,9 @@ function xrayRun(ms) {
                 // cena de exportação
                 bags.forEach((b, i) => { b.root.visible = true; if (b.env) b.env.visible = false; setBagPoseAlongPath(i, 1); b.mBody.color.setHex(saved.bags[0].col); });   // todas as malas no mesmo roxo da 1a mala
                 mPl.color.setHex(saved.plCol);
-                mat.transparent = true; mat.opacity = 0.2; mat.depthWrite = false; mat.needsUpdate = true;   // laterais do bin transparentes
+                const surfaceMats = [mat, wm, fm, ...profileBandMaterials];
+                const surfaceSaved = surfaceMats.map(m => [m, m.transparent, m.opacity, m.depthWrite]);
+                surfaceMats.forEach((m, i) => { m.transparent = true; m.opacity = i === 2 ? 0.34 : 0.20; m.depthWrite = false; m.needsUpdate = true; });
                 solids.forEach(m => { if (m.material === mat) m.renderOrder = 10; });
                 az = views.iso[0]; el = views.iso[1]; R = 2400;   // vista isométrica (mesmo ângulo do botão), enquadrada para 16:9
                 ren.setPixelRatio(1); ren.setSize(EW, EH, false);
@@ -9847,7 +10013,7 @@ function xrayRun(ms) {
                     // restaura tudo
                     bags.forEach((b, i) => { const sv = saved.bags[i]; b.root.visible = sv.vis; if (b.env) b.env.visible = sv.envVis; b.root.position.copy(sv.pos); b.root.quaternion.copy(sv.quat); b.mBody.color.setHex(sv.col); });
                     mPl.color.setHex(saved.plCol);
-                    mat.transparent = saved.sideOp[0]; mat.opacity = saved.sideOp[1]; mat.depthWrite = saved.sideOp[2]; mat.needsUpdate = true;
+                    surfaceSaved.forEach(([m, tr, op, dw]) => { m.transparent = tr; m.opacity = op; m.depthWrite = dw; m.needsUpdate = true; });
                     solids.forEach(m => { if (m.material === mat) m.renderOrder = 0; });
                     ren.setClearColor(0xffffff, 0);
                     ren.setPixelRatio(saved.pr);
@@ -9857,6 +10023,74 @@ function xrayRun(ms) {
                     exporting = false;
                     }, 700);
                 }, 700);
+            };
+
+
+            // Duas imagens 4K dedicadas à visualização das malas através da lateral:
+            // 1) lateral Y-Z fiel à referência; 2) lateral isométrica pouco inclinada.
+            window.cad3dExportSideTransparent = () => {
+                if (exporting) return;
+                exporting = true;
+                stopAllAnimations();
+                const EW = 3840, EH = 2160;
+                const state = {
+                    az, el, R, T: T.clone(), door: openProgress,
+                    pixelRatio: ren.getPixelRatio(), size: ren.getSize(new THREE.Vector2()),
+                    bagData: bags.map(b => ({
+                        vis: b.root.visible, env: b.env && b.env.visible,
+                        pos: b.root.position.clone(), quat: b.root.quaternion.clone()
+                    })),
+                    surfaces: [mat, wm, fm, ...profileBandMaterials].map(m => [m, m.transparent, m.opacity, m.depthWrite])
+                };
+                const exportShot = (name, angle, elevation, radius) => {
+                    az = angle; el = elevation; R = radius;
+                    updateDoor(0.84);
+                    upd();
+                    const a = document.createElement('a');
+                    a.href = cv.toDataURL('image/png');
+                    a.download = 'alpha_bin_' + name + '_acrylic_4k.png';
+                    document.body.appendChild(a); a.click(); a.remove();
+                };
+                const restore = () => {
+                    state.bagData.forEach((b, i) => {
+                        bags[i].root.visible = b.vis;
+                        bags[i].root.position.copy(b.pos);
+                        bags[i].root.quaternion.copy(b.quat);
+                        if (bags[i].env) bags[i].env.visible = b.env;
+                    });
+                    state.surfaces.forEach(([m, tr, op, dw]) => {
+                        m.transparent = tr; m.opacity = op; m.depthWrite = dw; m.needsUpdate = true;
+                    });
+                    ren.setClearColor(0xffffff, 0);
+                    ren.setPixelRatio(state.pixelRatio);
+                    az = state.az; el = state.el; R = state.R; T.copy(state.T);
+                    updateDoor(state.door);
+                    syncDoorUI();
+                    rs();
+                    exporting = false;
+                };
+                try {
+                    bags.forEach((b, i) => {
+                        b.root.visible = true;
+                        if (b.env) b.env.visible = false;
+                        setBagPoseAlongPath(i, 1);
+                    });
+                    state.surfaces.forEach(([m], i) => {
+                        m.transparent = true;
+                        m.opacity = i === 2 ? 0.30 : (i < 2 ? 0.16 : 0.19);
+                        m.depthWrite = false;
+                        m.needsUpdate = true;
+                    });
+                    ren.setPixelRatio(1); ren.setSize(EW, EH, false);
+                    cam.aspect = EW / EH; cam.updateProjectionMatrix();
+                    ren.setClearColor(0x000223, 1);
+                    exportShot('lateral_with_four_bags', 0, 0.08, 2600);
+                    setTimeout(() => {
+                        try { exportShot('side_isometric_with_four_bags', -0.47, 0.17, 2650); }
+                        catch (err) { console.warn('Side isometric export:', err); }
+                        finally { restore(); }
+                    }, 400);
+                } catch (err) { console.warn('Side transparent export:', err); restore(); }
             };
 
             // ---- Exportação só da porta rolante (fechada): 2 PNGs de fundo transparente, vista lateral e vista isométrica ----
@@ -9981,138 +10215,8 @@ function xrayRun(ms) {
     // -------------------------------------------------------------------------
     // ABA 1 · SEÇÃO 2: VISTA SUPERIOR DA CABINE (bins Alpha × Convencional)
     // -------------------------------------------------------------------------
-    (function convTopView() {
-        try {
-        const cv = document.getElementById('convTopCanvas'), box = document.getElementById('conv-top-container');
-        if (!cv || !box) return;
-        const IN = 2.54, BAGINK = '#19202c';
-            // ---- bin convencional VETORIZADO (trocar.pdf, CorelDRAW): 18 camadas, na ordem de pintura do PDF ----
-            // k = cm por ponto do PDF: a largura útil interna do PDF (416,93 pt) equivale a 56" = 142,24 cm.
-            const BINTOP_CONV = [
-                ["#bcbdcf", "M 96.52 298.69 C 96.5 311.3 97.42 327.56 97.68 340.73 C 97.9 351.42 98.55 362.99 98.57 373.74 C 98.57 376.06 98.83 378.38 98.87 380.71 L 99.4 401.43 C 99.7 409.8 99.81 429.36 100.35 435.78 L 102.08 498.25 L 519.01 498.25 L 519.9 468.05 C 519.73 464.5 520.93 448.9 520.49 446.73 L 522.57 369.75 C 522.58 366.12 522.94 363.85 522.86 359.39 L 524.78 295.11 C 515.83 295.34 503.32 295.14 493.84 295.12 L 96.37 295.14 Z M 96.52 298.69"],
-                ["#bcbdcf", "M 95.32 505.48 C 95.53 505.5 95.92 505.46 96.13 505.44 C 96.2 505.43 96.29 505.41 96.36 505.39 L 309.09 505.53 C 362.69 505.5 416.91 505.21 470.45 505.45 C 474.3 505.47 520.94 505.68 523.81 505.36 L 523.75 504.46 C 522.76 504.04 231.16 504.25 202.8 504.32 L 122.56 504.36 C 121.21 504.35 98.57 504.06 97.61 504.43 L 96.54 504.92 C 96.47 504.83 96.33 505.02 96.21 505.06 C 97.53 502.82 98.32 503.97 100.82 503.18 C 100.95 502.23 100.46 501.56 100.71 500.08 C 100.93 498.75 101.41 498.9 101.4 497.08 C 101.39 494.83 101.13 492.5 101.02 490.25 C 100.89 487.89 101.05 485.66 101.01 483.46 C 100.97 481.18 100.68 478.91 100.65 476.62 C 100.53 467.91 100.39 458.88 99.89 449.99 C 99.64 445.61 99.56 440.75 99.46 436.36 C 99.38 432.17 99.24 427.5 99.25 423.34 C 99.27 420.99 98.97 418.59 98.9 416.23 C 98.7 409.51 98.81 403.09 98.4 396.4 C 98.25 393.95 98.46 391.95 98.29 389.59 C 98.12 387.43 97.89 384.97 98.01 382.82 C 98.24 378.75 97.69 373.59 97.69 369.14 C 97.69 360.32 96.8 351.22 96.8 342.51 C 96.8 335.85 96.3 328.68 96.21 322.38 C 96.18 320.05 96.32 318.18 96.12 315.86 L 95.61 302.24 C 95.62 291.95 95.28 296.66 93.54 290.4 C 94.73 291.09 93.84 290.19 94.7 291.39 C 94.84 291.6 94.99 292.05 95.14 292.44 C 95.39 293.11 95.59 293.7 95.91 294.28 L 98.13 294.21 C 98 293.98 95.6 289.15 95.64 288.53 L 95.91 287.72 C 95.93 287.55 96 287.52 95.96 287.49 L 98.87 294.04 C 107.09 294.67 117.09 294.14 125.52 294.18 C 187.09 294.44 248.98 294.09 310.57 294.24 L 469.56 294.19 C 475.67 294.19 517.4 294.5 522.27 294.09 C 522.95 292.96 522.79 292.58 523.71 291.7 C 523.48 290.42 525.21 287.57 526.12 285.48 C 526.73 284.07 527.2 282.84 528.16 282.28 C 528.73 280.73 529.94 279.3 530.04 277.76 L 91.15 277.75 L 90.91 278.04 C 89.99 278.46 90.43 278.54 89.43 279.08 C 89.61 282.85 92.05 285.32 92.96 288.64 L 89.58 281.5 C 89.34 290.83 90.02 300.32 90.16 309.66 C 90.58 337.57 91.74 365.68 92.27 393.73 C 92.62 412.47 93.3 431.01 93.76 449.7 C 93.84 452.74 94.86 503.94 95.32 505.48"],
-                ["#bcbdcf", "M 171.94 528.7 C 171.61 527.45 171.73 526.76 171.74 525.49 C 171.75 524.99 171.7 524.13 171.72 523.7 C 171.93 520.45 174.24 521.54 180 521.53 L 235.93 521.61 C 237.55 521.88 235.95 521.95 237.59 522.04 L 237.55 528.72 L 237.59 534.81 L 397.15 534.94 L 397.16 528.57 L 397.01 521.94 C 398.08 521.94 398.67 521.53 400.57 521.54 L 429.59 521.52 C 434.4 521.54 460.41 521 462.6 521.78 C 463.28 523.51 463.03 526.68 462.79 528.82 L 462.77 534.87 C 469.26 535.39 477.69 534.91 484.37 534.92 C 491.67 534.93 498.98 534.91 506.28 534.93 C 516.9 534.94 523.52 531.06 525.38 521.55 C 525.71 519.85 526.06 512.67 525.74 511.27 L 95.49 511.27 C 95.16 512.81 95.57 520.92 96 522.73 C 96.78 526.05 99.02 529.38 100.68 530.79 C 106.81 536.01 112.62 534.93 121.67 534.93 C 126 534.92 168.82 535.16 171.84 534.85 Z M 171.94 528.7"],
-                ["#bcbdcf", "M 535.28 274.14 C 532.87 274.73 425.21 274.32 423.08 274.32 L 100.05 274.35 C 95.71 274.35 90.25 274.04 86.05 274.37 C 85.66 275.83 86.77 312.41 86.94 317.05 C 87.48 331.18 87.5 345.41 87.96 359.68 C 88.89 388.23 89.26 416.76 90.18 445.25 L 92.06 510.95 C 91.84 518.08 91.4 525.55 96.46 531.46 C 104.43 540.8 114.35 538.52 127.89 538.52 C 142.48 538.51 157.39 538.82 171.95 538.49 L 171.9 535.62 C 165.7 535.23 147.59 535.58 140.03 535.57 C 134.59 535.57 111.88 535.94 108.36 535.29 C 99.02 533.55 94.82 525.75 94.8 516.88 C 94.79 506.53 94.32 495.86 94 485.5 C 93.38 464.91 93.27 443.92 92.35 423.34 C 91.89 413.07 91.8 402.53 91.57 392.26 C 91.33 381.67 90.81 371.12 90.71 360.57 C 90.52 339.95 89 318.3 89.12 298.23 C 89.15 293.16 88.83 287.84 88.65 282.7 C 88.41 275.56 90.6 276.89 98.87 276.89 L 515.46 276.88 C 532.46 276.89 532.73 275.23 532.45 283.89 C 532.37 286.55 532.25 289.22 532.18 291.89 L 529.8 385.44 C 529.24 406.27 528.96 427.16 528.11 447.91 C 527.68 458.16 527.7 468.64 527.34 479 C 526.99 489.43 526.54 500.32 526.59 510.71 L 529.19 510.63 C 529.37 509.42 529.36 508.25 529.36 507.11 L 530.85 451.76 C 531.29 432.1 532.08 412.45 532.39 392.86 C 533.03 353.17 534.96 313.75 535.28 274.14"],
-                ["#9c9fb7", "M 102.07 499.22 L 480.52 499.11 C 490.27 499.47 508.54 499.14 519.2 499.14 L 518.88 501.92 L 102.18 501.89 Z M 96.37 295.14 L 493.84 295.12 C 503.32 295.14 515.83 295.34 524.78 295.11 L 522.86 359.39 C 522.94 363.85 522.58 366.12 522.57 369.75 L 520.49 446.73 C 520.93 448.9 519.73 464.5 519.9 468.05 L 519.01 498.25 L 102.08 498.25 L 100.35 435.78 C 99.81 429.36 99.7 409.8 99.4 401.43 L 98.87 380.71 C 98.83 378.38 98.57 376.06 98.57 373.74 C 98.55 362.99 97.9 351.42 97.68 340.73 C 97.42 327.56 96.5 311.3 96.52 298.69 Z M 95.32 505.48 L 95.27 505.98 L 96.43 506.02 C 96.55 506.82 96.59 507.7 96.51 508.55 C 96.29 510.98 95.8 509.57 96.21 510.61 C 98.27 509.75 96.41 508.51 97.39 506.2 C 100.7 505.8 107.09 506.1 110.71 506.11 L 150.68 506.11 C 239.47 505.71 328.44 506.43 417.16 506.08 C 420.95 506.06 522.82 505.91 523.79 506.24 C 524.25 508.18 523.07 510.43 524.94 510.45 C 516.16 510.77 507.1 510.52 498.29 510.53 L 417.75 510.61 C 381.93 510.66 346.09 510.7 310.27 510.62 C 274.49 510.53 238.56 510.34 202.8 510.6 C 171.69 510.83 140.1 510.36 108.94 510.56 C 104.86 510.59 99.39 510.82 95.47 510.39 L 95.49 511.27 L 525.74 511.27 C 526.34 508.97 525.85 507.36 525.96 505.1 C 524.6 505.26 525.16 504.04 523.64 503.64 C 522.06 503.21 521.86 504.03 520.36 503.11 C 519.7 501.16 521.11 502.52 520.63 500.07 C 520.34 498.59 519.81 499.5 519.79 497.38 C 519.76 495.28 520.06 492.71 520.15 490.55 L 520.43 477.36 C 520.3 475.22 520.55 472.91 520.69 470.71 C 521.04 465.14 520.87 456.97 521.19 450.88 L 521.97 424.21 C 521.98 419.88 522.22 415.55 522.26 411.16 C 522.3 407.17 522.41 402.1 522.68 398.17 C 523.16 390.92 522.88 384.32 523.19 378.25 L 523.73 358.29 C 523.6 351.6 524.52 345.34 524.32 338.74 C 524.25 336.41 524.52 334.5 524.62 332.15 C 525 323.28 524.87 314.89 525.44 305.8 C 525.7 301.61 524.89 297.15 526.41 293.36 L 525.42 293.91 C 524.66 294.35 526.21 294.39 523.04 294.28 C 523.19 293.78 523.4 293.41 523.51 293.04 C 523.8 292.02 523.71 292.93 523.71 291.7 C 522.79 292.58 522.95 292.96 522.27 294.09 C 517.4 294.5 475.67 294.19 469.56 294.19 L 310.57 294.24 C 248.98 294.09 187.09 294.44 125.52 294.18 C 117.09 294.14 107.09 294.67 98.87 294.04 L 95.96 287.49 C 96 287.52 95.93 287.55 95.91 287.72 L 95.64 288.53 C 95.6 289.15 98 293.98 98.13 294.21 L 95.91 294.28 C 95.59 293.7 95.39 293.11 95.14 292.44 C 94.99 292.05 94.84 291.6 94.7 291.39 C 93.84 290.19 94.73 291.09 93.54 290.4 C 95.28 296.66 95.62 291.95 95.61 302.24 L 96.12 315.86 C 96.32 318.18 96.18 320.05 96.21 322.38 C 96.3 328.68 96.8 335.85 96.8 342.51 C 96.8 351.22 97.69 360.32 97.69 369.14 C 97.69 373.59 98.24 378.75 98.01 382.82 C 97.89 384.97 98.12 387.43 98.29 389.59 C 98.46 391.95 98.25 393.95 98.4 396.4 C 98.81 403.09 98.7 409.51 98.9 416.23 C 98.97 418.59 99.27 420.99 99.25 423.34 C 99.24 427.5 99.38 432.17 99.46 436.36 C 99.56 440.75 99.64 445.61 99.89 449.99 C 100.39 458.88 100.53 467.91 100.65 476.62 C 100.68 478.91 100.97 481.18 101.01 483.46 C 101.05 485.66 100.89 487.89 101.02 490.25 C 101.13 492.5 101.39 494.83 101.4 497.08 C 101.41 498.9 100.93 498.75 100.71 500.08 C 100.46 501.56 100.95 502.23 100.82 503.18 C 98.32 503.97 97.53 502.82 96.21 505.06 C 96.33 505.02 96.47 504.83 96.54 504.92 L 97.61 504.43 C 98.57 504.06 121.21 504.35 122.56 504.36 L 202.8 504.32 C 231.16 504.25 522.76 504.04 523.75 504.46 L 523.81 505.36 C 520.94 505.68 474.3 505.47 470.45 505.45 C 416.91 505.21 362.69 505.5 309.09 505.53 L 96.36 505.39 C 96.29 505.41 96.2 505.43 96.13 505.44 C 95.92 505.46 95.53 505.5 95.32 505.48"],
-                ["#b3b5ca", "M 95.47 510.39 C 99.39 510.82 104.86 510.59 108.94 510.56 C 140.1 510.36 171.69 510.83 202.8 510.6 C 238.56 510.34 274.49 510.53 310.27 510.62 C 346.09 510.7 381.93 510.66 417.75 510.61 L 498.29 510.53 C 507.1 510.52 516.16 510.77 524.94 510.45 C 523.07 510.43 524.25 508.18 523.79 506.24 C 522.82 505.91 420.95 506.06 417.16 506.08 C 328.44 506.43 239.47 505.71 150.68 506.11 L 110.71 506.11 C 107.09 506.1 100.7 505.8 97.39 506.2 C 96.41 508.51 98.27 509.75 96.21 510.61 C 95.8 509.57 96.29 510.98 96.51 508.55 C 96.59 507.7 96.55 506.82 96.43 506.02 L 95.27 505.98 Z M 95.47 510.39"],
-                ["#2a2f45", "M 237.58 535.73 C 238.46 535.48 395.02 535.18 397.15 535.71 L 397.16 538.43 C 395.27 538.8 319.14 538.52 317.38 538.52 L 257.57 538.53 C 254.45 538.53 239.39 538.88 237.62 538.35 Z M 462.83 538.44 L 462.81 535.64 L 506.87 535.56 C 515.17 535.55 518.75 533.83 522.58 529.34 C 524.1 527.56 525.45 524.81 526.02 521.79 C 526.68 518.34 526.05 514.5 526.63 511.19 C 527.45 510.86 528.17 510.92 529.27 511.04 C 529.79 517.87 529.1 525.81 525.45 530.45 C 521.45 535.52 516.93 538.36 509.84 538.52 Z M 528.16 282.28 L 529.32 280.31 C 529.53 279.85 529.64 279.48 529.86 279.07 C 530.19 278.46 529.86 279.03 530.24 278.48 L 530.56 278.1 C 532.28 279.29 531.76 280.16 531.58 281.86 C 531.94 283.02 530.54 331.79 530.4 337.46 C 529.96 356.14 529.47 374.78 528.96 393.43 C 528.71 402.82 528.45 412.27 528.23 421.56 C 528.01 430.85 527.93 440.43 527.46 449.69 C 527.19 455.12 526.36 502.52 525.96 505.1 C 525.85 507.36 526.34 508.97 525.74 511.27 C 526.06 512.67 525.71 519.85 525.38 521.55 C 523.52 531.06 516.9 534.94 506.28 534.93 C 498.98 534.91 491.67 534.93 484.37 534.92 C 477.69 534.91 469.26 535.39 462.77 534.87 L 462.79 528.82 C 462.01 529.6 462.43 537.68 462.56 538.55 L 397.91 538.39 C 397.77 536.69 397.84 535.19 397.87 533.48 C 397.88 532.59 397.94 531.68 397.95 530.81 C 397.99 528.44 397.65 528.83 397.16 528.57 L 397.15 534.94 L 237.59 534.81 L 237.55 528.72 C 237.01 529.28 237.28 528.27 237.05 529.92 C 237.04 529.97 237.05 530.98 237.05 531.11 C 237.07 531.9 237.09 532.69 237.11 533.48 C 237.14 535.17 237.09 536.84 237.11 538.55 L 172.59 538.39 L 172.63 530.8 C 172.62 528.43 172.45 528.95 171.94 528.7 L 171.84 534.85 C 168.82 535.16 126 534.92 121.67 534.93 C 112.62 534.93 106.81 536.01 100.68 530.79 C 99.02 529.38 96.78 526.05 96 522.73 C 95.57 520.92 95.16 512.81 95.49 511.27 L 95.47 510.39 L 95.27 505.98 L 95.32 505.48 C 94.86 503.94 93.84 452.74 93.76 449.7 C 93.3 431.01 92.62 412.47 92.27 393.73 C 91.74 365.68 90.58 337.57 90.16 309.66 C 90.02 300.32 89.34 290.83 89.58 281.5 L 92.96 288.64 C 92.05 285.32 89.61 282.85 89.43 279.08 C 90.43 278.54 89.99 278.46 90.91 278.04 L 91.15 277.75 L 530.04 277.76 C 529.94 279.3 528.73 280.73 528.16 282.28 Z M 535.28 274.14 C 534.96 313.75 533.03 353.17 532.39 392.86 C 532.08 412.45 531.29 432.1 530.85 451.76 L 529.36 507.11 C 529.36 508.25 529.37 509.42 529.19 510.63 L 526.59 510.71 C 526.54 500.32 526.99 489.43 527.34 479 C 527.7 468.64 527.68 458.16 528.11 447.91 C 528.96 427.16 529.24 406.27 529.8 385.44 L 532.18 291.89 C 532.25 289.22 532.37 286.55 532.45 283.89 C 532.73 275.23 532.46 276.89 515.46 276.88 L 98.87 276.89 C 90.6 276.89 88.41 275.56 88.65 282.7 C 88.83 287.84 89.15 293.16 89.12 298.23 C 89 318.3 90.52 339.95 90.71 360.57 C 90.81 371.12 91.33 381.67 91.57 392.26 C 91.8 402.53 91.89 413.07 92.35 423.34 C 93.27 443.92 93.38 464.91 94 485.5 C 94.32 495.86 94.79 506.53 94.8 516.88 C 94.82 525.75 99.02 533.55 108.36 535.29 C 111.88 535.94 134.59 535.57 140.03 535.57 C 147.59 535.58 165.7 535.23 171.9 535.62 L 171.95 538.49 C 157.39 538.82 142.48 538.51 127.89 538.52 C 114.35 538.52 104.43 540.8 96.46 531.46 C 91.4 525.55 91.84 518.08 92.06 510.95 L 90.18 445.25 C 89.26 416.76 88.89 388.23 87.96 359.68 C 87.5 345.41 87.48 331.18 86.94 317.05 C 86.77 312.41 85.66 275.83 86.05 274.37 C 90.25 274.04 95.71 274.35 100.05 274.35 L 423.08 274.32 C 425.21 274.32 532.87 274.73 535.28 274.14 M 535.28 274.14 C 534.39 273.25 522.91 273.7 521.68 273.7 L 92.36 273.69 C 83.57 273.67 84.94 270.81 85.55 288.62 C 85.71 293.54 85.9 298.73 85.88 303.65 C 85.84 313.35 86.34 323.6 86.66 333.33 C 87.29 353.25 87.67 373.17 88.18 393.14 C 88.69 412.91 89.54 433.01 89.75 452.72 C 89.95 472.64 91.25 492.62 91.32 512.58 C 91.35 523.73 92.73 529.9 99.36 535.07 C 106.35 540.52 116.38 539.04 126.11 539.04 L 432.55 539.04 C 452.98 539.05 473.41 539.01 493.84 539.04 C 503.08 539.06 514 540.46 520.88 535.66 C 528.98 530 529.71 522.87 529.85 513.64 C 530.13 493.77 531.22 473.88 531.4 454.05 C 531.57 434.38 532.22 414.01 532.97 394.32 L 535.93 274.71 C 535.61 273.8 536.04 274.39 535.28 274.14"],
-                ["#bcbdcf", "M 526.41 293.36 C 524.89 297.15 525.7 301.61 525.44 305.8 C 524.87 314.89 525 323.28 524.62 332.15 C 524.52 334.5 524.25 336.41 524.32 338.74 C 524.52 345.34 523.6 351.6 523.73 358.29 L 523.19 378.25 C 522.88 384.32 523.16 390.92 522.68 398.17 C 522.41 402.1 522.3 407.17 522.26 411.16 C 522.22 415.55 521.98 419.88 521.97 424.21 L 521.19 450.88 C 520.87 456.97 521.04 465.14 520.69 470.71 C 520.55 472.91 520.3 475.22 520.43 477.36 L 520.15 490.55 C 520.06 492.71 519.76 495.28 519.79 497.38 C 519.81 499.5 520.34 498.59 520.63 500.07 C 521.11 502.52 519.7 501.16 520.36 503.11 C 521.86 504.03 522.06 503.21 523.64 503.64 C 525.16 504.04 524.6 505.26 525.96 505.1 C 526.36 502.52 527.19 455.12 527.46 449.69 C 527.93 440.43 528.01 430.85 528.23 421.56 C 528.45 412.27 528.71 402.82 528.96 393.43 C 529.47 374.78 529.96 356.14 530.4 337.46 C 530.54 331.79 531.94 283.02 531.58 281.86 C 531.61 283.41 528.19 290.4 527.21 292.3 Z M 526.41 293.36"],
-                ["#b3b5ca", "M 102.07 499.22 L 102.18 501.89 L 518.88 501.92 L 519.2 499.14 C 508.54 499.14 490.27 499.47 480.52 499.11 Z M 102.07 499.22"],
-                ["#b3b5ca", "M 397.84 537.82 C 402.77 537.35 409.13 537.65 414.2 537.66 C 420.16 537.67 459.69 537.98 462.03 537.57 L 461.99 528.97 L 398.15 528.97 Z M 397.84 537.82"],
-                ["#b3b5ca", "M 172.72 528.88 C 173.16 530.72 172.89 535.74 172.74 537.8 C 175.61 537.17 185.31 537.64 188.88 537.66 C 198.36 537.7 230.27 537.27 237.02 537.81 L 236.91 528.93 Z M 172.72 528.88"],
-                ["#bcbdcf", "M 257.57 538.53 L 317.38 538.52 C 319.14 538.52 395.27 538.8 397.16 538.43 L 397.15 535.71 C 395.02 535.18 238.46 535.48 237.58 535.73 L 237.62 538.35 C 239.39 538.88 254.45 538.53 257.57 538.53"],
-                ["#b3b5ca", "M 172.59 527.86 L 236.66 527.86 L 236.61 522.81 C 235.45 522.26 173.65 522.29 172.59 522.82 Z M 172.59 527.86"],
-                ["#b3b5ca", "M 397.91 527.86 L 461.7 527.86 C 462 526.64 462.14 523.88 461.57 522.77 C 460.2 522.3 398.79 522.44 397.91 522.79 Z M 397.91 527.86"],
-                ["#bcbdcf", "M 509.84 538.52 C 516.93 538.36 521.45 535.52 525.45 530.45 C 529.1 525.81 529.79 517.87 529.27 511.04 C 528.17 510.92 527.45 510.86 526.63 511.19 C 526.05 514.5 526.68 518.34 526.02 521.79 C 525.45 524.81 524.1 527.56 522.58 529.34 C 518.75 533.83 515.17 535.55 506.87 535.56 L 462.81 535.64 L 462.83 538.44 Z M 509.84 538.52"],
-                ["#9c9fb7", "M 398.15 528.97 L 461.99 528.97 L 462.03 537.57 C 459.69 537.98 420.16 537.67 414.2 537.66 C 409.13 537.65 402.77 537.35 397.84 537.82 Z M 397.91 522.79 C 398.79 522.44 460.2 522.3 461.57 522.77 C 462.14 523.88 462 526.64 461.7 527.86 L 397.91 527.86 Z M 397.16 528.57 C 397.65 528.83 397.99 528.44 397.95 530.81 C 397.94 531.68 397.88 532.59 397.87 533.48 C 397.84 535.19 397.77 536.69 397.91 538.39 L 462.56 538.55 C 462.43 537.68 462.01 529.6 462.79 528.82 C 463.03 526.68 463.28 523.51 462.6 521.78 C 460.41 521 434.4 521.54 429.59 521.52 L 400.57 521.54 C 398.67 521.53 398.08 521.94 397.01 521.94 Z M 397.16 528.57"],
-                ["#9c9fb7", "M 172.72 528.88 L 236.91 528.93 L 237.02 537.81 C 230.27 537.27 198.36 537.7 188.88 537.66 C 185.31 537.64 175.61 537.17 172.74 537.8 C 172.89 535.74 173.16 530.72 172.72 528.88 Z M 172.59 522.82 C 173.65 522.29 235.45 522.26 236.61 522.81 L 236.66 527.86 L 172.59 527.86 Z M 171.94 528.7 C 172.45 528.95 172.62 528.43 172.63 530.8 L 172.59 538.39 L 237.11 538.55 C 237.09 536.84 237.14 535.17 237.11 533.48 C 237.09 532.69 237.07 531.9 237.05 531.11 C 237.05 530.98 237.04 529.97 237.05 529.92 C 237.28 528.27 237.01 529.28 237.55 528.72 L 237.59 522.04 C 235.95 521.95 237.55 521.88 235.93 521.61 L 180 521.53 C 174.24 521.54 171.93 520.45 171.72 523.7 C 171.7 524.13 171.75 524.99 171.74 525.49 C 171.73 526.76 171.61 527.45 171.94 528.7"],
-                ["#b3b5ca", "M 528.16 282.28 C 527.2 282.84 526.73 284.07 526.12 285.48 C 525.21 287.57 523.48 290.42 523.71 291.7 C 523.71 292.93 523.8 292.02 523.51 293.04 C 523.4 293.41 523.19 293.78 523.04 294.28 C 526.21 294.39 524.66 294.35 525.42 293.91 L 526.41 293.36 L 527.21 292.3 C 528.19 290.4 531.61 283.41 531.58 281.86 C 531.76 280.16 532.28 279.29 530.56 278.1 L 530.24 278.48 C 529.86 279.03 530.19 278.46 529.86 279.07 C 529.64 279.48 529.53 279.85 529.32 280.31 Z M 528.16 282.28"]
-            ].map(([col, d]) => [col, new Path2D(d)]);
-        function draw() {
-            const r = box.getBoundingClientRect(), W = r.width, H = r.height;
-            if (!W || !H) return;
-            const dpr = window.devicePixelRatio || 1;
-            const pw = Math.round(W * dpr), ph = Math.round(H * dpr);
-            if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
-            const ctx = cv.getContext('2d');
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
-
-            const modW = 56 * IN;   // largura útil do bin convencional: 56" (= 4 malas de 14" lado a lado)
-            const K_PT = modW / 416.93, PT = { x0: 83.57, y0: 270.8125, w: 452.47, h: 270.0, cxMid: 310.545, cavWpt: 416.93, cavTopY: 295.1 };
-            const totW = PT.w * K_PT, totH = PT.h * K_PT;
-            // mesma altura na tela do bin Alpha: projeta o comprimento da lateral (893,5) com o mesmo enquadramento da vista do Alpha
-            let hA = 0;
-            const nvBoxEl = document.getElementById('nova-container');
-            if (nvBoxEl) { const nr = nvBoxEl.getBoundingClientRect(); if (nr.width && nr.height) hA = 893.5 * nr.height / Math.max(1350 / (nr.width / nr.height), 1080); }
-            const scW = (W - 24) / totW;
-            const sc = Math.min((hA ? hA / totH : scW) * 0.93, scW, 8);   // levemente menor; centro vertical e horizontal alinhado ao do Alpha (ambos centrados no painel)
-            const s = sc * K_PT;                                          // px por ponto do PDF
-            const ow = totW * sc, oh = totH * sc, ox = (W - ow) / 2, oy = (H - oh) / 2;
-            const cw = modW * sc, cx0 = ox + (PT.cxMid - PT.cavWpt / 2 - PT.x0) * s, cy0 = oy + (PT.cavTopY - PT.y0) * s;
-            // Cores do SVG de referência: bin e malas são desenhados FORA do remapeamento global da paleta escura (ERGO_DARK), senão as cores seriam convertidas para cinza-azulado
-            const _dk0 = window.ERGO_DARK; window.ERGO_DARK = false;
-            try {
-            // bin com paredes/teto transparentes (opacidade 40%) e CONTORNO 100% opaco:
-            // preenchimentos num canvas (opacos entre si, compostos de uma vez com alpha) e contornos em outro,
-            // apagando o contorno das camadas de baixo sob o preenchimento das camadas de cima (mesma oclusão do desenho original)
-            {
-                const mk = () => { const c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; const o = c.getContext('2d'); o.setTransform(dpr, 0, 0, dpr, 0, 0); o.translate(ox - PT.x0 * s, oy - PT.y0 * s); o.scale(s, s); return [c, o]; };
-                const [offF, of] = mk(), [offS, os] = mk();
-                BINTOP_CONV.forEach(([col, P2]) => {
-                    of.fillStyle = col; of.fill(P2, 'evenodd');
-                    os.globalCompositeOperation = 'destination-out'; os.fill(P2, 'evenodd');
-                    os.globalCompositeOperation = 'source-over';
-                    os.strokeStyle = '#9ba9b5'; os.lineWidth = 1.6 / s; os.lineJoin = 'round'; os.stroke(P2);   // contorno opaco #9ba9b5
-                });
-                ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-                ctx.globalAlpha = 0.4; ctx.drawImage(offF, 0, 0);   // paredes e teto: 60% transparentes
-                ctx.globalAlpha = 1; ctx.drawImage(offS, 0, 0);     // contorno intacto
-                ctx.restore();
-            }
-
-            // 4 malas IATA 22×14×10 in, mesmo desenho e cores da vista do Alpha
-            const BAGC = ['#42517b', '#797fa4', '#404a6b', '#566084'];   // tons das 4 malas no SVG de referência
-            const shade = (hex, k) => { const n = parseInt(hex.slice(1), 16); const f = c => Math.max(0, Math.min(255, Math.round(c + (k > 0 ? (255 - c) * k : c * k)))); return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`; };
-            const slot = cw / 4, bwid = slot * 0.94, bh2 = bwid * 1.49, wheelH = 4.7 * sc, topGap = 2.5 * sc, byTop = cy0 + topGap + wheelH;
-            for (let i = 0; i < 4; i++) {
-                const col = BAGC[i], bx = cx0 + i * slot + (slot - bwid) / 2, by = byTop;
-                // rodas duplas (preto) com placa de apoio lilás, junto ao fundo
-                [0.205, 0.795].forEach(f => {
-                    const ux = bx + bwid * f, wwid = bwid * 0.05, wy = cy0 + topGap, hh = wheelH * 0.8;
-                    const plw = bwid * 0.14;
-                    ctx.fillStyle = '#434c6a'; ctx.strokeStyle = BAGINK; ctx.lineWidth = 1.1;
-                    ctx.fillRect(ux - plw / 2, wy + hh - 1, plw, byTop - wy - hh + 2); ctx.strokeRect(ux - plw / 2, wy + hh - 1, plw, byTop - wy - hh + 2);
-                    [-1, 1].forEach(sg => {
-                        const cx = ux + sg * bwid * 0.045 - wwid / 2;
-                        ctx.beginPath(); ctx.roundRect(cx, wy, wwid, hh, 3); ctx.fillStyle = '#262a3c'; ctx.fill();
-                        ctx.strokeStyle = 'rgba(150,156,180,.55)'; ctx.lineWidth = 1; ctx.beginPath();
-                        [0.28, 0.45, 0.62].forEach(q => { ctx.moveTo(cx + 1, wy + hh * q); ctx.lineTo(cx + wwid - 1, wy + hh * q); }); ctx.stroke();
-                    });
-                });
-                // corpo da mala com sombreamento suave
-                const rr = bwid * 0.12, gr = ctx.createLinearGradient(0, by, 0, by + bh2);
-                gr.addColorStop(0, shade(col, 0.1)); gr.addColorStop(1, shade(col, -0.08));
-                ctx.beginPath(); ctx.roundRect(bx, by, bwid, bh2, rr); ctx.fillStyle = gr; ctx.fill();
-                ctx.strokeStyle = BAGINK; ctx.lineWidth = 1.5; ctx.stroke();
-                ctx.beginPath(); ctx.roundRect(bx + 3, by + 3, bwid - 6, bh2 - 6, Math.max(2, rr - 3));
-                ctx.strokeStyle = 'rgba(255,255,255,.10)'; ctx.lineWidth = 2; ctx.stroke();
-                // 9 nervuras
-                const gw = Math.max(3, bwid * 0.026), gy0 = by + bh2 * 0.14, gy1 = by + bh2 * 0.9;
-                for (let k = 0; k < 9; k++) {
-                    const gx = bx + bwid * (0.14 + 0.72 * k / 8);
-                    ctx.beginPath(); ctx.roundRect(gx - gw / 2, gy0, gw, gy1 - gy0, gw / 2);
-                    ctx.fillStyle = shade(col, -0.5); ctx.fill(); ctx.strokeStyle = BAGINK; ctx.lineWidth = 0.8; ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(gx + gw / 2 + 0.8, gy0 + 3); ctx.lineTo(gx + gw / 2 + 0.8, gy1 - 3);
-                    ctx.strokeStyle = 'rgba(255,255,255,.14)'; ctx.stroke();
-                }
-                // puxador telescópico (lado da frente): placa lilás com barra preta
-                const hw = bwid * 0.3, hx = bx + (bwid - hw) / 2, hy = by + bh2 - bh2 * 0.01, hh2 = bh2 * 0.035;
-                ctx.fillStyle = '#37415f'; ctx.fillRect(hx, hy, hw, hh2); ctx.strokeStyle = BAGINK; ctx.lineWidth = 1.1; ctx.strokeRect(hx, hy, hw, hh2);
-                ctx.fillStyle = BAGINK; ctx.fillRect(hx + hw * 0.18, hy + hh2 * 0.28, hw * 0.64, hh2 * 0.44);
-            }
-            } finally { window.ERGO_DARK = _dk0; }
-            // cota da largura útil do bin convencional (56"), acima do bin
-            if (!window.__convNoDim) {
-                const col = '#2f2a45', yDim = Math.max(24, oy - 30), yExt = oy - 3, x1 = cx0, x2 = cx0 + cw;
-                ctx.save(); ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.3; ctx.setLineDash([]);
-                ctx.beginPath(); ctx.moveTo(x1, yExt); ctx.lineTo(x1, yDim - 7); ctx.moveTo(x2, yExt); ctx.lineTo(x2, yDim - 7); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(x1, yDim); ctx.lineTo(x2, yDim); ctx.stroke();
-                [[x1, 1], [x2, -1]].forEach(([x, d]) => { ctx.beginPath(); ctx.moveTo(x, yDim); ctx.lineTo(x + d * 9, yDim - 3.4); ctx.lineTo(x + d * 9, yDim + 3.4); ctx.closePath(); ctx.fill(); });
-                ctx.font = '700 14px "JetBrains Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                const lb = '56"', tw = ctx.measureText(lb).width + 16, cxm = (x1 + x2) / 2;
-                ctx.fillStyle = 'rgba(245,245,245,.95)'; ctx.fillRect(cxm - tw / 2, yDim - 11, tw, 22); ctx.strokeRect(cxm - tw / 2, yDim - 11, tw, 22);
-                ctx.fillStyle = col; ctx.fillText(lb, cxm, yDim + 0.5);
-                ctx.restore();
-            }
-            ctx.lineJoin = 'miter';
-        }
-        window.__convDraw = draw;   // usado por exportBinsPNG()
-        new ResizeObserver(draw).observe(box);
-        { const nvb = document.getElementById('nova-container'); if (nvb) new ResizeObserver(draw).observe(nvb); }
-        if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
-        draw();
-        } catch (err) { console.warn('Conventional bin top view:', err); }
-    })();
+    // Renderer 2D convencional substituído pela cena Three.js compartilhada acima.
+    // __convDraw() é registrado em conventional3DTopView(), dentro de initCAD3DModule().
     (function () {
         'use strict';
         const cv = document.getElementById('topCanvas');
