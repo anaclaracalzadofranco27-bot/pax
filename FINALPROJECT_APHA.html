@@ -9030,7 +9030,7 @@ function xrayRun(ms) {
             const WALL_MOUNT_STRIPS=[[[711.243,580.836],[739.965,580.638],[724.207,581.954]],[[616.016,163.558],[599.762,159.068],[559.304,146.867],[282.99,61.985],[276.257,60.105],[274.297,59.856],[272.997,60.111],[272.146,60.9],[271.535,62.256],[228.256,199.587],[195.093,303.012],[195.618,304.215],[197.258,305.108],[311.484,338.489],[397.465,364.116],[485.882,391.157],[592.511,424.461],[593.828,425.299],[594.418,426.365],[594.353,430.086],[582.745,546.22],[582.95,548.452],[584.557,549.652],[628.002,552.382],[713.427,559.795],[713.165,566.88],[577.383,556.064],[576.294,555.973],[575.844,555.512],[576.436,544.383],[578.832,515.468],[586.568,432.538],[586.126,431.064],[584.483,430.307],[467.086,394.708],[322.416,349.768],[191.773,308.515],[190.151,307.163],[189.652,305.312],[189.736,303.996],[199.816,268.15],[216.717,209.855],[233.358,155.024],[265.956,53.225],[267.186,50.51],[268.74,48.896],[270.6,48.349],[272.747,48.838],[299.948,59.527],[326.801,69.017],[365.115,81.787],[407.316,95.264],[463.033,112.466],[523.813,130.67],[582.625,147.752],[617.839,157.406],[657.523,161.674],[714.544,166.879],[889.376,180.796],[889.822,182.223],[890.09,186.849],[885.255,186.872],[705.152,172.526],[660.091,168.352]]];
             const DOOR_GUIDE=[[881.699,186.572],[882.037,193.677],[882.265,207.929],[882.46,236.435],[882.357,272.069],[881.819,350.463],[881.926,378.967],[881.877,414.6],[881.684,443.106],[881.317,471.611],[880.689,500.106],[880.259,507.214],[878.854,514.194],[876.629,520.959],[873.754,527.477],[870.339,533.727],[866.476,539.712],[862.198,545.406],[857.567,550.818],[852.591,555.914],[847.302,560.688],[841.721,565.115],[835.85,569.152],[829.716,572.778],[823.335,575.945],[816.729,578.615],[809.926,580.725],[802.964,582.231],[795.892,583.076],[781.646,583.471],[760.268,583.736],[724.634,583.874],[689.001,583.765],[653.368,583.466],[617.738,582.954],[603.49,582.584],[596.725,580.576],[583.542,575.157],[564.037,566.405],[544.791,557.096],[525.76,547.353],[506.916,537.251],[488.241,526.843],[469.721,516.159],[445.254,501.53],[421.04,486.486],[397.082,471.04],[373.399,455.175],[355.844,442.971],[338.51,430.456],[321.477,417.533],[310.382,408.587],[304.964,403.957],[299.709,399.144]];
             const WALL_SEAT=[[713.165,566.88],[577.383,556.064],[576.294,555.973],[575.844,555.512],[578.832,515.468],[586.568,432.538],[586.126,431.064],[460.605,392.71],[318.962,348.688],[191.773,308.515],[190.151,307.163],[189.652,305.312],[189.736,303.996],[209.067,235.933],[226.555,177.123],[245.721,115.848],[265.956,53.225],[267.186,50.51],[268.74,48.896],[270.6,48.349],[272.747,48.838]];
-            const FLOOR_SEAT=[[272.747,48.838],[294.668,57.573],[323.59,67.913],[361.436,80.588],[403.379,94.026],[463.033,112.466],[523.813,130.67],[582.625,147.752],[617.839,157.406],[657.523,161.674],[717.615,167.144],[889.376,180.796],[889.822,182.223],[890.09,186.849]]; DIST=1157, TH=12;
+            const FLOOR_SEAT=[[272.747,48.838],[294.668,57.573],[323.59,67.913],[361.436,80.588],[403.379,94.026],[463.033,112.466],[523.813,130.67],[582.625,147.752],[617.839,157.406],[657.523,161.674],[717.615,167.144],[889.376,180.796],[889.822,182.223],[890.09,186.849] ]; const DIST=1157, TH=12;
 
             const ren=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});
             ren.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
@@ -9055,7 +9055,7 @@ function xrayRun(ms) {
             const mat=new THREE.MeshBasicMaterial({color:0xc6cbdb,side:THREE.DoubleSide,...po});   // lateral do bin: lavanda acinzentada (cor do render SVG)
             const lmat=new THREE.LineBasicMaterial({color:0x1e293b});   // contornos do bin: azul-marinho técnico #1e293b (mesmo traço CAD da cena 1)
             const eg=new THREE.EdgesGeometry(g,20);
-            const solids=[],sideWallParts=[],group=new THREE.Group(); scene.add(group);
+            const solids=[],sideWallParts=[],profileBandMaterials=[],group=new THREE.Group(); scene.add(group);
             [0,DIST].forEach(x=>{
                 const m=new THREE.Mesh(g,mat);m.position.x=x;group.add(m);solids.push(m);
                 const l=new THREE.LineSegments(eg,lmat);l.position.x=x;group.add(l);
@@ -9070,9 +9070,11 @@ function xrayRun(ms) {
                 const geo = new THREE.ShapeGeometry(shape);
                 geo.applyMatrix4(new THREE.Matrix4().set(0,0,1,0, 0,1,0,0, -1,0,0,0, 0,0,0,1));
                 const bandMat = new THREE.MeshBasicMaterial({color,side:THREE.DoubleSide,...po});
+                profileBandMaterials.push(bandMat);
                 [0,DIST].forEach(x => {
                     const band = new THREE.Mesh(geo,bandMat);
                     band.position.x = x === 0 ? -TH/2-0.65 : DIST+TH/2+0.65;
+                    band.userData.novaSideDetail=1;
                     group.add(band);
                     if (x === DIST) sideWallParts.push(band);
                 });
@@ -9576,7 +9578,8 @@ function xrayRun(ms) {
                     const w = k * k * k; cam.up.set(0, 1 - w, w).normalize();                  // sem ponto cego perto do zênite
                     cam.setViewOffset(cw, ch, dx * k, dy * k, cw, ch);                          // desliza o bin para a esquerda/cima, em sincronia
                     cam.lookAt(Tm);
-                    morphSet(mat, 0.30, km); morphSet(wm, 0.30, km); morphSet(fm, 0.40, km);   // sólido → translúcido (wireframe em destaque)
+                    morphSet(mat, 0.30, km); morphSet(wm, 0.30, km); morphSet(fm, 0.40, km);
+                    profileBandMaterials.forEach(m => morphSet(m, 0.30, km));   // sólido → translúcido (wireframe em destaque)
                     slatMats.forEach(m => morphSet(m, 0, km));                                  // porta rolante some (na aba 2 ela está recolhida)
                     envMats.forEach(m => morphSet(m, 0, km));                                   // cotas das malas somem
                     ren.render(scene, cam);
@@ -9663,7 +9666,7 @@ function xrayRun(ms) {
                     outlineGeo.setAttribute('position', new THREE.Float32BufferAttribute(seg, 3));
                     const bagNodes = [];
                     nvScene.traverse(o => {
-                        if (o.userData.novaSlat || o.userData.novaEnv) o.visible = false;          // porta recolhida e cotas fora
+                        if (o.userData.novaSlat || o.userData.novaEnv || o.userData.novaSideDetail) o.visible = false;          // porta recolhida e cotas fora
                         if (o.isMesh && o.material === mat) o.visible = false;               // paredes laterais recortadas: fora (entra a laje reta abaixo)
                         if (o.isLineSegments && o.geometry === eg) o.visible = false;        // contorno recortado das laterais: fora
                         if (o.isMesh && o.material === fm) { o.material = floorMat; o.renderOrder = 1; }
