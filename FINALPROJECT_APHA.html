@@ -5576,7 +5576,7 @@ function xrayRun(ms) {
                         <button id="cad3d-toggleDoor" class="px-3 py-2 rounded-lg bg-cad-cyan/15 hover:bg-cad-cyan/25 text-cad-cyan border border-cad-cyan/40 font-mono font-semibold text-xs transition">
                             Open Door
                         </button>
-                        <button id="cad3d-export" type="button" onclick="cad3dExportImages()" class="cad-btn" title="Downloads 3 4K images (3840 × 2160): isometric view with door closed, isometric view with door 80% open, and side view with door 80% open (transparent bin)">
+                        <button id="cad3d-export" type="button" onclick="cad3dExportImages()" class="cad-btn" title="Downloads 3 4K images (3840 × 2160): isometric view with door closed, isometric view with door 80% open, and an isolated side wall (transparent PNG, without luggage or door)">
                             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>Exportar imagens 4K
                         </button>
                         <button id="cad3d-export-door" type="button" onclick="cad3dExportDoor()" class="cad-btn" title="Downloads 2 transparent PNGs of the roll-up door only, closed: side view and isometric view">
@@ -9047,10 +9047,11 @@ function xrayRun(ms) {
             const mat=new THREE.MeshBasicMaterial({color:0xc6cbdb,side:THREE.DoubleSide,...po});   // lateral do bin: lavanda acinzentada (cor do render SVG)
             const lmat=new THREE.LineBasicMaterial({color:0x1e293b});   // contornos do bin: azul-marinho técnico #1e293b (mesmo traço CAD da cena 1)
             const eg=new THREE.EdgesGeometry(g,20);
-            const solids=[],group=new THREE.Group(); scene.add(group);
+            const solids=[],sideWallParts=[],group=new THREE.Group(); scene.add(group);
             [0,DIST].forEach(x=>{
                 const m=new THREE.Mesh(g,mat);m.position.x=x;group.add(m);solids.push(m);
                 const l=new THREE.LineSegments(eg,lmat);l.position.x=x;group.add(l);
+                if (x === DIST) sideWallParts.push(m, l);  // parede lateral para exportação isolada
             });
 
             // Paredes internas do bin
@@ -9767,7 +9768,7 @@ function xrayRun(ms) {
                 const EW = 3840, EH = 2160, LILAC = 0x9ba9b5, LILAC_D = 0x9ba9b5;
                 // estado atual (restaurado no final)
                 const saved = {
-                    az, el, R, door: openProgress,
+                    az, el, R, T: T.clone(), door: openProgress,
                     bags: bags.map(b => ({ vis: b.root.visible, envVis: b.env ? b.env.visible : null, pos: b.root.position.clone(), quat: b.root.quaternion.clone(), col: b.mBody.color.getHex() })),
                     plCol: mPl.color.getHex(), sideOp: [mat.transparent, mat.opacity, mat.depthWrite],
                     pr: ren.getPixelRatio(), size: ren.getSize(new THREE.Vector2()), aspect: cam.aspect
@@ -9793,11 +9794,39 @@ function xrayRun(ms) {
                     a.href = url; a.download = `alpha_bin_3d_${view}_door_${name}_4k.png`;
                     document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 };
+                // Terceira imagem: só a parede lateral voltada para a câmera Side.
+                const grabSideWall = () => {
+                    const groupVisibility = group.children.map(o => o.visible);
+                    const bagVisibility = bags.map(b => b.root.visible);
+                    const wallOrders = sideWallParts.map(o => o.renderOrder);
+                    try {
+                        group.children.forEach(o => { o.visible = sideWallParts.includes(o); });
+                        bags.forEach(b => { b.root.visible = false; });
+                        mat.transparent = false; mat.opacity = 1; mat.depthWrite = true; mat.needsUpdate = true;
+                        sideWallParts.forEach(o => { o.renderOrder = 0; });
+                        az = views.side[0]; el = views.side[1]; R = 1200;
+                        T.set(DIST, 340, -447);  // enquadra o perfil da lateral
+                        ren.setClearColor(0x000000, 0);  // PNG transparente
+                        updateDoor(0);
+                        upd();
+                        const a = document.createElement('a');
+                        a.href = cv.toDataURL('image/png');
+                        a.download = 'alpha_bin_side_wall_only_4k.png';
+                        document.body.appendChild(a); a.click(); a.remove();
+                    } finally {
+                        group.children.forEach((o, i) => { o.visible = groupVisibility[i]; });
+                        bags.forEach((b, i) => { b.root.visible = bagVisibility[i]; });
+                        sideWallParts.forEach((o, i) => { o.renderOrder = wallOrders[i]; });
+                        mat.transparent = true; mat.opacity = 0.2; mat.depthWrite = false; mat.needsUpdate = true;
+                        T.copy(saved.T);
+                        ren.setClearColor(0x000223, 1);
+                    }
+                };
                 grab(shots[0][0], shots[0][1]);
                 setTimeout(() => {
                     grab(shots[1][0], shots[1][1]);
                     setTimeout(() => {
-                    grab('80pct_open', 0.8, 'side');   // imagem extra: vista lateral, mesmas condições (bin transparente, malas no mesmo lilás)
+                    grabSideWall();   // terceira imagem 4K: parede lateral sem malas, porta ou outras peças
                     // restaura tudo
                     bags.forEach((b, i) => { const sv = saved.bags[i]; b.root.visible = sv.vis; if (b.env) b.env.visible = sv.envVis; b.root.position.copy(sv.pos); b.root.quaternion.copy(sv.quat); b.mBody.color.setHex(sv.col); });
                     mPl.color.setHex(saved.plCol);
@@ -9805,7 +9834,7 @@ function xrayRun(ms) {
                     solids.forEach(m => { if (m.material === mat) m.renderOrder = 0; });
                     ren.setClearColor(0xffffff, 0);
                     ren.setPixelRatio(saved.pr);
-                    az = saved.az; el = saved.el; R = saved.R;
+                    az = saved.az; el = saved.el; R = saved.R; T.copy(saved.T);
                     updateDoor(saved.door); syncDoorUI();
                     rs();
                     exporting = false;
