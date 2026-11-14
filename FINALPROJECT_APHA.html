@@ -9067,7 +9067,8 @@ function xrayRun(ms) {
             function addProfileBand(pts, color) {
                 if (pts.length < 3) return;
                 const shape = new THREE.Shape(pts.map(p => new THREE.Vector2(p[0],p[1])));
-                const geo = new THREE.ShapeGeometry(shape);
+                const geo = new THREE.ExtrudeGeometry(shape,{depth:1.2,bevelEnabled:false,steps:1,curveSegments:1});
+                geo.translate(0,0,-0.6);
                 geo.applyMatrix4(new THREE.Matrix4().set(0,0,1,0, 0,1,0,0, -1,0,0,0, 0,0,0,1));
                 const bandMat = new THREE.MeshBasicMaterial({color,side:THREE.DoubleSide,...po});
                 profileBandMaterials.push(bandMat);
