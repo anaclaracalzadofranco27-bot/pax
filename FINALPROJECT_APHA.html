@@ -7750,7 +7750,7 @@ function xrayRun(ms) {
 
             const times = ERGO_PERCENTILES.map(p => ergoTimes(p.h, mass, angleDeg));
 
-            // Cards e exportação para o Embarque usam o percentil P95 masculino da cena.
+            // Cards e exportação para o Embarque usam o P5 feminino (59,8 pol) da cena.
             const ref = times[0];
             const tEmb = ref.tEmb, tAlpha1 = ref.tA1, tAlpha2 = ref.tA2;
             const tAlphaAvg = (2 * tAlpha1 + 2 * tAlpha2) / 4.0;
@@ -7996,176 +7996,166 @@ function xrayRun(ms) {
         }
         window.ergoTorqueSummary = () => { const L = manikinState.last; if (!L) return null; const t = L.times[0]; return ergoTorqueCurve(ERGO_PERCENTILES[0].h, L.Fg, L.Ft, t.tA2, t.tA1); };
 
+        // Manequim biomecânico da Aba 6: compartilha com a Aba 5 a paleta,
+        // os sólidos vetoriais, as articulações e a escala centimétrica do piso.
+        // A cinemática inversa de guardamento continua sendo ergoSolvePosture().
+        function drawStowDummyFromIntegrated(ctx, toX, toY, scale, stature, pose) {
+            const P = (v) => [toX(v[0]), toY(v[1])];
+            const K = 0.74;  // mesmo fator de esbeltez de drawDummyFrontFigure() — Aba 5
+            const radius = v => Math.max(1.5, stature * v * K * scale);
+            const seg = (a, b, rA, rB) => {
+                const p = P(a), q = P(b);
+                drawDummyLimbSegment(ctx, p[0], p[1], q[0], q[1], radius(rA), radius(rB));
+            };
+            const joint = (a, r) => {
+                const p = P(a);
+                drawDummyJointBall(ctx, p[0], p[1], radius(r));
+            };
+            const ankle = pose.ankle, knee = pose.knee, hip = pose.hip;
+            const sh = pose.shoulder, head = pose.head;
+            const farSh = [sh[0] - 1.0, sh[1] - 0.6];
+            const rearAnkle = pose.ankleR, rearKnee = pose.kneeR;
+            const foot = (a, toeX) => {
+                // Ponta da sola no piso (a ~1,6 cm com raio de ~1,6 cm).
+                // O tornozelo acompanha o IK, inclusive quando o calcanhar levanta.
+                const toe = [toeX, 1.6];
+                seg(a, toe, 0.029, 0.0145);
+                joint(a, 0.019);
+            };
+            const prevRole = window.__dkRole;
+            window.__dkRole = 'dummy';
+            try {
+                // Membros distantes: desenhados atrás do torso, como na figura integrada.
+                ctx.save();
+                ctx.globalAlpha *= 0.82;
+                seg(rearAnkle, rearKnee, 0.040, 0.046);
+                seg(rearKnee, hip, 0.047, 0.057);
+                foot(rearAnkle, rearAnkle[0] + 10.5);
+                joint(rearKnee, 0.035);
+                seg(farSh, [pose.armFar.ex, pose.armFar.ey], 0.046, 0.036);
+                seg([pose.armFar.ex, pose.armFar.ey], [pose.armFar.hx, pose.armFar.hy], 0.036, 0.025);
+                joint([pose.armFar.ex, pose.armFar.ey], 0.032);
+                ctx.restore();
+
+                // Perna próxima, com os pontos exatos do IK e pé tangente ao piso.
+                seg(ankle, knee, 0.043, 0.050);
+                seg(knee, hip, 0.053, 0.063);
+                foot(ankle, pose.toeX);
+                joint(knee, 0.037);
+                joint(hip, 0.045);
+
+                // Pescoço liga fisicamente a base do crânio ao topo do tronco.
+                // Desenhado antes do tronco e da cabeça para que ambas as
+                // extremidades fiquem escondidas dentro das respectivas peças.
+                seg(sh, head, 0.030, 0.025);
+
+                // Mesma peça vetorial de tronco da Aba 5, rigidamente alinhada
+                // ao segmento quadril→ombro que sai do solver biomecânico.
+                const hp = P(hip), sp = P(sh);
+                const len = Math.hypot(sp[0] - hp[0], sp[1] - hp[1]);
+                const rot = Math.atan2(sp[0] - hp[0], hp[1] - sp[1]);
+                ctx.save();
+                ctx.translate(hp[0], hp[1]);
+                ctx.rotate(rot);
+                drawDummyTorsoFront3D(ctx, 0, 0, -len,
+                    radius(0.106), radius(0.073), radius(0.067));
+                ctx.restore();
+
+                // Braço próximo: ancorado no próprio ombro do tronco, com IK
+                // de dois segmentos (ombro→cotovelo→punho) não deformado.
+                seg(sh, [pose.arm.ex, pose.arm.ey], 0.048, 0.037);
+                seg([pose.arm.ex, pose.arm.ey], [pose.arm.hx, pose.arm.hy], 0.037, 0.026);
+                joint(sh, 0.052);
+                joint([pose.arm.ex, pose.arm.ey], 0.034);
+                joint([pose.arm.hx, pose.arm.hy], 0.026);
+                const hd = P(head);
+                drawDummyHead3D(ctx, hd[0], hd[1], stature * 0.066 * scale);
+            } finally {
+                window.__dkRole = prevRole;
+            }
+        }
+
         function drawManikinPanel(ctx, W, H, stature, mass, angleDeg, Fg, Fn, Ft, phase, tBack, tFront, title) {
-            const padL = 26, padB = 30, padT = 66, padR = 8;
-            const scale = Math.min((W - padL - padR) / 172, (H - padT - padB) / 207);
-            const offX = Math.max(padL, (W - 172 * scale) / 2 + 10);
-            const toX = (x) => offX + (x + 32) * scale;
-            const toY = (y) => H - padB - y * scale;
+            const cabin = window.cabinSectionReference;
+            // Durante a inicialização, preservar a mesma fórmula m4 da Aba 5.
+            const map = cabin ? cabin.map(W, H) : (() => {
+                const sc = Math.min((W - 60) / 380, (H - 50) / 244), cx = W / 2;
+                return { toX: x => cx + x * sc, toY: y => H - 22 - (y + 14) * sc, scale: sc };
+            })();
+            const { toX, toY, scale } = map;
+            const R = cabin ? cabin.R : 137.16;
+            const centerY = cabin ? cabin.centerY : 62.84;
+            const aisle = cabin ? cabin.aisle : 25.4;
+            const binFloor = cabin ? cabin.binFloorY()
+                : centerY + Math.sqrt(R * R - aisle * aisle) - 20.0 * CM_PER_IN;
 
-            // Grid técnico
-            ctx.strokeStyle = 'rgba(67, 70, 151, 0.18)';
-            ctx.lineWidth = 1;
-            ctx.fillStyle = '#64748b';
-            ctx.font = '9px "JetBrains Mono", monospace';
-            const mkTour = !!document.querySelector('#tour-stage #manikinCanvas');   // roteiro: a malha do quadro é o único fundo (sem linhas que surgem no corte)
-            for (let yi = 0; yi <= 80 && !window.__mkExport; yi += 10) {   // grade a cada 10"
-                const y = yi * CM_PER_IN;
-                ctx.beginPath(); ctx.moveTo(padL, toY(y)); ctx.lineTo(mkTour ? padL + 12 : W - padR, toY(y)); ctx.stroke();
+            // Blueprint de fundo, sem régua de altura, marcas ou cotas.
+            if (!window.__mkExport) {
+                ctx.save();
+                ctx.strokeStyle = 'rgba(67, 70, 151, 0.12)';
+                ctx.lineWidth = 1;
+                for (let x = -175; x <= 175; x += 25) {
+                    ctx.beginPath(); ctx.moveTo(toX(x), toY(-8));
+                    ctx.lineTo(toX(x), toY(225)); ctx.stroke();
+                }
+                for (let y = 0; y <= 225; y += 25) {
+                    ctx.beginPath(); ctx.moveTo(toX(-180), toY(y));
+                    ctx.lineTo(toX(180), toY(y)); ctx.stroke();
+                }
+                ctx.restore();
+                if (cabin) cabin.drawShell(ctx, toX, toY, scale);
             }
 
-            // (piso removido)
-
-            // Parede dupla da fuselagem (Ø = 108" (274,3 cm) / R = 54" (137,16 cm) conforme Imagem 3, centrada em Y = 65 cm)
-            ctx.save(); if (window.__mkExport) ctx.globalAlpha = 0;   // exportação: sem a estrutura da fuselagem
-            ctx.beginPath();
-            for (let x = -15; x <= 135; x += 2) {
-                const y = 65 + Math.sqrt(Math.max(0, 135 * 135 - x * x));
-                if (x === -15) ctx.moveTo(toX(x), toY(y)); else ctx.lineTo(toX(x), toY(y));
-            }
-            for (let x = 135; x >= -15; x -= 2) {
-                const y = 65 + Math.sqrt(Math.max(0, 140 * 140 - x * x));
-                ctx.lineTo(toX(x), toY(y));
-            }
-            ctx.closePath();
-            ctx.fillStyle = '#7189a4';   // parede da fuselagem em azul-aço (Sem_título-3.pdf)
-            ctx.fill();
-            ctx.strokeStyle = '#2e3154';
-            ctx.lineWidth = 2.2;
-            ctx.stroke();
-            ctx.restore();
-
-            // Desenho do Bin no Viewport e obtenção das posições exatas das malas dentro das cavidades
-            const binStartX = 23.6;
-            const binStartY = 150.0; // 65.0 + 85.0 cm
-
-            // Sequência única no mesmo viewport: 1) Mala 2 (fundo, rampa 17°)  →  2) Mala 1 (frente, em pé)
-            const alphaProf = traceBinAlphaProfile(ctx, toX, toY, binStartX, binStartY, 1, 1.0, 135.0, 65.0, true);
+            // Exatamente a mesma posição, profundidade e curvatura da seção ALPHA
+            // da Aba 5. Sem fundo plano especial, sem ajustes visuais de escala.
+            const prof = traceBinAlphaProfile(ctx, toX, toY,
+                aisle, binFloor, 1, 1.0, R, centerY, false);
             const fracBack = tBack / (tBack + tFront);
             const inBackPhase = phase < fracBack;
-            const seqMode = inBackPhase ? 'alpha2' : 'alpha1';
+            const mode = inBackPhase ? 'alpha2' : 'alpha1';
             const localPhase = inBackPhase ? phase / fracBack : (phase - fracBack) / (1 - fracBack);
-            const bagTag = inBackPhase ? 'BAG 2' : 'BAG 1';
-            const modeLabel = inBackPhase ? 'Alpha — Bag 2 (Back · ramp 163° / 14.04")' : 'Alpha — Bag 1 (Front · flat base 10.20")';
             if (!inBackPhase) {
-                // Mala 2 já guardada ao fundo
-                drawRealisticSuitcase(ctx, toX(alphaProf.m2Cx), toY(alphaProf.m2Cy), alphaProf.m2W * scale, alphaProf.m2H * scale,
-                    alphaProf.rad17, 'BAG 2', 'At Back', true);
+                drawRealisticSuitcase(ctx,
+                    toX(prof.m2Cx), toY(prof.m2Cy),
+                    prof.m2W * scale, prof.m2H * scale,
+                    prof.rad17, '', '', true);
             }
-
-            // ---------------------------------------------------------------------
-            // Cinemática de estiva (sequência fiel à Simulação CAD 3D — aba 6)
-            // ---------------------------------------------------------------------
-            const plan = ergoStowPlan(seqMode, alphaProf, stature);
+            const plan = ergoStowPlan(mode, prof, stature);
             const pose = ergoSolvePosture(stature, plan, localPhase);
-            const bagCx = pose.bag.x, bagCy = pose.bag.y;
-            const currentBagAngleRad = pose.bag.a * Math.PI / 180;
-            const heelLift = pose.heel;
-            const stageName = `${bagTag} · ${ergoStageName(plan, localPhase)}`;
-            const [ankleX, ankleY] = pose.ankle, [kneeX, kneeY] = pose.knee, [hipX, hipY] = pose.hip;
-            const [shoulderX, shoulderY] = pose.shoulder, [headX, headY] = pose.head;
-            const arm = pose.arm, armFar = pose.armFar;
-            const handX = arm.hx, handY = arm.hy, elbowX = arm.ex, elbowY = arm.ey;
 
-            // Manequim articulado montado com as peças vetoriais de vermelho.pdf
-            const KPX = (stature / PDF_REF_H) * scale;                 // px por pt do PDF
-            const OW = Math.max(2.2, 5.2 * KPX);                       // espessura do traço (metade externa = contorno preto)
-            const Pp = (x, y) => [toX(x), toY(y)];
-            const hipP = Pp(hipX, hipY), kneeP = Pp(kneeX, kneeY), shP = Pp(shoulderX, shoulderY);
-            const A = PDFA;
+            // A mala permanece vinculada ao plano de inserção original.
+            drawRealisticSuitcase(ctx,
+                toX(pose.bag.x), toY(pose.bag.y),
+                plan.w * scale, plan.h * scale,
+                pose.bag.a * Math.PI / 180, '', '', true);
 
-            // braço distante (atrás do corpo, tom mais escuro)
-            pdfArm(ctx, { sh: Pp(shoulderX - 1.0, shoulderY - 0.6), el: Pp(armFar.ex, armFar.ey), hand: Pp(armFar.hx, armFar.hy),
-                grip: pose.bag.grip, kpx: KPX, ow: OW, fill: PDFM.far, gray: PDFM.farGray, far: true });
+            drawStowDummyFromIntegrated(ctx, toX, toY, scale, stature, pose);
 
-            // pernas (apoio + perna de trás do passo). O tornozelo "desenhado" fica FT_DY acima da sola (como no PDF),
-            // deslocado ao longo da canela; o pé gira até a ponta tocar o piso quando o calcanhar sobe.
-            const FT_DX = 52.0 * stature / PDF_REF_H, FT_DY = 23.6 * stature / PDF_REF_H;
-            const drawLeg = (aX, aY, kX, kY) => {
-                const kP = Pp(kX, kY);
-                const sx = kX - aX, sy = kY - aY, sl = Math.hypot(sx, sy) || 1, dAnk = FT_DY - 4.0;
-                const dAx = aX + sx / sl * dAnk, dAy = aY + sy / sl * dAnk;
-                let phiD = 0;
-                if (dAy > FT_DY + 0.05) {
-                    let lo = 0, hi = 1.14;
-                    for (let q = 0; q < 30; q++) { const mid = (lo + hi) / 2; if (FT_DX * Math.sin(mid) + FT_DY * Math.cos(mid) < dAy) lo = mid; else hi = mid; }
-                    phiD = (lo + hi) / 2;
-                }
-                const dAnkP = Pp(dAx, dAy);
-                pdfPiece(ctx, 'foot', pdfMatSim(A.ankle, dAnkP, phiD, KPX), PDFM.fill, OW);
-                pdfPiece(ctx, 'shin', pdfMatBone(A.knee, A.ankle, kP, dAnkP, KPX), PDFM.fill, OW);
-                pdfPiece(ctx, 'ankleJ', pdfMatSim(A.ankle, dAnkP, 0, KPX), PDFM.gray, OW);
-                pdfPiece(ctx, 'thigh', pdfMatBone(A.hip, A.knee, hipP, kP, KPX), PDFM.fill, OW);
-                pdfPiece(ctx, 'kneeJ', pdfMatSim(A.knee, kP, 0, KPX), PDFM.gray, OW);
+            // Mantém os cálculos para os cartões externos/exports sem desenhar telemetria.
+            const ld = ergoLoad(mode, plan, pose, localPhase, Fg, Ft);
+            const finished = phase >= 0.999, atRest = ld.rest || finished;
+            if (!window.__mkExport) {
+                ctx.save();
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'alphabetic';
+                const reserved = Math.min(212, Math.max(166, W * 0.30));
+                const maxW = Math.max(90, W - reserved - 44);
+                let fontSize = 22;
+                do {
+                    ctx.font = `800 ${fontSize}px "Inter", sans-serif`;
+                    if (ctx.measureText(title).width <= maxW || fontSize <= 12) break;
+                    fontSize -= 1;
+                } while (true);
+                ctx.fillStyle = '#e2e8f0';
+                ctx.fillText(title, 8, 26);
+                ctx.restore();
+            }
+            return {
+                dMeters: ld.d, MO: ld.MO, F: ld.F, lbf: ld.lbf,
+                heelLift: pose.heel, reachable: pose.reachable,
+                stage: finished ? 'Done' : ergoStageName(plan, localPhase),
+                tTotal: tBack + tFront, rest: atRest
             };
-            drawLeg(ankleX, ankleY, kneeX, kneeY);                                           // perna de apoio (pé plano)
-            drawLeg(pose.ankleR[0], pose.ankleR[1], pose.kneeR[0], pose.kneeR[1]);   // perna de trás (sempre visível: parte da posição da perna de apoio e inclina p/ trás)
-
-            // tronco: pelve, costas, miolo do peito, peito, faixa da cintura, junta do quadril
-            const Mt = pdfMatBone(A.hip, A.shoulder, hipP, shP, KPX);
-            // tronco revetorizado (Sem_título-5.pdf): costas → peito → faixa da cintura → pelve → junta do quadril
-            pdfPiece(ctx, 'chestBack', Mt, PDFM.fill, OW);
-            pdfPiece(ctx, 'chestFront', Mt, PDFM.fill, OW);
-            pdfPiece(ctx, 'waist', Mt, PDFM.gray, OW);
-            pdfPiece(ctx, 'pelvis', Mt, PDFM.fill, OW);
-            pdfPiece(ctx, 'hipJ', pdfMatSim(A.hip, hipP, 0, KPX), PDFM.gray, OW);
-
-            // pescoço e cabeça (a cabeça inclina em torno da base do pescoço para olhar a mala)
-            const hdP = Pp(headX, headY), nl = Math.hypot(hdP[0] - shP[0], hdP[1] - shP[1]) || 1;
-            const neckLen = (A.shoulder[1] - A.neck[1]) * KPX;
-            const neckP = [shP[0] + (hdP[0] - shP[0]) / nl * neckLen, shP[1] + (hdP[1] - shP[1]) / nl * neckLen];
-            pdfPiece(ctx, 'neck', pdfMatSim(A.neckN, neckP, pose.neckTilt, KPX), PDFM.gray, OW);
-            pdfPiece(ctx, 'head', pdfMatSim(A.neck, neckP, -pose.headPitch, KPX), PDFM.fill, OW);
-
-            // Mala (rótulo sempre na horizontal, mesmo com a mala girando)
-            drawRealisticSuitcase(
-                ctx,
-                toX(bagCx),
-                toY(bagCy),
-                plan.w * scale,
-                plan.h * scale,
-                currentBagAngleRad,
-                '', '',
-                true
-            );
-
-            // Braço próximo: ombro → cotovelo → mão (sobre a mala)
-            pdfArm(ctx, { sh: shP, el: Pp(elbowX, elbowY), hand: Pp(handX, handY),
-                grip: pose.bag.grip, kpx: KPX, ow: OW, fill: PDFM.fill, gray: PDFM.gray });
-
-            // Cálculos biomecânicos preservados para resultados e exportações,
-            // sem cotas, CG, setas de forças, anéis ou legendas desenhadas sobre a cena.
-            const LD = ergoLoad(seqMode, plan, pose, localPhase, Fg, Ft);
-            const dMeters = LD.d, MO = LD.MO;
-            const finished = phase >= 0.999;
-            const atRest = LD.rest || finished;
-            const FshN = LD.F, lbf = LD.lbf;
-
-            // Restaura os anéis originais que destacam as articulações do ombro,
-            // sem reintroduzir cotas, setas, vetores ou painéis de telemetria.
-            const shoulderColor = atRest ? '#4ade80' : (LD.isPush ? PDFM.green : (LD.isLift ? PDFM.red : PDFM.orange));
-            pdfRing(ctx, toX(shoulderX), toY(shoulderY), KPX, shoulderColor);
-
-            // ---------------------------------------------------------------------
-                        // Cabeçalho do painel: título grande e sublinhado (impacto visual)
-            // ---------------------------------------------------------------------
-            const stageShown = finished ? 'Done ✓' : stageName;
-            if (window.__mkExport) return { dMeters, MO, F: FshN, lbf, heelLift, reachable: pose.reachable, stage: stageShown, tTotal: tBack + tFront, rest: atRest };   // exportação limpa: sem cabeçalho
-            ctx.save();
-            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-            const timerW = Math.min(212, Math.max(166, W * 0.30));
-            const maxTitleW = Math.max(90, W - timerW - 36); // evita sobreposição com o cronômetro
-            let tSize = 22;
-            ctx.font = `800 ${tSize}px "Inter", sans-serif`;
-            while (tSize > 12 && ctx.measureText(title).width > maxTitleW) { tSize -= 1; ctx.font = `800 ${tSize}px "Inter", sans-serif`; }
-            const tW = ctx.measureText(title).width;
-            ctx.fillStyle = '#e2e8f0';
-            ctx.fillText(title, 8, 26);
-            ctx.fillStyle = '#5b7b9e';
-            ctx.fillRect(8, 31, tW, 2.5);
-            ctx.restore();
-
-            return { dMeters, MO, F: FshN, lbf, heelLift, reachable: pose.reachable, stage: stageShown, tTotal: tBack + tFront, rest: atRest };
         }
 
         function drawManikinViewport(mass, angleDeg, Fg, Fn, Ft, phase, times) {
@@ -8194,7 +8184,7 @@ function xrayRun(ms) {
                 ctx.save();
                 ctx.beginPath(); ctx.rect(i * panelW, 0, panelW, H); ctx.clip();
                 ctx.translate(i * panelW, 0);
-                const st = drawManikinPanel(ctx, panelW, H, p.h, mass, angleDeg, Fg, Fn, Ft, localPhase, t.tA2, t.tA1, '95th Percentile');
+                const st = drawManikinPanel(ctx, panelW, H, p.h, mass, angleDeg, Fg, Fn, Ft, localPhase, t.tA2, t.tA1, '5th Percentile Female');
                 ctx.restore();
                 return st;
             });
@@ -8569,6 +8559,60 @@ function xrayRun(ms) {
             const ph = (t0, d) => cadEase(cl((U.t - t0) / d));
             const YMIN = -14;                                   // enquadra apenas do piso para cima (sem porão)
             const m4 = (W, H) => { const sc = Math.min((W - 60) / 380, (H - 50) / (230 - YMIN)), cx = W / 2; return { toX: x => cx + x * sc, toY: y => H - 22 - (y - YMIN) * sc, scale: sc }; };
+            // Referência geométrica compartilhada entre a Aba 5 e a cena biomecânica da Aba 6.
+            // A projeção m4 é a mesma usada na planta integrada: y=0 é o piso, em centímetros.
+            window.cabinSectionReference = {
+                map: m4,
+                R: 137.16,
+                centerY: FC,
+                wall: 5.5,
+                aisle: 25.4,
+                binFloorY() {
+                    return this.centerY + Math.sqrt(this.R * this.R - this.aisle * this.aisle) - 20.0 * CM_PER_IN;
+                },
+                drawShell(ctx, toX, toY, scale) {
+                    const R = this.R, rOut = R + this.wall, cY = this.centerY;
+                    const aEnd = Math.asin(cY / R), N = 180;
+                    const theta = i => Math.PI + aEnd - (Math.PI + 2 * aEnd) * i / N;
+                    // Mesma curvatura da seção CAD e os mesmos prolongamentos laterais
+                    // usados em before() na Aba 5. Exterior inferior avança somente em x.
+                    const pt = (r, a, outer = false) => [
+                        toX(r * Math.cos(a)),
+                        toY(cY + ((outer && Math.sin(a) < 0) ? R : r) * Math.sin(a))
+                    ];
+                    ctx.save();
+                    ctx.beginPath();
+                    for (let i = 0; i <= N; i++) {
+                        const p = pt(R, theta(i));
+                        i ? ctx.lineTo(...p) : ctx.moveTo(...p);
+                    }
+                    for (let i = N; i >= 0; i--) {
+                        const p = pt(rOut, theta(i), true);
+                        ctx.lineTo(...p);
+                    }
+                    ctx.closePath();
+                    ctx.fillStyle = 'rgba(148, 163, 184, 0.35)';
+                    ctx.fill();
+                    ctx.strokeStyle = '#1e293b';
+                    ctx.lineWidth = 2.5;
+                    [false, true].forEach(outer => {
+                        ctx.beginPath();
+                        for (let i = 0; i <= N; i++) {
+                            const p = pt(outer ? rOut : R, theta(i), outer);
+                            i ? ctx.lineTo(...p) : ctx.moveTo(...p);
+                        }
+                        ctx.stroke();
+                    });
+                    // Piso coincidente com a Aba 5: 252 cm de vão visual, 8 cm de espessura.
+                    ctx.fillStyle = '#cbd5e1';
+                    ctx.strokeStyle = '#64748b';
+                    ctx.lineWidth = 1.8;
+                    const x = toX(-126), w = 252 * scale, y = toY(0), h = 8 * scale;
+                    ctx.fillRect(x, y, w, h);
+                    ctx.strokeRect(x, y, w, h);
+                    ctx.restore();
+                }
+            };
             const m1 = (W, H) => { const m = m4(W, H); return { toX: m.toX, toY: y => m.toY(y + FC), scale: m.scale }; };
             const phaseIdx = () => PH.reduce((a, p, i) => U.t >= p[1] ? i : a, 0);
             const stature = () => {
