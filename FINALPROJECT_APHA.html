@@ -9393,7 +9393,7 @@ function xrayRun(ms) {
                     h: a[1] + along * Math.sin(angle) + normal * Math.cos(angle)
                 };
             }
-            const rearFoot = pointOnFloor(floorRear, rearSlope, 2.2, PROFILE_GAP);
+            const rearFoot = pointOnFloor(floorRear, rearSlope, 2.5, PROFILE_GAP);
             const lowerCenter = {
                 u: rearFoot.u + BAG_LONG_HALF * Math.cos(rearSlope) - BAG_THICK_HALF * Math.sin(rearSlope),
                 h: rearFoot.h + BAG_LONG_HALF * Math.sin(rearSlope) + BAG_THICK_HALF * Math.cos(rearSlope)
