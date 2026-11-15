@@ -5588,9 +5588,6 @@ function xrayRun(ms) {
                         <button id="cad3d-export-side" type="button" onclick="cad3dExportSideTransparent()" class="cad-btn" title="Exports two 4K views of the complete bin with four visible bags and translucent side panels: lateral and side-oblique">
                             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>Exportar lateral c/ malas (2 PNG)
                         </button>
-                        <button id="cad3d-export-side-cut" type="button" onclick="cad3dExportSideCut()" class="cad-btn" title="Exporta PNG 4K da vista lateral aberta em corte com perspectiva suave, sem a lateral próxima, com malas translúcidas e contornos tracejados">
-                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>Exportar Vista Lateral Aberta (Corte)
-                        </button>
                         <div class="flex items-center gap-2 bg-cad-bg px-3 py-1.5 rounded-lg border border-cad-border text-xs font-mono">
                             <span class="text-slate-700">Door:</span>
                             <input id="cad3d-doorSlider" type="range" min="0" max="100" value="0" step="0.5" class="w-24">
@@ -9311,7 +9308,6 @@ function xrayRun(ms) {
                     inner.add(m);solids.push(m);
                     const l=new THREE.LineSegments(new THREE.EdgesGeometry(geo,ang||30),bagEdgeMat);
                     l.position.copy(m.position);l.rotation.copy(m.rotation);inner.add(l);
-                    return m; // permite identificar as rodas sem alterar sua aparência normal
                 }
 
                 part(bagBodyGeo,mBody,0,0,0,0,35);
@@ -9330,10 +9326,8 @@ function xrayRun(ms) {
                     const px=sx*105,pz=sz*70;
                     part(new THREE.BoxGeometry(50,24,46),mPl,px,40,pz);
                     part(new THREE.CylinderGeometry(4,4,52,12),mMet,px,25,pz,Math.PI/2);
-                    [-1,1].forEach(w=>{
-                        const wheel=part(new THREE.CylinderGeometry(25,25,14,28),mBlk,px+w*14,25,pz,Math.PI/2);
-                        wheel.userData.cadCutWheel=true; // duas rodas por conjunto, quatro conjuntos por mala
-                        wheel.userData.cadCutWheelOutline=(w===sx); // uma silhueta por conjunto, sem linhas duplicadas
+                    [-1,1].forEach(w => {
+                        part(new THREE.CylinderGeometry(25,25,14,28),mBlk,px+w*14,25,pz,Math.PI/2);
                     });
                 }));
 
@@ -10280,11 +10274,117 @@ function xrayRun(ms) {
                 const state = {
                     az, el, R, T: T.clone(), door: openProgress,
                     pixelRatio: ren.getPixelRatio(), size: ren.getSize(new THREE.Vector2()),
+                    clear: ren.getClearColor(new THREE.Color()).clone(), clearAlpha: ren.getClearAlpha(),
                     bagData: bags.map(b => ({
                         vis: b.root.visible, env: b.env && b.env.visible,
                         pos: b.root.position.clone(), quat: b.root.quaternion.clone()
                     })),
-                    surfaces: [mat, wm, fm, ...profileBandMaterials].map(m => [m, m.transparent, m.opacity, m.depthWrite])
+                    surfaces: [mat, wm, fm, ...profileBandMaterials].map(m => [m, m.transparent, m.opacity, m.depthWrite, m.color.getHex()])
+                };
+                const isoBagOriginals = [];
+                const isoBagClones = new Map();
+                const isoMaterialStates = [];
+                const isoExtraLines = [];
+
+                // Efeitos estritamente temporários: nunca modificar o PNG ortográfico.
+                const saveIsoMaterial = m => isoMaterialStates.push([
+                    m, m.color.getHex(), m.transparent, m.opacity, m.depthWrite
+                ]);
+                const resetIsometricAppearance = () => {
+                    isoBagOriginals.forEach(([mesh, material]) => { mesh.material = material; });
+                    isoBagOriginals.length = 0;
+                    isoBagClones.forEach(clone => clone.dispose());
+                    isoBagClones.clear();
+
+                    isoExtraLines.forEach(([parent, line]) => {
+                        parent.remove(line);
+                        line.geometry.dispose();
+                        line.material.dispose();
+                    });
+                    isoExtraLines.length = 0;
+                    isoMaterialStates.forEach(([m, color, tr, op, dw]) => {
+                        m.color.setHex(color);
+                        m.transparent = tr; m.opacity = op; m.depthWrite = dw; m.needsUpdate = true;
+                    });
+                    isoMaterialStates.length = 0;
+                };
+                const highlightIsometricInterior = () => {
+                    // Todos os meshes das 4 malas, incluindo rodinhas e alças, ficam em 58% de opacidade.
+                    // Clones por material compartilhado evitam afetar as outras vistas e a cena interativa.
+                    bags.forEach(b => b.root.traverse(obj => {
+                        if (!obj.isMesh || !obj.material) return;
+                        const original = obj.material;
+                        const translucent = m => {
+                            if (!isoBagClones.has(m)) {
+                                const clone = m.clone();
+                                clone.transparent = true;
+                                clone.opacity = 0.58;
+                                clone.depthWrite = false;
+                                clone.needsUpdate = true;
+                                isoBagClones.set(m, clone);
+                            }
+                            return isoBagClones.get(m);
+                        };
+                        isoBagOriginals.push([obj, original]);
+                        obj.material = Array.isArray(original) ? original.map(translucent) : translucent(original);
+                    }));
+
+                    // Reforço das faces internas: piso escalonado, parede inclinada,
+                    // divisória superior e cobertura rolante, sem alterar a lateral de acrílico.
+                    [wm, fm, doorMat, bl, railLineMat].forEach(saveIsoMaterial);
+                    wm.color.setHex(0x8799bf); wm.transparent = true;
+                    wm.opacity = 0.66; wm.depthWrite = false; wm.needsUpdate = true;
+                    fm.color.setHex(0x5d76a1); fm.transparent = true;
+                    fm.opacity = 0.73; fm.depthWrite = false; fm.needsUpdate = true;
+                    profileBandMaterials.forEach(m => { m.opacity = 0.42; m.needsUpdate = true; });
+                    doorMat.transparent = true; doorMat.opacity = 0.74;
+                    doorMat.depthWrite = false; doorMat.needsUpdate = true;
+                    bl.color.setHex(0x102b50);
+                    railLineMat.color.setHex(0x14395a);
+
+                    // Contorno técnico interno construído a partir dos perfis reais do SVG.
+                    // Sem triangulações na parede curva: apenas as bordas longitudinais,
+                    // a quebra do piso e as travessas nas mudanças de superfície.
+                    const edgePoints = [];
+                    const x0 = TH / 2 + 1.5, x1 = DIST - TH / 2 - 1.5;
+                    const addPath = (path, x) => {
+                        for (let i = 1; i < path.length; i++) {
+                            edgePoints.push(x, path[i - 1][1], -path[i - 1][0],
+                                            x, path[i][1], -path[i][0]);
+                        }
+                    };
+                    [WALL_SEAT, FLOOR_SEAT, DOOR_GUIDE].forEach(path => {
+                        addPath(path, x0);
+                        addPath(path, x1);
+                    });
+                    [FLOOR_SEAT[0], FLOOR_SEAT[8], FLOOR_SEAT[FLOOR_SEAT.length - 1],
+                     WALL_SEAT[0], WALL_SEAT[WALL_SEAT.length - 1]].forEach(p => {
+                        edgePoints.push(x0, p[1], -p[0], x1, p[1], -p[0]);
+                    });
+                    const outlineGeometry = new THREE.BufferGeometry();
+                    outlineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(edgePoints, 3));
+                    const outline = new THREE.LineSegments(outlineGeometry,
+                        new THREE.LineBasicMaterial({
+                            color: 0x173656, transparent: true, opacity: 0.86,
+                            depthTest: false, depthWrite: false
+                        }));
+                    outline.renderOrder = 18;
+                    group.add(outline);
+                    isoExtraLines.push([group, outline]);
+
+                    // EdgesGeometry destaca os degraus/arestas reais do piso (sem objetos permanentes).
+                    group.children.filter(obj => obj.isMesh && obj.material === fm).forEach(mesh => {
+                        const edges = new THREE.LineSegments(
+                            new THREE.EdgesGeometry(mesh.geometry, 40),
+                            new THREE.LineBasicMaterial({
+                                color: 0x213d66, transparent: true, opacity: 0.38,
+                                depthTest: false, depthWrite: false
+                            })
+                        );
+                        edges.renderOrder = 17;
+                        mesh.add(edges);
+                        isoExtraLines.push([mesh, edges]);
+                    });
                 };
                 const exportShot = (name, angle, elevation, radius) => {
                     az = angle; el = elevation; R = radius;
@@ -10296,17 +10396,20 @@ function xrayRun(ms) {
                     document.body.appendChild(a); a.click(); a.remove();
                 };
                 const restore = () => {
+                    resetIsometricAppearance();
                     state.bagData.forEach((b, i) => {
                         bags[i].root.visible = b.vis;
                         bags[i].root.position.copy(b.pos);
                         bags[i].root.quaternion.copy(b.quat);
                         if (bags[i].env) bags[i].env.visible = b.env;
                     });
-                    state.surfaces.forEach(([m, tr, op, dw]) => {
+                    state.surfaces.forEach(([m, tr, op, dw, color]) => {
+                        m.color.setHex(color);
                         m.transparent = tr; m.opacity = op; m.depthWrite = dw; m.needsUpdate = true;
                     });
-                    ren.setClearColor(0xffffff, 0);
+                    ren.setClearColor(state.clear, state.clearAlpha);
                     ren.setPixelRatio(state.pixelRatio);
+                    ren.setSize(state.size.x, state.size.y, false);
                     az = state.az; el = state.el; R = state.R; T.copy(state.T);
                     updateDoor(state.door);
                     syncDoorUI();
@@ -10327,224 +10430,21 @@ function xrayRun(ms) {
                     });
                     ren.setPixelRatio(1); ren.setSize(EW, EH, false);
                     cam.aspect = EW / EH; cam.updateProjectionMatrix();
-                    ren.setClearColor(0x000000, 0); // transparência alfa real
-                    exportShot('lateral_with_four_bags', 0, 0.08, 2600);
-                    setTimeout(() => {
-                        try { exportShot('side_isometric_with_four_bags', -0.47, 0.17, 2650); }
-                        catch (err) { console.warn('Side isometric export:', err); }
-                        finally { restore(); }
-                    }, 400);
-                } catch (err) { console.warn('Side transparent export:', err); restore(); }
-            };
-
-            // Exportação 4K em corte: ortográfica lateral, sem a chapa próxima da câmera.
-            // O material e as linhas tracejadas das malas existem SOMENTE durante a captura.
-            window.cad3dExportSideCut = () => {
-                if (exporting) return;
-                exporting = true;
-                stopAllAnimations();
-                const EW = 3840, EH = 2160;
-                const saved = {
-                    az, el, R, target: T.clone(), door: openProgress,
-                    pr: ren.getPixelRatio(), size: ren.getSize(new THREE.Vector2()),
-                    clear: ren.getClearColor(new THREE.Color()).clone(),
-                    alpha: ren.getClearAlpha(),
-                    bags: bags.map(b => ({
-                        visible: b.root.visible,
-                        envelope: b.env ? b.env.visible : null,
-                        position: b.root.position.clone(),
-                        rotation: b.root.quaternion.clone()
-                    }))
-                };
-                const originalVisibility = new Map();
-                const originalMaterials = [];
-                const originalLines = [];
-                const dashedOutlines = [];
-                const keepVisibility = obj => {
-                    if (!originalVisibility.has(obj)) originalVisibility.set(obj, obj.visible);
-                };
-                const cutSurface = [
-                    ...sideWallParts,
-                    ...profileBandMeshes.filter(o => o.userData.innerWallSide === 1),
-                    ...internalRailParts.filter(o => o.userData.innerWallSide === 1)
-                ];
-                const backDetails = [
-                    ...profileBandMeshes.filter(o => o.userData.innerWallSide === 0),
-                    ...internalRailParts.filter(o => o.userData.innerWallSide === 0)
-                ];
-                try {
-                    // Porta totalmente recolhida/oculta e chapa da lateral próxima removida.
-                    updateDoor(1);
-                    slats.forEach(o => { keepVisibility(o); o.visible = false; });
-                    cutSurface.forEach(o => { keepVisibility(o); o.visible = false; });
-                    backDetails.forEach(o => { keepVisibility(o); o.visible = true; });
-
-                    // Parede lateral próxima (+X): somente a silhueta EXTERNA,
-                    // sem faces, furos, trilhos ou linhas de montagem internas.
-                    // A face plana sem furos faz o EdgesGeometry conservar apenas
-                    // o perímetro, suprimindo arestas coplanares da triangulação.
-                    const ghostFace = new THREE.ShapeGeometry(
-                        new THREE.Shape(SUBS[0].map(p => new THREE.Vector2(p[0], p[1])))
-                    );
-                    const ghostEdges = new THREE.EdgesGeometry(ghostFace, 40);
-                    ghostFace.dispose();
-                    ghostEdges.applyMatrix4(new THREE.Matrix4().set(
-                        0, 0, 1, 0,  0, 1, 0, 0,  -1, 0, 0, 0,  0, 0, 0, 1
-                    ));
-                    const ghostMaterial = new THREE.LineDashedMaterial({
-                        color: 0x64748b, dashSize: 6, gapSize: 4,
-                        transparent: true, opacity: 0.48,
-                        depthTest: true, depthWrite: false
-                    });
-                    const ghostWall = new THREE.LineSegments(ghostEdges, ghostMaterial);
-                    ghostWall.position.x = DIST;
-                    ghostWall.computeLineDistances();
-                    ghostWall.renderOrder = 59;
-                    group.add(ghostWall);
-                    dashedOutlines.push([group, ghostWall]); // removido e descartado no finally
-
-                    bags.forEach((b, i) => {
-                        // Vista lateral ortográfica: são 4 malas em 3D, mas somente
-                        // 2 perfis distintos. Ocultar as cópias da fileira distante
-                        // evita duplicação de alfa e tracejados sobrepostos no PNG.
-                        setBagPoseAlongPath(i, 1);
-                        b.root.visible = i % 2 === 1; // exemplares próximos da câmera (+X)
-                        if (b.env) b.env.visible = false;
-                        if (!b.root.visible) return;
-                        const wheelSilhouettes = [];
-                        b.root.traverse(obj => {
-                            if (obj.isMesh) {
-                                keepVisibility(obj);
-                                const original = obj.material;
-                                const makeClear = material => {
-                                    const clear = material.clone();
-                                    clear.transparent = true;
-                                    clear.opacity = 0.13;
-                                    clear.depthWrite = false;
-                                    clear.needsUpdate = true;
-                                    return clear;
-                                };
-                                const translucent = Array.isArray(original)
-                                    ? original.map(makeClear) : makeClear(original);
-                                originalMaterials.push([obj, original, translucent]);
-                                obj.material = translucent;
-                                // Corpo e rodinhas duplas em 13% de opacidade.
-                                // Suportes, nervuras e alças ficam ocultos só na captura.
-                                const isWheel = obj.userData.cadCutWheel === true;
-                                obj.visible = obj.geometry === bagBodyGeo || isWheel;
-                                if (isWheel && obj.userData.cadCutWheelOutline) {
-                                    wheelSilhouettes.push(obj); // um traço por conjunto de rodas
-                                }
-                            } else if (obj.isLine) {
-                                originalLines.push([obj, obj.visible]);
-                                obj.visible = false; // dispensa arestas internas originais
-                            }
-                        });
-
-                        // Arestas dos quatro conjuntos de rodinhas: 40° suprime as
-                        // subdivisões radiais dos cilindros e mantém só a silhueta.
-                        // Criadas após traverse() para não serem ocultadas junto
-                        // com as linhas originais das malas.
-                        wheelSilhouettes.forEach(wheel => {
-                            const wheelEdges = new THREE.EdgesGeometry(wheel.geometry, 40);
-                            const wheelLines = new THREE.LineSegments(
-                                wheelEdges,
-                                new THREE.LineDashedMaterial({
-                                    color: 0x334155, dashSize: 4, gapSize: 3,
-                                    transparent: true, opacity: 0.43,
-                                    depthTest: true, depthWrite: false
-                                })
-                            );
-                            wheelLines.computeLineDistances();
-                            wheelLines.renderOrder = 61;
-                            wheel.add(wheelLines); // herda a pose de cada rodinha
-                            dashedOutlines.push([wheel, wheelLines]);
-                        });
-
-                        // Contorno IATA apenas nesta exportação: recuo de 1,75 mm em
-                        // cada face do envelope (sem alterar a pose nem o volume real).
-                        // Mantém o tracejado dentro das faces internas do piso,
-                        // da parede traseira inclinada e da divisória vertical.
-                        const CUT_OUTLINE_INSET_MM = 1.75;
-                        const envelopeGeometry = new THREE.BoxGeometry(
-                            356 - 2 * CUT_OUTLINE_INSET_MM,
-                            559 - 2 * CUT_OUTLINE_INSET_MM,
-                            254 - 2 * CUT_OUTLINE_INSET_MM
-                        );
-                        const edges = new THREE.EdgesGeometry(envelopeGeometry);
-                        envelopeGeometry.dispose();
-                        const dashedMaterial = new THREE.LineDashedMaterial({
-                            color: 0x1e293b, dashSize: 17, gapSize: 11,
-                            transparent: true, opacity: 0.98,
-                            // As arestas do bin devem ocultar o tracejado, nunca
-                            // ser atravessadas por linhas desenhadas em primeiro plano.
-                            depthTest: true, depthWrite: false
-                        });
-                        const outline = new THREE.LineSegments(edges, dashedMaterial);
-                        outline.computeLineDistances(); // obrigatório para LineDashedMaterial
-                        outline.renderOrder = 60;
-                        b.root.add(outline);
-                        dashedOutlines.push([b.root, outline]);
-                    });
-
-                    // Perspectiva técnica suave: câmera permanece do lado aberto (+X),
-                    // com 15° de giro horizontal rumo à abertura e 10° de elevação.
-                    // FOV baixo preserva a leitura das medidas e revela as faces 3D.
-                    const target = new THREE.Vector3(DIST / 2, 305, -420);
-                    const cutYaw = THREE.MathUtils.degToRad(-15);
-                    const cutElevation = THREE.MathUtils.degToRad(10);
-                    const cutRadius = 2450;
-                    const cutCamera = new THREE.PerspectiveCamera(28, EW / EH, 1, 10000);
-                    cutCamera.position.set(
-                        target.x + cutRadius * Math.cos(cutElevation) * Math.cos(cutYaw),
-                        target.y + cutRadius * Math.sin(cutElevation),
-                        target.z + cutRadius * Math.cos(cutElevation) * Math.sin(cutYaw)
-                    );
-                    cutCamera.lookAt(target);
-                    cutCamera.updateProjectionMatrix();
-
-                    ren.setPixelRatio(1);
-                    ren.setSize(EW, EH, false);
                     ren.setClearColor(0x000000, 0);
-                    ren.render(scene, cutCamera);
-                    const a = document.createElement('a');
-                    a.href = cv.toDataURL('image/png');
-                    a.download = 'alpha_bin_vista_lateral_aberta_corte_4k.png';
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
+                    exportShot('lateral_with_four_bags', 0, 0.08, 2600); // primeira imagem SEM alterações
+                    setTimeout(() => {
+                        try {
+                            highlightIsometricInterior();
+                            exportShot('side_isometric_with_four_bags', -0.47, 0.17, 2650);
+                        } catch (err) {
+                            console.warn('Side isometric export:', err);
+                        } finally {
+                            restore(); // devolve imediatamente materiais, contornos e pose
+                        }
+                    }, 400);
                 } catch (err) {
-                    console.error('CAD 3D: erro ao exportar vista lateral aberta:', err);
-                    alert('Não foi possível exportar a vista lateral em corte: ' + err.message);
-                } finally {
-                    // Mesmo com erro no canvas/download, devolve os objetos e estados originais.
-                    dashedOutlines.forEach(([parent, obj]) => {
-                        parent.remove(obj);
-                        obj.geometry.dispose();
-                        obj.material.dispose();
-                    });
-                    originalMaterials.forEach(([obj, original, temporary]) => {
-                        obj.material = original;
-                        (Array.isArray(temporary) ? temporary : [temporary])
-                            .forEach(m => m.dispose());
-                    });
-                    originalLines.forEach(([obj, visible]) => { obj.visible = visible; });
-                    originalVisibility.forEach((visible, obj) => { obj.visible = visible; });
-                    saved.bags.forEach((state, i) => {
-                        const b = bags[i];
-                        b.root.visible = state.visible;
-                        if (b.env) b.env.visible = state.envelope;
-                        b.root.position.copy(state.position);
-                        b.root.quaternion.copy(state.rotation);
-                    });
-                    ren.setClearColor(saved.clear, saved.alpha);
-                    ren.setPixelRatio(saved.pr);
-                    ren.setSize(saved.size.x, saved.size.y, false);
-                    az = saved.az; el = saved.el; R = saved.R; T.copy(saved.target);
-                    updateDoor(saved.door);
-                    syncDoorUI();
-                    rs();
-                    exporting = false;
+                    console.warn('Side transparent export:', err);
+                    restore();
                 }
             };
 
