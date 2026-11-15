@@ -7011,6 +7011,9 @@ function xrayRun(ms) {
             const S = i => cadEase(Math.min(1, Math.max(0, (T - i) / 0.85)));
             // cota animada: k<6 -> etapa 4 (escalonadas); k==6 -> etapa 2 (diâmetro)
             const cadDim = (k, ctx, x1, y1, x2, y2, lbl, col, fs, off, e1, e2) => {
+                // A aba 5 tem cotas próprias do assento e das folgas até os bins;
+                // não reutilizar nela a profusão de cotas da prancha CAD 2D.
+                if (opts.minimalDims) return;
                 const p = k === 6 ? S(1) : cadEase(Math.min(1, Math.max(0, (T - 2 - k * 0.1) / 0.5)));
                 const fade = (k <= 4) ? 1 : dimFade;
                 if (p <= 0 || fade <= 0) return;
@@ -8584,14 +8587,20 @@ function xrayRun(ms) {
 
                 const cotaCor = isRightSide ? '#5952b2' : '#494e75';
                 const cotaTxt = `${clearance >= 0 ? '+' : ''}${fmtIn(clearance, 1)}`; 
-                drawDimensionLine(
-                    ctx,
-                    toX(px), toY(currentHeadTopY + 0.6),
-                    toX(px), toY(ceilingY - 0.6),
-                    cotaTxt, cotaCor, 11, {x: 24, y: 0},
-                    {x1: toX(px - 4), y1: toY(currentHeadTopY), x2: toX(px + 4), y2: toY(currentHeadTopY)},
-                    {x1: toX(px - 4), y1: toY(ceilingY), x2: toX(px + 4), y2: toY(ceilingY)}
-                );
+                // Somente a folga entre cabeça do passageiro e bin superior.
+                if (L.dims > 0 && L.pax > 0) {
+                    ctx.save();
+                    ctx.globalAlpha *= L.dims;
+                    drawDimensionLine(
+                        ctx,
+                        toX(px), toY(currentHeadTopY + 0.6),
+                        toX(px), toY(ceilingY - 0.6),
+                        cotaTxt, cotaCor, 11, {x: 24, y: 0},
+                        {x1: toX(px - 4), y1: toY(currentHeadTopY), x2: toX(px + 4), y2: toY(currentHeadTopY)},
+                        {x1: toX(px - 4), y1: toY(ceilingY), x2: toX(px + 4), y2: toY(ceilingY)}
+                    );
+                    ctx.restore();
+                }
 
 
                 ctx.restore();
@@ -8604,44 +8613,34 @@ function xrayRun(ms) {
             const clAisleAlpha = seatsOn ? drawEmbraerSeatAndDummy3D(48.5, hAisle, '1C (AIS)', false, true) : 0;
             const clWinAlpha = seatsOn ? drawEmbraerSeatAndDummy3D(99.5, hWin, '1D (WIN)', true, true) : 0;
 
-            // -------------------------------------------------------------
-            // COTAS ATUALIZADAS (TTL): Assento 16" e encosto a 20° (projeção por cosseno)
-            // (40.64cm = 16.0", 101.6cm = 40.0", 200cm = 78.7")
-            // -------------------------------------------------------------
-            if (L.dims > 0) {
-            ctx.save(); ctx.globalAlpha = L.dims;
-            const dimC = '#475569'; // Cor do texto das cotas 
+            // Apenas a altura do assento (16") e a chamada curta de reclinação.
+            // Cotas de cabine/fuselagem/encosto removidas da aba 5.
+            if (L.dims > 0 && L.seats > 0) {
+                ctx.save();
+                ctx.globalAlpha *= L.dims * L.seats;
+                const dimC='#7c8b9e';
+                drawDimensionLine(
+                    ctx,
+                    toX(138),toY(0),
+                    toX(138),toY(SEAT_PAN_CM),
+                    fmtIn(SEAT_PAN_CM,1),dimC,11,{x:20,y:0},
+                    {x1:toX(125),y1:toY(0),x2:toX(141),y2:toY(0)},
+                    {x1:toX(125),y1:toY(SEAT_PAN_CM),x2:toX(141),y2:toY(SEAT_PAN_CM)}
+                );
 
-            // 1. Cota da altura total do encosto (40" do piso)
-            drawDimensionLine(
-                ctx,
-                toX(-138), toY(0),
-                toX(-138), toY(backTopY),
-                fmtIn(backTopY, 1), dimC, 12, {x: -24, y: 0},
-                {x1: toX(-125), y1: toY(0), x2: toX(-142), y2: toY(0)},
-                {x1: toX(-125), y1: toY(backTopY), x2: toX(-142), y2: toY(backTopY)}
-            );
-
-            // 2. Cota do assento (Direita) — derivada de SEAT_PAN_IN, sem valor fixo
-            drawDimensionLine(
-                ctx,
-                toX(138), toY(0),
-                toX(138), toY(SEAT_PAN_CM),
-                fmtIn(SEAT_PAN_CM, 1), dimC, 12, {x: 22, y: 0},
-                {x1: toX(125), y1: toY(0), x2: toX(142), y2: toY(0)},
-                {x1: toX(125), y1: toY(SEAT_PAN_CM), x2: toX(142), y2: toY(SEAT_PAN_CM)}
-            );
-
-            // 3. Cota 78.7" (Esquerda Externa - Altura útil da cabine do piso ao teto)
-            drawDimensionLine(
-                ctx,
-                toX(-174), toY(0),
-                toX(-174), toY(200),
-                '78.7"', dimC, 12, {x: -24, y: 0},
-                {x1: toX(-126), y1: toY(0), x2: toX(-177), y2: toY(0)},
-                {x1: toX(0), y1: toY(200), x2: toX(-177), y2: toY(200)}
-            );
-            ctx.restore();
+                // Linha de chamada curta ancorada no início do encosto da
+                // primeira poltrona, sem acrescentar mais uma cota longa.
+                const seatStartX=-99.5-46/2+4.5;
+                const x0=toX(seatStartX),y0=toY(backTopY-10);
+                const x1=toX(seatStartX-14),y1=toY(backTopY+2);
+                ctx.strokeStyle=dimC;ctx.lineWidth=1.2;
+                ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+                ctx.beginPath();ctx.arc(x0,y0,2,0,Math.PI*2);ctx.fillStyle=dimC;ctx.fill();
+                ctx.font='600 11px "JetBrains Mono", monospace';
+                ctx.textAlign='left';ctx.textBaseline='bottom';
+                ctx.fillStyle=dimC;
+                ctx.fillText('seatback reclines 20°',x1-7,y1-4);
+                ctx.restore();
             }
 
             return { clWinEmb, clAisleEmb, clAisleAlpha, clWinAlpha };
@@ -8815,22 +8814,7 @@ function xrayRun(ms) {
                     hAisle: st, hWin: st, backAng: window.SEATED_STAT.backAng, map: m4,
                     layers: { seats, pax, dims: seats }
                 });
-                {   // cotas finais: corredor (20") no topo e diâmetro da fuselagem (108") abaixo do piso
-                    const { toX, toY } = m4(m.W, m.H);
-                    const a = inTourView() && !U.exporting ? ph(0.8, 0.5) : ph(TL.floor, 0.6);   // roteiro: 20" e 108" entram junto com as outras cotas, já no lugar final
-                    if (a > 0) {
-                        const RIN = 137.16, XL = 25.4, yAisle = FC + RIN + 13, yDiam = -11;
-                        ctx.save(); ctx.globalAlpha = a;
-                        drawDimensionLine(ctx, toX(-XL), toY(yAisle), toX(XL), toY(yAisle), '20"', '#475569', 13, { x: 0, y: -10 },
-                            { x1: toX(-XL), y1: toY(yAisle - 2), x2: toX(-XL), y2: toY(yAisle + 3) },
-                            { x1: toX(XL), y1: toY(yAisle - 2), x2: toX(XL), y2: toY(yAisle + 3) });
-                        ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(30, 41, 59, 0.55)'; ctx.lineWidth = 1.0;
-                        [-RIN, RIN].forEach(xe => { ctx.beginPath(); ctx.moveTo(toX(xe), toY(FC)); ctx.lineTo(toX(xe), toY(yDiam - 2)); ctx.stroke(); });
-                        ctx.setLineDash([]);
-                        drawDimensionLine(ctx, toX(-RIN), toY(yDiam), toX(RIN), toY(yDiam), '108"', '#1e293b', 14, { x: 0, y: 14 });
-                        ctx.restore();
-                    }
-                }
+                // Na aba 5 não exibimos as cotas gerais de corredor/fuselagem.
                 const i = phaseIdx();
                 ctx.save(); ctx.font = 'bold 13px "JetBrains Mono", monospace'; ctx.textAlign = 'left'; ctx.fillStyle = '#434697';
                 if (!U.exporting && !inTourView()) ctx.fillText(`PHASE ${i + 1}/4 — ${PH[i][0].toUpperCase()}`, 16, m.H - 14); ctx.restore();
@@ -8841,7 +8825,7 @@ function xrayRun(ms) {
                 const T1 = Math.min(4, U.t / UNI_CAD_SEC);
                 window.BIN_SOLID = true; window.BIN_DARK = true;   // paleta escura (#5b7b9e · #9ba9b5 · #bababa, poltronas #2f4a6b) também na tela
                 try {
-                    drawCADCanvas(U.g, { canvasId: 'uniCanvas', noBags: true, noLegend: inTourView(), finalDims: inTourView(), T: T1, map: m1, noGrid: true, dimFade: 1 - ph(TL.ring, 0.5), fade: U.fx || null, before, after });
+                    drawCADCanvas(U.g, { canvasId: 'uniCanvas', noBags: true, noLegend: inTourView(), finalDims: true, minimalDims: true, T: T1, map: m1, noGrid: true, dimFade: 1 - ph(TL.ring, 0.5), fade: U.fx || null, before, after });
                     if (U.focus > 0) {   // foco no passageiro da janela (ponta esquerda): o resto do desenho cai para ~18% de opacidade (a malha do quadro não muda)
                         const cvs = document.getElementById('uniCanvas'), box = cvs.parentElement, W = box.offsetWidth, H = box.offsetHeight;
                         const m = m4(W, H), g2 = cvs.getContext('2d'), dpr = cvs.width / Math.max(1, W);
@@ -8979,6 +8963,8 @@ function xrayRun(ms) {
                     T: T1,
                     map: m1,
                     noGrid: true,
+                    finalDims: true,
+                    minimalDims: true,
                     dimFade: 1 - ph(TL.ring, 0.5),
                     before,
                     after: (ctx, m) => {
@@ -9887,7 +9873,9 @@ function xrayRun(ms) {
                 const B={x0:815,y0:7790,x1:19865,y1:19120};
                 const s3=new THREE.Scene();
                 scene.children.filter(o=>o.isLight).forEach(l=>s3.add(l.clone()));
-                const camera=new THREE.PerspectiveCamera(15,1,10,25000);
+                // Câmera ortográfica: sem distorção de perspectiva, para que os
+                // 14" × 22" sejam tamanhos reais projetados no mesmo plano SVG.
+                const camera=new THREE.OrthographicCamera(-1,1,1,-1,10,25000);
                 const center=new THREE.Vector3(0,300,0);
                 let renderer=null;
                 // Mesmos materiais (referências exatas, não cores aproximadas)
@@ -9961,25 +9949,39 @@ function xrayRun(ms) {
                     }
                     const dpr=Math.min(window.devicePixelRatio||1,2),geo=structure(W,H,dpr);
                     renderer.setPixelRatio(dpr);renderer.setSize(W,H,false);
-                    camera.aspect=W/H;
+                    // Escala da LARGURA EXTERNA ATUAL (inalterada) do SVG de 56":
+                    // 56 in = B.x1-B.x0. Cada mala ocupa exatamente 14 in × 22 in,
+                    // medidos no invólucro completo do modelo (rodinhas inclusas).
+                    const svgWidth=B.x1-B.x0, inchSvg=svgWidth/56;
+                    const bagWidthSvg=14*inchSvg,bagHeightSvg=22*inchSvg;
                     const worldPerPixel=560/(8300*geo.sc);
-                    const distance=H*worldPerPixel/(2*Math.tan(camera.fov*Math.PI/360));
+                    camera.left=-W*worldPerPixel/2;
+                    camera.right=W*worldPerPixel/2;
+                    camera.top=H*worldPerPixel/2;
+                    camera.bottom=-H*worldPerPixel/2;
                     camera.up.set(0,0,1);
-                    camera.position.set(0,center.y+distance,0);
-                    camera.lookAt(center);camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
+                    camera.position.set(0,center.y+6000,0);
+                    camera.lookAt(center);
+                    camera.updateProjectionMatrix();
+                    camera.updateMatrixWorld(true);
                     const q0=new THREE.Vector3(0,center.y,0).project(camera);
                     const xs=new THREE.Vector3(1,center.y,0).project(camera).x>q0.x?1:-1;
                     const zs=new THREE.Vector3(0,center.y,1).project(camera).y>q0.y?1:-1;
-                    // Cavidade útil do SVG original: laterais inclinadas livres,
-                    // margem de respiro superior e apoio acima das duas travas.
-                    // As quatro malas permanecem dentro da cavidade útil do SVG:
-                    // acima das travas e afastadas das laterais inclinadas.
-                    const left=1870,right=18860,slot=(right-left)/4;
-                    const top=9360,bottom=17060,centerSvg=(top+bottom)/2;
+                    // Os centros são espaçados exatamente de 14" para perfazer 56".
+                    // Não há folga física para a espessura das paredes: esta cena
+                    // representa o arranjo nominal limite, sem encolher as malas.
+                    const centerSvgY=9340+bagHeightSvg/2;
+                    const bagWidthWorld=bagWidthSvg*geo.sc*worldPerPixel;
+                    const bagHeightWorld=bagHeightSvg*geo.sc*worldPerPixel;
                     caseModels.forEach((b,i)=>{
-                        const px=geo.p(left+(i+.5)*slot,centerSvg);
-                        b.position.set(xs*(px[0]-W/2)*worldPerPixel,center.y,zs*(H/2-px[1])*worldPerPixel);
-                        b.scale.set(slot*.86*geo.sc*worldPerPixel/346,(bottom-top)*.965*geo.sc*worldPerPixel/559,1);
+                        const xSvg=B.x0+(i+0.5)*bagWidthSvg;
+                        const px=geo.p(xSvg,centerSvgY);
+                        b.position.set(
+                            xs*(px[0]-W/2)*worldPerPixel,center.y,
+                            zs*(H/2-px[1])*worldPerPixel
+                        );
+                        // Envelope completo da mala Alpha: 356 × 559 (inclui rodas).
+                        b.scale.set(bagWidthWorld/356,bagHeightWorld/559,1);
                     });
                     renderer.render(s3,camera);
                     const c=ctxFor(dim,W,H,dpr);
