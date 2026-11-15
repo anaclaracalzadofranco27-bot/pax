@@ -10703,14 +10703,10 @@ function xrayRun(ms) {
                     ctx.translate(sx0 - 16 * kDet, yD + detGap - 200 * kDet);
                     ctx.scale(kDet, kDet);
 
-                    // Remove obsolete labels; reinstate the continuous orange highlight
-                    // across the gap between the ALPHA and CONVENTIONAL rows.
-                    ctx.clearRect(16, 380, 1422, 56);
-                    ctx.fillStyle = 'rgba(255,90,54,.16)';
-                    ctx.fillRect(1128, 380, 302, 56);
-                    ctx.strokeStyle = 'rgba(255,90,54,.6)';
-                    ctx.lineWidth = 1.5;
-                    ctx.beginPath(); ctx.moveTo(1128, 380); ctx.lineTo(1128, 436); ctx.stroke();
+                    // Clear only the obsolete left-hand dimension label. Keep the SVG's
+                    // original +4 bags outline, translucent orange area and dashed divider
+                    // at x = 1128 (the boundary between bags 16 and 17) untouched.
+                    ctx.clearRect(16, 380, 1110, 56);
 
                     // Dimension ends at the vertical dashed boundary preceding bags 17-20.
                     const xFirst = 25.5, xSixteen = 1128, yDim = 398;
@@ -10730,24 +10726,17 @@ function xrayRun(ms) {
                     ctx.strokeRect(mid - labelW / 2, yDim - 12, labelW, 24);
                     ctx.fillStyle = '#ff916e'; ctx.fillText(dimensionLabel, mid, yDim + .5);
 
-                    // Two-line orange capsule over the restored strip.
-                    const bx = 1172, by = 384, bw = 251, bh = 50;
-                    ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 21);
-                    ctx.fillStyle = 'rgba(34,12,38,.94)'; ctx.fill();
-                    ctx.strokeStyle = '#ff5a36'; ctx.lineWidth = 1.5; ctx.stroke();
-                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ff916e';
-                    ctx.font = mono(800, 19); ctx.fillText('+4 BAGS', bx + bw / 2, by + 17);
-                    ctx.font = mono(700, 13); ctx.fillText('+25%', bx + bw / 2, by + 36);
-
-                    // Small upper-right dimension for the 220" vs 224" endpoints.
-                    const xAlphaEnd = 1403, xConvEnd = 1429, yShort = 262;
+                    // 4" shorter ALPHA bin: bracket aligned with the original SVG's
+                    // ALPHA 220" endpoint and the CONVENTIONAL 224" endpoint.
+                    // Keep its label to the RIGHT of the bracket, clear of the line.
+                    const xAlphaEnd = 1407.3, xConvEnd = 1430, yShort = 268;
                     ctx.strokeStyle = '#ff5a36'; ctx.lineWidth = 2;
                     ctx.beginPath();
-                    ctx.moveTo(xAlphaEnd, yShort - 7); ctx.lineTo(xAlphaEnd, yShort + 7);
-                    ctx.moveTo(xConvEnd, yShort - 7); ctx.lineTo(xConvEnd, yShort + 7);
+                    ctx.moveTo(xAlphaEnd, yShort - 6); ctx.lineTo(xAlphaEnd, yShort + 6);
+                    ctx.moveTo(xConvEnd, yShort - 6); ctx.lineTo(xConvEnd, yShort + 6);
                     ctx.moveTo(xAlphaEnd, yShort); ctx.lineTo(xConvEnd, yShort); ctx.stroke();
-                    ctx.font = mono(700, 13); ctx.textBaseline = 'middle'; ctx.textAlign = 'right';
-                    ctx.fillStyle = '#ff916e'; ctx.fillText('-4"', xAlphaEnd - 8, yShort);
+                    ctx.font = mono(700, 13); ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+                    ctx.fillStyle = '#ff916e'; ctx.fillText('4"', xConvEnd + 10, yShort);
                     ctx.restore();
                 }
                 ctx.restore();
