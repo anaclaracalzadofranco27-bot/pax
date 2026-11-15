@@ -9311,6 +9311,7 @@ function xrayRun(ms) {
                     inner.add(m);solids.push(m);
                     const l=new THREE.LineSegments(new THREE.EdgesGeometry(geo,ang||30),bagEdgeMat);
                     l.position.copy(m.position);l.rotation.copy(m.rotation);inner.add(l);
+                    return m; // permite identificar as rodas sem alterar sua aparência normal
                 }
 
                 part(bagBodyGeo,mBody,0,0,0,0,35);
@@ -9329,7 +9330,11 @@ function xrayRun(ms) {
                     const px=sx*105,pz=sz*70;
                     part(new THREE.BoxGeometry(50,24,46),mPl,px,40,pz);
                     part(new THREE.CylinderGeometry(4,4,52,12),mMet,px,25,pz,Math.PI/2);
-                    [-1,1].forEach(w=>part(new THREE.CylinderGeometry(25,25,14,28),mBlk,px+w*14,25,pz,Math.PI/2));
+                    [-1,1].forEach(w=>{
+                        const wheel=part(new THREE.CylinderGeometry(25,25,14,28),mBlk,px+w*14,25,pz,Math.PI/2);
+                        wheel.userData.cadCutWheel=true; // duas rodas por conjunto, quatro conjuntos por mala
+                        wheel.userData.cadCutWheelOutline=(w===sx); // uma silhueta por conjunto, sem linhas duplicadas
+                    });
                 }));
 
                 let env = null;
@@ -10374,6 +10379,30 @@ function xrayRun(ms) {
                     cutSurface.forEach(o => { keepVisibility(o); o.visible = false; });
                     backDetails.forEach(o => { keepVisibility(o); o.visible = true; });
 
+                    // Parede lateral próxima (+X): somente a silhueta EXTERNA,
+                    // sem faces, furos, trilhos ou linhas de montagem internas.
+                    // A face plana sem furos faz o EdgesGeometry conservar apenas
+                    // o perímetro, suprimindo arestas coplanares da triangulação.
+                    const ghostFace = new THREE.ShapeGeometry(
+                        new THREE.Shape(SUBS[0].map(p => new THREE.Vector2(p[0], p[1])))
+                    );
+                    const ghostEdges = new THREE.EdgesGeometry(ghostFace, 40);
+                    ghostFace.dispose();
+                    ghostEdges.applyMatrix4(new THREE.Matrix4().set(
+                        0, 0, 1, 0,  0, 1, 0, 0,  -1, 0, 0, 0,  0, 0, 0, 1
+                    ));
+                    const ghostMaterial = new THREE.LineDashedMaterial({
+                        color: 0x64748b, dashSize: 6, gapSize: 4,
+                        transparent: true, opacity: 0.48,
+                        depthTest: true, depthWrite: false
+                    });
+                    const ghostWall = new THREE.LineSegments(ghostEdges, ghostMaterial);
+                    ghostWall.position.x = DIST;
+                    ghostWall.computeLineDistances();
+                    ghostWall.renderOrder = 59;
+                    group.add(ghostWall);
+                    dashedOutlines.push([group, ghostWall]); // removido e descartado no finally
+
                     bags.forEach((b, i) => {
                         // Vista lateral ortográfica: são 4 malas em 3D, mas somente
                         // 2 perfis distintos. Ocultar as cópias da fileira distante
@@ -10382,6 +10411,7 @@ function xrayRun(ms) {
                         b.root.visible = i % 2 === 1; // exemplares próximos da câmera (+X)
                         if (b.env) b.env.visible = false;
                         if (!b.root.visible) return;
+                        const wheelSilhouettes = [];
                         b.root.traverse(obj => {
                             if (obj.isMesh) {
                                 keepVisibility(obj);
@@ -10398,14 +10428,37 @@ function xrayRun(ms) {
                                     ? original.map(makeClear) : makeClear(original);
                                 originalMaterials.push([obj, original, translucent]);
                                 obj.material = translucent;
-                                // Corpo principal em 13% de opacidade; rodinhas, suportes,
-                                // nervuras, zíperes e alças ocultos APENAS na captura.
-                                // Todos os filhos são percorridos e têm estado restaurado.
-                                if (obj.geometry !== bagBodyGeo) obj.visible = false;
+                                // Corpo e rodinhas duplas em 13% de opacidade.
+                                // Suportes, nervuras e alças ficam ocultos só na captura.
+                                const isWheel = obj.userData.cadCutWheel === true;
+                                obj.visible = obj.geometry === bagBodyGeo || isWheel;
+                                if (isWheel && obj.userData.cadCutWheelOutline) {
+                                    wheelSilhouettes.push(obj); // um traço por conjunto de rodas
+                                }
                             } else if (obj.isLine) {
                                 originalLines.push([obj, obj.visible]);
-                                obj.visible = false; // sem contornos individuais nas rodas/alças
+                                obj.visible = false; // dispensa arestas internas originais
                             }
+                        });
+
+                        // Arestas dos quatro conjuntos de rodinhas: 40° suprime as
+                        // subdivisões radiais dos cilindros e mantém só a silhueta.
+                        // Criadas após traverse() para não serem ocultadas junto
+                        // com as linhas originais das malas.
+                        wheelSilhouettes.forEach(wheel => {
+                            const wheelEdges = new THREE.EdgesGeometry(wheel.geometry, 40);
+                            const wheelLines = new THREE.LineSegments(
+                                wheelEdges,
+                                new THREE.LineDashedMaterial({
+                                    color: 0x334155, dashSize: 4, gapSize: 3,
+                                    transparent: true, opacity: 0.43,
+                                    depthTest: true, depthWrite: false
+                                })
+                            );
+                            wheelLines.computeLineDistances();
+                            wheelLines.renderOrder = 61;
+                            wheel.add(wheelLines); // herda a pose de cada rodinha
+                            dashedOutlines.push([wheel, wheelLines]);
                         });
 
                         // Contorno IATA apenas nesta exportação: recuo de 1,75 mm em
