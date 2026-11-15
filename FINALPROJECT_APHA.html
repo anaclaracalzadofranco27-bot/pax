@@ -5548,10 +5548,7 @@ function xrayRun(ms) {
             </div>
 
             <div class="bg-cad-panel border border-cad-border rounded-xl overflow-hidden flex flex-col sim-card">
-                <div class="px-4 py-2.5 bg-cad-bg border-b border-cad-border flex flex-wrap items-center justify-between gap-2">
-                    <span class="text-xs font-mono font-semibold text-slate-700">BIOMECHANICAL CAD 2D VIEWPORT — PERCENTILE COMPARISON</span>
-                    <div id="manikin-joint-telemetry" class="flex items-center gap-3 text-[11px] font-mono text-slate-600"></div>
-                </div>
+                <div class="hidden" aria-hidden="true"></div>
                 <div class="relative w-full h-[560px] sm:h-[740px] sim-bg">
                     <canvas id="manikinCanvas" class="w-full h-full block"></canvas>
                 </div>
@@ -7662,8 +7659,7 @@ function xrayRun(ms) {
         }
 
         function runResultsSequence() {
-            // Fim da simulação (22,0 s): SEM cartões/overlay de comparação. A cena fica limpa e estável — manequim em postura neutra,
-            // gráfico de torque completo à direita e o BOARDING TIMER parado no total — e só então o roteiro encerra com fade suave.
+            // A postura final fica estável com o cronômetro congelado; o roteiro encerra após breve pausa.
             cancelResultsSequence();
             const id = manikinState.seq;
             const HOLD = 2500;                                // 2–3 s de cena final estabilizada
@@ -7681,7 +7677,7 @@ function xrayRun(ms) {
                 last = now;
                 if (currentTab !== 'sim' || !manikinState.animating) return;
                 const tCycle = Math.max(6, manikinState.cycleT || 20) * 0.55;   // percentil mais lento define o ciclo
-                manikinState.phase = Math.min(1.0, manikinState.phase + dt / tCycle);
+                manikinState.phase = Math.min(1.0, manikinState.phase + (dt * 1.45) / tCycle); // playback 1.45x; timer usa a mesma phase
                 const finished = manikinState.phase >= 1.0;
                 if (finished) manikinState.animating = false;
                 updateErgonomics();
@@ -7689,9 +7685,9 @@ function xrayRun(ms) {
             }, 40);
         }
 
-        // Três percentis comparados simultaneamente (mesma bagagem, mesmo bin, mesma sequência)
+        // P95 masculino (73,4 pol) já usado como referência antropométrica no projeto.
         const ERGO_PERCENTILES = [
-            { h: 59.8 * 2.54, title: 'Female', sub: 'P5' }   // pior caso: passageira de baixa estatura (59,8")
+            { h: 73.4 * 2.54, title: 'Male', sub: 'P95' }
         ];
 
         function ergoTimes(stature, mass, angleDeg) {
@@ -7753,7 +7749,7 @@ function xrayRun(ms) {
 
             const times = ERGO_PERCENTILES.map(p => ergoTimes(p.h, mass, angleDeg));
 
-            // Cards e exportação para o Embarque usam o percentil simulado (P5 Feminino)
+            // Cards e exportação para o Embarque usam o percentil P95 masculino da cena.
             const ref = times[0];
             const tEmb = ref.tEmb, tAlpha1 = ref.tA1, tAlpha2 = ref.tA2;
             const tAlphaAvg = (2 * tAlpha1 + 2 * tAlpha2) / 4.0;
@@ -8015,7 +8011,6 @@ function xrayRun(ms) {
             for (let yi = 0; yi <= 80 && !window.__mkExport; yi += 10) {   // grade a cada 10"
                 const y = yi * CM_PER_IN;
                 ctx.beginPath(); ctx.moveTo(padL, toY(y)); ctx.lineTo(mkTour ? padL + 12 : W - padR, toY(y)); ctx.stroke();
-                ctx.fillText(`${yi}"`, 6, toY(y) + 3);
             }
 
             // (piso removido)
@@ -8121,16 +8116,6 @@ function xrayRun(ms) {
             pdfPiece(ctx, 'neck', pdfMatSim(A.neckN, neckP, pose.neckTilt, KPX), PDFM.gray, OW);
             pdfPiece(ctx, 'head', pdfMatSim(A.neck, neckP, -pose.headPitch, KPX), PDFM.fill, OW);
 
-            // Linha de visão até a mala (oculta na exportação)
-            ctx.save(); if (window.__mkExport) ctx.globalAlpha = 0;
-            ctx.strokeStyle = '#5952b2';
-            ctx.setLineDash([3, 3]);
-            ctx.beginPath();
-            ctx.moveTo(toX(headX + 6), toY(headY + 1));
-            ctx.lineTo(toX(bagCx), toY(bagCy));
-            ctx.stroke();
-            ctx.restore();
-
             // Mala (rótulo sempre na horizontal, mesmo com a mala girando)
             drawRealisticSuitcase(
                 ctx,
@@ -8147,161 +8132,31 @@ function xrayRun(ms) {
             pdfArm(ctx, { sh: shP, el: Pp(elbowX, elbowY), hand: Pp(handX, handY),
                 grip: pose.bag.grip, kpx: KPX, ow: OW, fill: PDFM.fill, gray: PDFM.gray });
 
-            // Carga no ombro e braço de alavanca: CG da mala marcado e cota d traçada do CG até a articulação do ombro
+            // Cálculos biomecânicos preservados para resultados e exportações,
+            // sem cotas, CG, setas de forças, anéis ou legendas desenhadas sobre a cena.
             const LD = ergoLoad(seqMode, plan, pose, localPhase, Fg, Ft);
-            const loadShare = LD.ls, dMeters = LD.d, MO = LD.MO;
-            if (!window.__mkExport && !LD.rest) {                // repouso: sem cota d (a mala solta não carrega mais o ombro)
-                const sx = toX(shoulderX), sy = toY(shoulderY), gx = toX(bagCx), gy = toY(bagCy);
-                const a = Math.min(1, loadShare * 2.5);
-                rawCanvasColors(() => {
-                    ctx.save(); ctx.globalAlpha = a;
-                    // ligação ombro → CG (alavanca) e projeções
-                    ctx.strokeStyle = 'rgba(212, 220, 230, 0.75)'; ctx.lineWidth = 1.6; ctx.setLineDash([6, 4]);
-                    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(gx, gy); ctx.stroke();
-                    ctx.strokeStyle = 'rgba(212, 220, 230, 0.45)'; ctx.lineWidth = 1.2; ctx.setLineDash([3, 4]);
-                    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx, gy); ctx.stroke();
-                    ctx.setLineDash([]);
-                    // cota d (horizontal, na altura do CG): é a distância que multiplica a força
-                    const yd = gy;   // na altura do CG
-                    ctx.strokeStyle = '#ffd166'; ctx.fillStyle = '#ffd166'; ctx.lineWidth = 2.2;
-                    ctx.beginPath(); ctx.moveTo(sx, yd); ctx.lineTo(gx, yd); ctx.stroke();
-                    const dir = gx >= sx ? 1 : -1;
-                    [[sx, dir], [gx, -dir]].forEach(([ax, dd]) => { ctx.beginPath(); ctx.moveTo(ax, yd); ctx.lineTo(ax + 9 * dd, yd - 4.5); ctx.lineTo(ax + 9 * dd, yd + 4.5); ctx.closePath(); ctx.fill(); });
-                    // marcador de CG (círculo com quadrantes)
-                    const r = 8;
-                    ctx.beginPath(); ctx.arc(gx, gy, r, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
-                    ctx.fillStyle = '#0b1530';
-                    [[0, Math.PI / 2], [Math.PI, Math.PI * 1.5]].forEach(([a0, a1]) => { ctx.beginPath(); ctx.moveTo(gx, gy); ctx.arc(gx, gy, r, a0, a1); ctx.closePath(); ctx.fill(); });
-                    ctx.beginPath(); ctx.arc(gx, gy, r, 0, Math.PI * 2); ctx.strokeStyle = '#0b1530'; ctx.lineWidth = 1.5; ctx.stroke();
-                    ctx.font = '700 13px "JetBrains Mono", monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-                    ctx.lineJoin = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0, 2, 35, 0.95)';
-                    ctx.strokeText('CG', gx + r + 5, gy + r + 8); ctx.fillStyle = '#ffffff'; ctx.fillText('CG', gx + r + 5, gy + r + 8);
-                    // valor de d sobre a cota
-                    const txt = `d = ${(dMeters * 100 / CM_PER_IN).toFixed(1)} in`;
-                    ctx.font = '800 16px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
-                    const tw = ctx.measureText(txt).width, mx = Math.max(gx, sx) + tw / 2 + 22, my = yd - 22;   // à frente do CG e acima da cota (longe da cabeça e do braço)
-                    ctx.fillStyle = 'rgba(0, 2, 35, 0.62)'; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(mx - tw / 2 - 8, my - 13, tw + 16, 26, 5); else ctx.rect(mx - tw / 2 - 8, my - 13, tw + 16, 26); ctx.fill();
-                    ctx.fillStyle = '#ffd166'; ctx.fillText(txt, mx, my);
-                    ctx.restore();
-                });
-            }
-
-
-            // ---------------------------------------------------------------------
-            // Esforço no ombro (estilo PDF)            // ---------------------------------------------------------------------
-            // Esforço no ombro (estilo PDF): anel colorido no ombro + seta em bloco
-            //   vermelho = elevação (peso sustentado pelas mãos, seta para baixo)
-            //   laranja  = esforço neutro (alinhar / liberar a mala, sem seta)
-            //   verde    = empurrar a mala para dentro do bin (seta no sentido do movimento)
-            // ---------------------------------------------------------------------
+            const dMeters = LD.d, MO = LD.MO;
             const finished = phase >= 0.999;
-            const stName = LD.st, isPush = LD.isPush, isLift = LD.isLift, atRest = LD.rest || finished;
-            const NEUTRAL = '#4ade80';                                          // repouso / postura neutra: ombro verde, sem alerta
-            const col = atRest ? NEUTRAL : isPush ? PDFM.green : (isLift ? PDFM.red : PDFM.orange);
+            const atRest = LD.rest || finished;
             const FshN = LD.F, lbf = LD.lbf;
-            pdfRing(ctx, toX(shoulderX), toY(shoulderY), KPX, col);   // anel do ombro também nos PNGs exportados
-
-            let arrowInfo = null;
-            if (!window.__mkExport && !atRest && localPhase < plan.tPlace && FshN > 0.5 && (isPush || isLift) && !(seqMode === 'alpha1' && isPush)) {   // sem seta verde ao posicionar a última mala (Bag 1)
-                const lenCm = Math.max(18, Math.min(28, 8 + 1.7 * lbf));
-                let dX = 0, dY = -1, tx, ty;
-                const surf = (ddx, ddy) => ergoBagSurfacePoint(bagCx, bagCy, plan.w, plan.h, pose.bag.a, ddx, ddy);
-                if (isPush) {
-                    const k0 = ergoSampleKeys(plan.keys, Math.max(0, localPhase - 0.02)), k1 = ergoSampleKeys(plan.keys, Math.min(1, localPhase + 0.02));
-                    dX = k1[0] - k0[0]; dY = k1[1] - k0[1];
-                    const dl = Math.hypot(dX, dY); if (dl < 0.05) { dX = 1; dY = 0; } else { dX /= dl; dY /= dl; }
-                    const sX = dY, sY = -dX;                              // lado de baixo em relação ao movimento
-                    const sp = surf(sX, sY);
-                    tx = sp[0] + sX * 6.0 - dX * lenCm * 0.10; ty = sp[1] + sY * 6.0 - dY * lenCm * 0.10;
-                } else {
-                    const sp = surf(0, -1);
-                    tx = sp[0]; ty = sp[1] + 3.0;                         // cauda dentro da mala, ponta para baixo
-                }
-                ctx.save();
-                ctx.globalAlpha = Math.min(1, loadShare * 2.5);
-                pdfArrow(ctx, toX, toY, scale, tx, ty, dX, dY, lenCm, col);
-                arrowInfo = { tx, ty, dX, dY, lenCm };
-                ctx.restore();
-            }
-
 
             // ---------------------------------------------------------------------
-            // Legendas por etapa (Step 1 / 2 / 3), no estilo da figura de referência.
-            // Etapa segue a cor do alvo do ombro: vermelho = 1, laranja = 2, verde = 3.
-            // ---------------------------------------------------------------------
-            if (!window.__mkExport) {
-                const step = isLift ? 1 : (isPush ? 3 : 2);
-                const fs = window.__mkExport ? 18 : Math.max(10, Math.min(13, W / 32)) * 1.4;   // +40% de legibilidade
-                const ink = window.__mkExport ? '#ffffff' : '#0f172a', lead = window.__mkExport ? '#e2e8f0' : '#334155';
-                const runW = (r) => { ctx.font = `${r.b ? '700' : '400'} ${r.sub ? fs * 0.72 : fs}px "Inter", sans-serif`; return ctx.measureText(r.t).width; };
-                // lines = lista de linhas, cada linha = lista de trechos {t, b (negrito), sub (subscrito)}.
-                // x = âncora conforme 'al' (left | right | center); y = topo do bloco. Devolve a caixa ocupada.
-                const cap = (lines, x, y, al, color) => {   // color: cor exata do texto (fora do remapeamento da paleta escura)
-                    const lh = fs * 1.3;
-                    const ws = lines.map(l => l.reduce((s, r) => s + runW(r), 0));
-                    const w = Math.max(...ws);
-                    let x0 = al === 'right' ? x - w : (al === 'center' ? x - w / 2 : x);
-                    x0 = Math.max(4, Math.min(W - 4 - w, x0));
-                    ctx.save();
-                    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round';
-                    if (!window.__mkExport) rawCanvasColors(() => {   // fundo semitransparente atrás do bloco de texto
-                        ctx.fillStyle = 'rgba(0, 2, 35, 0.55)'; ctx.beginPath();
-                        const bx = x0 - 6, by0 = y - 3, bw = w + 12, bh = fs + (lines.length - 1) * lh + fs * 0.35 + 6;
-                        if (ctx.roundRect) ctx.roundRect(bx, by0, bw, bh, 4); else ctx.rect(bx, by0, bw, bh);
-                        ctx.fill();
-                    });
-                    lines.forEach((l, i) => {
-                        let cx = x0 + (al === 'right' ? w - ws[i] : (al === 'center' ? (w - ws[i]) / 2 : 0));
-                        const by = y + fs + i * lh;
-                        l.forEach(r => {
-                            const rw = runW(r);
-                            const yy = r.sub ? by + fs * 0.28 : by;
-                            if (!window.__mkExport) rawCanvasColors(() => { ctx.strokeStyle = 'rgba(0, 2, 35, 0.95)'; ctx.lineWidth = 4.8; ctx.strokeText(r.t, cx, yy); });   // contorno escuro
-                            if (color) rawCanvasColors(() => { ctx.fillStyle = color; ctx.fillText(r.t, cx, yy); });
-                            else { ctx.fillStyle = ink; ctx.fillText(r.t, cx, yy); }
-                            cx += rw;
-                        });
-                    });
-                    ctx.restore();
-                    return { x0, y0: y, x1: x0 + w, y1: y + fs + (lines.length - 1) * lh + fs * 0.35, w };
-                };
-                // linha-guia fina até o ponto de interesse (r0 = recuo para parar na borda do anel; dot = ponto na ponta)
-                const leader = (x0, y0, x1, y1, r0, dot) => {
-                    const dx = x1 - x0, dy = y1 - y0, d = Math.hypot(dx, dy) || 1;
-                    const ex = x1 - dx / d * (r0 || 0), ey = y1 - dy / d * (r0 || 0);
-                    ctx.save(); ctx.strokeStyle = lead; ctx.fillStyle = lead; ctx.lineWidth = 1.1; ctx.lineCap = 'round';
-                    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(ex, ey); ctx.stroke();
-                    if (dot) { ctx.beginPath(); ctx.arc(ex, ey, 2.4, 0, Math.PI * 2); ctx.fill(); }
-                    ctx.restore();
-                };
-
-                // Título da etapa
-                // Repouso/retorno (mala solta, braços abaixados, torque < 0,5 N·m) e fim da simulação: fase concluída, em verde
-                if (atRest) cap([[{ t: 'PHASE COMPLETE: NEUTRAL POSTURE', b: 1 }]], 8, 66, 'left', NEUTRAL);
-                else {
-                    const STEP_T = [['STEP 1: INITIAL LIFT', '(Active Lifting)'], ['STEP 2: EDGE SUPPORT', '(Transition)'], ['STEP 3: DEEP SLIDE', '(Insertion)']][step - 1];
-                    cap([[{ t: STEP_T[0] + ' ', b: 1 }, { t: STEP_T[1] }]], 8, 66, 'left');
-                }
-
-            }
-
-            // ---------------------------------------------------------------------
-            // Cabeçalho do painel: título grande e sublinhado (impacto visual)
+                        // Cabeçalho do painel: título grande e sublinhado (impacto visual)
             // ---------------------------------------------------------------------
             const stageShown = finished ? 'Done ✓' : stageName;
             if (window.__mkExport) return { dMeters, MO, F: FshN, lbf, heelLift, reachable: pose.reachable, stage: stageShown, tTotal: tBack + tFront, rest: atRest };   // exportação limpa: sem cabeçalho
             ctx.save();
             ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-            const maxTitleW = W - 16 - 150;                   // reserva espaço p/ a caixa de tempo à direita
+            const timerW = Math.min(212, Math.max(166, W * 0.30));
+            const maxTitleW = Math.max(90, W - timerW - 36); // evita sobreposição com o cronômetro
             let tSize = 22;
             ctx.font = `800 ${tSize}px "Inter", sans-serif`;
             while (tSize > 12 && ctx.measureText(title).width > maxTitleW) { tSize -= 1; ctx.font = `800 ${tSize}px "Inter", sans-serif`; }
             const tW = ctx.measureText(title).width;
-            ctx.fillStyle = '#2a1dc2';
+            ctx.fillStyle = '#e2e8f0';
             ctx.fillText(title, 8, 26);
-            ctx.fillRect(8, 31, tW, 3.5);                     // sublinhado
-            ctx.fillStyle = '#475569'; ctx.font = '700 13px "JetBrains Mono", monospace';
-            ctx.fillText(`Stature ${fmtIn(stature, 1)} · worst case`, 8, 50);
+            ctx.fillStyle = '#5b7b9e';
+            ctx.fillRect(8, 31, tW, 2.5);
             ctx.restore();
 
             return { dMeters, MO, F: FshN, lbf, heelLift, reachable: pose.reachable, stage: stageShown, tTotal: tBack + tFront, rest: atRest };
@@ -8333,7 +8188,7 @@ function xrayRun(ms) {
                 ctx.save();
                 ctx.beginPath(); ctx.rect(i * panelW, 0, panelW, H); ctx.clip();
                 ctx.translate(i * panelW, 0);
-                const st = drawManikinPanel(ctx, panelW, H, p.h, mass, angleDeg, Fg, Fn, Ft, localPhase, t.tA2, t.tA1, `${p.sub} ${p.title}`);
+                const st = drawManikinPanel(ctx, panelW, H, p.h, mass, angleDeg, Fg, Fn, Ft, localPhase, t.tA2, t.tA1, '95th Percentile');
                 ctx.restore();
                 return st;
             });
@@ -8345,65 +8200,32 @@ function xrayRun(ms) {
             }
             ctx.restore();
 
-            document.getElementById('manikin-joint-telemetry').innerHTML = '';
-
-            const fastest = Math.min(...stats.map(s => s.tTotal));
-            
+            // HUD minimalista: contador usa a mesma fase que governa os keyframes do manequim.
             stats.forEach((s, i) => {
                 ctx.save();
                 ctx.translate(i * panelW, 0);
-                
-                const T = s.tTotal, el = Math.min(T, phase * T);              // tempo simulado decorrido (cronômetro)
-                const curve = ergoTorqueCurve(ERGO_PERCENTILES[i].h, Fg, Ft, times[i].tA2, times[i].tA1);
+                const T = s.tTotal;
+                const elapsed = Math.min(T, phase * T);
                 rawCanvasColors(() => {
-                    const box = (x, y, w, h) => {                                // caixa escura semitransparente (≈35%)
-                        ctx.fillStyle = 'rgba(0, 2, 35, 0.38)'; ctx.strokeStyle = 'rgba(155, 169, 181, 0.45)'; ctx.lineWidth = 1.2;
-                        ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, 8); else ctx.rect(x, y, w, h); ctx.fill(); ctx.stroke();
-                    };
-                    const lab = (t, x, y, al) => { ctx.font = '700 12px "JetBrains Mono", monospace'; ctx.fillStyle = '#9ba9b5'; ctx.textAlign = al || 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(t, x, y); };
-                    const val = (t, x, y, sz, col, al) => { ctx.font = `800 ${sz}px "JetBrains Mono", monospace`; ctx.fillStyle = col || '#ffffff'; ctx.textAlign = al || 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(t, x, y); };
-
-                    // ---- cronômetro (canto superior direito), corre desde o início ----
-                    const tw = 236, th = 82, tx = panelW - tw - 20, ty = 10;
-                    box(tx, ty, tw, th);
-                    lab('BOARDING TIMER · 2 BAGS', tx + 14, ty + 22);
-                    val(`${el.toFixed(1)} s`, tx + 14, ty + 64, 38, '#ffffff');
-                    lab(`/ ${T.toFixed(1)} s`, tx + tw - 14, ty + 64, 'right');
-
-                    // ---- gráfico: torque no ombro (N·m) em tempo real ----
-                    const cw = Math.min(380, panelW * 0.27), ch = 230, cx0 = panelW - cw - 20, cy0 = ty + th + 18;
-                    box(cx0, cy0, cw, ch);
-                    lab('SHOULDER TORQUE (N·m)', cx0 + 14, cy0 + 22);
-                    const px0 = cx0 + 44, px1 = cx0 + cw - 14, py0 = cy0 + 40, py1 = cy0 + ch - 34;
-                    const yMax = Math.max(20, Math.ceil(curve.peakC * 1.15 / 10) * 10);
-                    const X = tt => px0 + (px1 - px0) * tt / curve.T, Y = v => py1 - (py1 - py0) * v / yMax;
-                    ctx.strokeStyle = 'rgba(155, 169, 181, 0.25)'; ctx.lineWidth = 1;
-                    ctx.font = '600 11px "JetBrains Mono", monospace'; ctx.fillStyle = '#9ba9b5'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-                    for (let v = 0; v <= yMax; v += yMax / 4) { ctx.beginPath(); ctx.moveTo(px0, Y(v)); ctx.lineTo(px1, Y(v)); ctx.stroke(); ctx.fillText(v.toFixed(0), px0 - 6, Y(v)); }
-                    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-                    ctx.fillText('0 s', px0, py1 + 6); ctx.fillText(`${T.toFixed(0)} s`, px1, py1 + 6);
-                    const upto = curve.pts.filter(p => p[0] <= el + 1e-6);
-                    const line = (k, col, dash, w) => { if (upto.length < 2) return; ctx.strokeStyle = col; ctx.lineWidth = w; ctx.setLineDash(dash); ctx.beginPath(); upto.forEach((p, j) => j ? ctx.lineTo(X(p[0]), Y(p[k])) : ctx.moveTo(X(p[0]), Y(p[k]))); ctx.stroke(); ctx.setLineDash([]); };
-                    line(2, 'rgba(242, 140, 30, 0.85)', [6, 4], 2);                 // convencional (estimativa)
-                    line(1, '#3bb54a', [], 3);                                      // Alpha
-                    if (upto.length) { const p = upto[upto.length - 1]; ctx.fillStyle = '#3bb54a'; ctx.beginPath(); ctx.arc(X(p[0]), Y(p[1]), 4.5, 0, Math.PI * 2); ctx.fill(); }
-                    ctx.font = '700 11px "JetBrains Mono", monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-                    const lgY = cy0 + ch - 12;
-                    ctx.strokeStyle = '#3bb54a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx0 + 14, lgY); ctx.lineTo(cx0 + 32, lgY); ctx.stroke();
-                    ctx.fillStyle = '#d4dce6'; ctx.fillText('Alpha', cx0 + 38, lgY);
-                    ctx.strokeStyle = 'rgba(242, 140, 30, 0.85)'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(cx0 + 96, lgY); ctx.lineTo(cx0 + 114, lgY); ctx.stroke(); ctx.setLineDash([]);
-                    ctx.fillText('Conventional (est.)', cx0 + 120, lgY);
-
-                    // ---- painel inferior: valores grandes e em negrito, unidades N / lbf do início ao fim ----
-                    const bw = 330, bh = 118, bx = panelW - bw - 20, by = H - bh - 20;
-                    box(bx, by, bw, bh);
-                    const row = (k, l, v, col) => { const yy = by + 34 + k * 32; lab(l, bx + 14, yy); val(v, bx + bw - 14, yy + 1, 19, col, 'right'); };
-                    // repouso (mala já solta / postura neutra): braço de alavanca zerado, sem carga no ombro, pé plano
-                    row(0, 'LEVER ARM d', s.rest ? '0.0 in' : `${(s.dMeters * 100 / CM_PER_IN).toFixed(1)} in`, s.rest ? '#4ade80' : '#ffd166');
-                    row(1, 'SHOULDER TORQUE', `${(s.rest ? 0 : s.MO).toFixed(1)} N·m`, '#3bb54a');
-                    row(2, 'FOOT POSTURE', !s.rest && s.heelLift > 0.5 ? `Tiptoe +${fmtIn(s.heelLift, 1)}` : 'Flat foot', '#d4dce6');
+                    const w = Math.min(212, Math.max(166, panelW * 0.30));
+                    const h = 80, x = Math.max(10, panelW - w - 18), y = 10;
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(0, 2, 35, 0.40)';
+                    ctx.strokeStyle = 'rgba(155, 169, 181, 0.45)';
+                    ctx.lineWidth = 1.2;
+                    ctx.beginPath();
+                    if (ctx.roundRect) ctx.roundRect(x, y, w, h, 8);
+                    else ctx.rect(x, y, w, h);
+                    ctx.fill(); ctx.stroke();
+                    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+                    ctx.fillStyle = '#9ba9b5';
+                    ctx.font = '700 12px "JetBrains Mono", monospace';
+                    ctx.fillText('BOARDING TIME', x + 14, y + 22);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = `800 ${w < 186 ? 29 : 36}px "JetBrains Mono", monospace`;
+                    ctx.fillText(`${elapsed.toFixed(1)} s`, x + 14, y + 62);
+                    ctx.restore();
                 });
-
                 ctx.restore();
             });
         }
