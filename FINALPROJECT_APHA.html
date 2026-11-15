@@ -7486,7 +7486,7 @@ function xrayRun(ms) {
             const headR = 0.068 * H, margin = 2.5;
             const sepY = Math.abs(by - headY);
             const criticalY = headR + halfBH + margin;
-            const avoidance = smooth((criticalY + 13.0 - sepY) / 13.0);
+            const avoidance = smooth((criticalY + 7.0 - sepY) / 7.0);
             const safeX = headX + headR + halfBW + margin;
             bx += Math.max(0, safeX - bx) * avoidance;
 
