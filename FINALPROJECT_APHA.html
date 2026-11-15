@@ -7558,6 +7558,22 @@ function alphaTransformPoint(fx, fy, thetaDeg) {
             };
         }
 
+        // Geometria CAD única do ALPHA: os pontos do piso são extraídos do
+        // mesmo contorno usado pela aba 5, sem reconstituir um bin aproximado.
+        window.getUniAlphaGeometry = () => {
+            state.alphaMode = 'floor';
+            state.alphaTargetY = 148.70;
+            const alpha = computeRightAlphaLocked();
+            const floorPts = ALPHA_OUTLINE
+                .filter(p => p[0] >= 1354 && p[0] <= 19007 && p[1] >= 18690)
+                .map(p => {
+                    const q = alphaTransformPoint(p[0], p[1], alpha.thetaDeg);
+                    return { x: q.x, y: -q.ys };
+                })
+                .sort((a, b) => a.x - b.x);
+            return { ...alpha, floorPts };
+        };
+
         function buildStaticLeftBinPath(g) {
             return [
                 `M ${g.wallFix.x.toFixed(2)} ${(-g.wallFix.y).toFixed(2)}`,
@@ -7640,10 +7656,12 @@ function paintPath(ctx, d, fill, stroke, lw, evenodd) {
     if (fill) { ctx.fillStyle = fill; ctx.fill(p, evenodd ? 'evenodd' : 'nonzero'); }
     if (stroke && lw) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(p); }
 }
-function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha) {
+function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
     const cabin = window.cabinSectionReference;
     if (!cabin) return;
-    const map = cabin.map(W, H), u = clamp(Number(window.__uniRefDoorProgress) || 0);
+    // A aba 6 move a porta independentemente, sem alterar a aba 5.
+    const map = cabin.map(W, H);
+    const u = clamp(Number(overrideDoorU == null ? window.__uniRefDoorProgress : overrideDoorU) || 0);
     state.leftBaseY = 138.50;
     state.alphaMode = 'floor';
     state.alphaTargetY = 148.70;
@@ -7704,6 +7722,7 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha) {
         ctx.restore();
     }
     ctx.restore();
+    if (overrideDoorU != null) return; // aba 6 não atualiza os indicadores da aba 5
     // Heights come from the closed door and the exact 1:10 source geometry.
     const highConv = initialConv.doorClosed.tip.y, lowConv = initialConv.wallFix.y;
     const highAlpha = alpha.floorHighY, lowAlpha = alpha.baseY;
@@ -8065,9 +8084,21 @@ window.drawUniReferenceBins = drawReferenceBins;
         }
 
 
-        // Mesmo piso usado por traceBinAlphaProfile: trecho horizontal e
-        // rampa de 17° da geometria original, sem alterar o renderer.
+        // Perfil de apoio da mala: interpola a linha real do contorno CAD
+        // do ALPHA na aba 5 (inclusive a transição curva e o fundo plano).
         function ergoBinFloorAt(prof, x) {
+            if (prof.floorPts && prof.floorPts.length > 1) {
+                const pts = prof.floorPts;
+                if (x <= pts[0].x) return pts[0].y;
+                if (x >= pts[pts.length - 1].x) return pts[pts.length - 1].y;
+                for (let i = 1; i < pts.length; i++) {
+                    if (x <= pts[i].x) {
+                        const d = pts[i].x - pts[i-1].x;
+                        const t = d > 1e-9 ? (x - pts[i-1].x) / d : 0;
+                        return pts[i-1].y + t * (pts[i].y - pts[i-1].y);
+                    }
+                }
+            }
             return x <= prof.xFlatEnd ? prof.y0 :
                 prof.y0 + (x - prof.xFlatEnd) *
                 (prof.yRampEnd - prof.y0) / (prof.xRampEnd - prof.xFlatEnd);
@@ -8088,12 +8119,47 @@ window.drawUniReferenceBins = drawReferenceBins;
             corners.forEach(([ax,ay],i) => {
                 const [bx,by] = corners[(i+1)%4];
                 if (Math.abs(bx-ax)<1e-8) return;
-                for (const edge of [prof.x0,prof.xFlatEnd,prof.xRampEnd]) {
+                const floorEdges = prof.floorPts
+                    ? prof.floorPts.map(p => p.x)
+                    : [prof.x0, prof.xFlatEnd, prof.xRampEnd];
+                for (const edge of floorEdges) {
                     const t=(edge-cx-ax)/(bx-ax);
                     if (t>=0 && t<=1) check(ax+t*(bx-ax),ay+t*(by-ay));
                 }
             });
             return (required.length ? Math.max(...required) : prof.y0+h/2)+gap;
+        }
+
+        // Adaptador cinemático da aba 6 para o CAD da aba 5. Não desenha
+        // uma segunda geometria: apenas calcula apoios e centros das malas.
+        function ergoCADAlphaProfile(cad) {
+            const pts = cad.floorPts;
+            if (!pts || pts.length < 2) return null;
+            let bend = Math.floor(pts.length / 2);
+            for (let i = 1; i < pts.length; i++) {
+                const dx = pts[i].x - pts[i-1].x;
+                if (dx > 1e-8 && (pts[i-1].y - pts[i].y) / dx > 0.17) {
+                    bend = i-1;
+                    break;
+                }
+            }
+            const x0 = pts[0].x, y0 = pts[0].y;
+            const prof = {
+                x0, y0, xFlatEnd: pts[bend].x, yFlatEnd: pts[bend].y,
+                xRampEnd: pts[pts.length-1].x,
+                yRampEnd: pts[pts.length-1].y,
+                floorPts: pts, rad17: 17 * Math.PI / 180,
+                m1W: 23.2, m1H: 34.8, m2W: 33.2, m2H: 22.8
+            };
+            prof.m1Cx = x0 + 1.8 + prof.m1W / 2;
+            prof.m1Cy = ergoBagSupportY(prof, prof.m1Cx, prof.m1W, prof.m1H, 0, 1.2);
+            // A mala deitada permanece após a quebra do piso, dentro da
+            // cavidade CAD e com folga lateral da mala vertical.
+            const halfW = (prof.m2W * Math.cos(prof.rad17) +
+                           prof.m2H * Math.sin(prof.rad17)) / 2;
+            prof.m2Cx = Math.min(prof.xFlatEnd + 23.0, prof.xRampEnd - halfW - 2.0);
+            prof.m2Cy = ergoBagSupportY(prof, prof.m2Cx, prof.m2W, prof.m2H, 17, 1.2);
+            return prof;
         }
 
         // Timeline em duas etapas: a primeira mala (alpha2) entra no fundo e a
@@ -8778,7 +8844,11 @@ window.drawUniReferenceBins = drawReferenceBins;
         function ergoTorqueCurve(H, Fg, Ft, tBack, tFront) {
             const key = [H, Fg, Ft, tBack, tFront].join('|');
             if (ergoCurveCache && ergoCurveCache.key === key) return ergoCurveCache;
-            const prof = traceBinAlphaProfile(document.createElement('canvas').getContext('2d'), x => x, y => y, 23.6, 150.0, 1, 1.0, 135.0, 65.0, true);
+            const cad = typeof window.getUniAlphaGeometry === 'function'
+                ? window.getUniAlphaGeometry() : null;
+            const prof = cad ? ergoCADAlphaProfile(cad)
+                : traceBinAlphaProfile(document.createElement('canvas').getContext('2d'),
+                    x => x, y => y, 23.6, 150.0, 1, 1.0, 135.0, 65.0, true);
             const T = tBack + tFront, fb = tBack / T, N = 360, pts = [];
             let pa = 0, pc = 0;
             for (let i = 0; i <= N; i++) {
@@ -8859,10 +8929,20 @@ window.drawUniReferenceBins = drawReferenceBins;
                 });
             }
 
-            // Exatamente a mesma posição, profundidade e curvatura da seção ALPHA
-            // da Aba 5. Sem fundo plano especial, sem ajustes visuais de escala.
-            const prof = traceBinAlphaProfile(ctx, toX, toY,
-                aisle, binFloor, 1, 1.0, R, centerY, false);
+            // O desenho e a porta rolante são exatamente os mesmos da aba 5.
+            // A cinemática lê a linha de apoio desse CAD, sem redesenhar o bin
+            // antigo sobre o novo. Porta aberta durante a estiva e fechada no fim.
+            const cad = typeof window.getUniAlphaGeometry === 'function'
+                ? window.getUniAlphaGeometry() : null;
+            const exactCAD = cad && typeof window.drawUniReferenceBins === 'function';
+            const prof = exactCAD ? ergoCADAlphaProfile(cad)
+                : traceBinAlphaProfile(ctx, toX, toY,
+                    aisle, binFloor, 1, 1.0, R, centerY, false);
+            if (exactCAD) {
+                const doorU = ergoSmooth(phase / 0.10) *
+                    (1 - ergoSmooth((phase - 0.96) / 0.04));
+                window.drawUniReferenceBins(ctx, W, H, 0, 1, doorU);
+            }
             const fracBack = tBack / (tBack + tFront);
             const inBackPhase = phase < fracBack;
             const mode = inBackPhase ? 'alpha2' : 'alpha1';
