@@ -10696,51 +10696,58 @@ function xrayRun(ms) {
                 if (DET.ok) {
                     ctx.drawImage(rasterOf(DET, stripW, detImgH), sx0, yD + detGap, stripW, detImgH);
 
-                    // As legendas antigas do SVG de origem são curvas vetoriais embutidas.
-                    // Substitui apenas a faixa de anotação (sem tocar nas malas/linhas 220" e 224").
-                    // Coordenadas nativas do detalhe: viewBox="16 200 1422 467".
+
+                    // Section S comparison, in the original SVG coordinates (viewBox 16 200 1422 467).
                     const kDet = stripW / DET_VB[0];
                     ctx.save();
                     ctx.translate(sx0 - 16 * kDet, yD + detGap - 200 * kDet);
                     ctx.scale(kDet, kDet);
-                    ctx.clearRect(16, 380, 1422, 56); // antiga cota 16 bags = 176" e selo +4 bags
 
-                    // Uma única cota comparativa entre as fileiras, cobrindo 8 malas / 2 módulos do ALPHA.
-                    const eightBagDimension = (x0, x1, y, color, label) => {
-                        ctx.save();
-                        ctx.strokeStyle = color; ctx.lineWidth = 2;
-                        ctx.setLineDash([]);
-                        ctx.beginPath();
-                        ctx.moveTo(x0, y - 7); ctx.lineTo(x0, y + 7);
-                        ctx.moveTo(x1, y - 7); ctx.lineTo(x1, y + 7);
-                        ctx.moveTo(x0, y); ctx.lineTo(x1, y);
-                        ctx.stroke();
-                        ctx.beginPath();
-                        ctx.moveTo(x0 + 8, y - 4); ctx.lineTo(x0, y); ctx.lineTo(x0 + 8, y + 4);
-                        ctx.moveTo(x1 - 8, y - 4); ctx.lineTo(x1, y); ctx.lineTo(x1 - 8, y + 4);
-                        ctx.stroke();
-                        ctx.font = mono(700, 17); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                        const mid = (x0 + x1) / 2, labelW = ctx.measureText(label).width + 22;
-                        ctx.fillStyle = '#000223';
-                        ctx.fillRect(mid - labelW / 2, y - 12, labelW, 24);
-                        ctx.strokeStyle = color; ctx.lineWidth = 1;
-                        ctx.strokeRect(mid - labelW / 2, y - 12, labelW, 24);
-                        ctx.fillStyle = color; ctx.fillText(label, mid, y + 0.5);
-                        ctx.restore();
-                    };
-                    // 16 malas Alpha ocupam a cota anterior x=25.5..1127.5.
-                    // Portanto, 8 malas terminam no ponto médio exato desse segmento.
-                    eightBagDimension(25.5, 25.5 + (1127.5 - 25.5) / 2,
-                        398, '#ff5a36', '8 bags: 88" vs 112"');
+                    // Remove obsolete labels; reinstate the continuous orange highlight
+                    // across the gap between the ALPHA and CONVENTIONAL rows.
+                    ctx.clearRect(16, 380, 1422, 56);
+                    ctx.fillStyle = 'rgba(255,90,54,.16)';
+                    ctx.fillRect(1128, 380, 302, 56);
+                    ctx.strokeStyle = 'rgba(255,90,54,.6)';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath(); ctx.moveTo(1128, 380); ctx.lineTo(1128, 436); ctx.stroke();
 
-                    // Minimal pill inside the orange annotation strip, without a heavy box.
-                    const bx = 1174, by = 390, bw = 247, bh = 34, rad = 17;
-                    ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, rad);
-                    ctx.fillStyle = 'rgba(0,2,35,.78)'; ctx.fill();
-                    ctx.strokeStyle = 'rgba(255,90,54,.9)'; ctx.lineWidth = 1.2; ctx.stroke();
-                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                    ctx.fillStyle = '#ff916e'; ctx.font = mono(700, 17);
-                    ctx.fillText('+25% (+4 bags)', bx + bw / 2, by + bh / 2);
+                    // Dimension ends at the vertical dashed boundary preceding bags 17-20.
+                    const xFirst = 25.5, xSixteen = 1128, yDim = 398;
+                    ctx.strokeStyle = '#ff5a36'; ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(xFirst, yDim - 7); ctx.lineTo(xFirst, yDim + 7);
+                    ctx.moveTo(xSixteen, yDim - 7); ctx.lineTo(xSixteen, yDim + 7);
+                    ctx.moveTo(xFirst, yDim); ctx.lineTo(xSixteen, yDim);
+                    ctx.moveTo(xFirst + 8, yDim - 4); ctx.lineTo(xFirst, yDim); ctx.lineTo(xFirst + 8, yDim + 4);
+                    ctx.moveTo(xSixteen - 8, yDim - 4); ctx.lineTo(xSixteen, yDim); ctx.lineTo(xSixteen - 8, yDim + 4);
+                    ctx.stroke();
+                    const dimensionLabel = '16 bags: 176" vs 224"';
+                    ctx.font = mono(700, 17); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    const mid = (xFirst + xSixteen) / 2, labelW = ctx.measureText(dimensionLabel).width + 24;
+                    ctx.fillStyle = '#000223'; ctx.fillRect(mid - labelW / 2, yDim - 12, labelW, 24);
+                    ctx.strokeStyle = '#ff5a36'; ctx.lineWidth = 1;
+                    ctx.strokeRect(mid - labelW / 2, yDim - 12, labelW, 24);
+                    ctx.fillStyle = '#ff916e'; ctx.fillText(dimensionLabel, mid, yDim + .5);
+
+                    // Two-line orange capsule over the restored strip.
+                    const bx = 1172, by = 384, bw = 251, bh = 50;
+                    ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 21);
+                    ctx.fillStyle = 'rgba(34,12,38,.94)'; ctx.fill();
+                    ctx.strokeStyle = '#ff5a36'; ctx.lineWidth = 1.5; ctx.stroke();
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ff916e';
+                    ctx.font = mono(800, 19); ctx.fillText('+4 BAGS', bx + bw / 2, by + 17);
+                    ctx.font = mono(700, 13); ctx.fillText('+25%', bx + bw / 2, by + 36);
+
+                    // Small upper-right dimension for the 220" vs 224" endpoints.
+                    const xAlphaEnd = 1403, xConvEnd = 1429, yShort = 262;
+                    ctx.strokeStyle = '#ff5a36'; ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(xAlphaEnd, yShort - 7); ctx.lineTo(xAlphaEnd, yShort + 7);
+                    ctx.moveTo(xConvEnd, yShort - 7); ctx.lineTo(xConvEnd, yShort + 7);
+                    ctx.moveTo(xAlphaEnd, yShort); ctx.lineTo(xConvEnd, yShort); ctx.stroke();
+                    ctx.font = mono(700, 13); ctx.textBaseline = 'middle'; ctx.textAlign = 'right';
+                    ctx.fillStyle = '#ff916e'; ctx.fillText('-4"', xAlphaEnd - 8, yShort);
                     ctx.restore();
                 }
                 ctx.restore();
