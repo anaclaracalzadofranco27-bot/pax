@@ -7685,9 +7685,10 @@ function xrayRun(ms) {
             }, 40);
         }
 
-        // P95 masculino (73,4 pol) já usado como referência antropométrica no projeto.
+        // Estatura original do manequim restaurada: 59,8" (referência P5 feminino).
+        // O rótulo visível "95th Percentile" permanece conforme solicitado anteriormente.
         const ERGO_PERCENTILES = [
-            { h: 73.4 * 2.54, title: 'Male', sub: 'P95' }
+            { h: 59.8 * 2.54, title: 'Female', sub: 'P5' }
         ];
 
         function ergoTimes(stature, mass, angleDeg) {
@@ -8139,6 +8140,11 @@ function xrayRun(ms) {
             const finished = phase >= 0.999;
             const atRest = LD.rest || finished;
             const FshN = LD.F, lbf = LD.lbf;
+
+            // Restaura os anéis originais que destacam as articulações do ombro,
+            // sem reintroduzir cotas, setas, vetores ou painéis de telemetria.
+            const shoulderColor = atRest ? '#4ade80' : (LD.isPush ? PDFM.green : (LD.isLift ? PDFM.red : PDFM.orange));
+            pdfRing(ctx, toX(shoulderX), toY(shoulderY), KPX, shoulderColor);
 
             // ---------------------------------------------------------------------
                         // Cabeçalho do painel: título grande e sublinhado (impacto visual)
