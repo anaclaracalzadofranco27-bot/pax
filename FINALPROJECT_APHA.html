@@ -7656,6 +7656,28 @@ function paintPath(ctx, d, fill, stroke, lw, evenodd) {
     if (fill) { ctx.fillStyle = fill; ctx.fill(p, evenodd ? 'evenodd' : 'nonzero'); }
     if (stroke && lw) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(p); }
 }
+// A folga até a cabeça usa os mesmos perfis CAD em centímetros da renderização.
+// A interseção vertical encontra a face inferior efetiva em cada assento,
+// sem recorrer aos vetores aproximados da versão anterior dos bins.
+let referenceBinUndersides = { conventional: [], alpha: [] };
+function lowerBinSurfaceAtX(points, x) {
+    if (!Number.isFinite(x) || !points || points.length < 2) return null;
+    let lower = Infinity;
+    for (let i = 1; i < points.length; i++) {
+        const a = points[i - 1], b = points[i];
+        if (x < Math.min(a.x, b.x) || x > Math.max(a.x, b.x)) continue;
+        if (Math.abs(b.x - a.x) < 1e-9) {
+            lower = Math.min(lower, a.y, b.y);
+        } else {
+            const t = (x - a.x) / (b.x - a.x);
+            lower = Math.min(lower, a.y + t * (b.y - a.y));
+        }
+    }
+    return Number.isFinite(lower) ? lower : null;
+}
+window.getUniBinUndersideY = (x, isAlpha) =>
+    lowerBinSurfaceAtX(isAlpha ? referenceBinUndersides.alpha : referenceBinUndersides.conventional, x);
+
 function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
     const cabin = window.cabinSectionReference;
     if (!cabin) return;
@@ -7672,6 +7694,27 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
     state.thetaDeg = u * initialConv.openLimitDeg;
     const conventional = computeLeftBinAtY(state.leftBaseY);
     const alpha = computeRightAlphaLocked();
+
+    // Perfil fechado do convencional: base reta + barriga quadrática até a boca.
+    // Perfil ALPHA: contorno externo amostrado do SVG, com escala e rotação reais.
+    // São atualizados a cada render, inclusive quando mudarem parâmetros CAD.
+    const convBottom = [initialConv.wallFix, initialConv.psuBotCorner];
+    for (let i = 1; i <= 100; i++) {
+        const t = i / 100, v = 1 - t;
+        const p0 = initialConv.psuBotCorner, p1 = initialConv.bellyCtrl, p2 = initialConv.doorLipBot;
+        convBottom.push({
+            x: v*v*p0.x + 2*v*t*p1.x + t*t*p2.x,
+            y: v*v*p0.y + 2*v*t*p1.y + t*t*p2.y
+        });
+    }
+    convBottom.push(initialConv.doorClosed.tip);
+    referenceBinUndersides = {
+        conventional: convBottom,
+        alpha: ALPHA_OUTLINE.map(p => {
+            const q = alphaTransformPoint(p[0], p[1], alpha.thetaDeg);
+            return { x: q.x, y: -q.ys };
+        })
+    };
 
     // Original CAD SVG has downward-positive Y. Map to existing Tab 5 cabin.
     ctx.save();
@@ -7699,8 +7742,13 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
         ctx.translate(0, CABIN_YC);
         ctx.translate(ALPHA_FIXED.tx, ALPHA_FIXED.ty);
         ctx.scale(ALPHA_FIXED.scaleX, ALPHA_FIXED.scaleY);
+        // Silhueta fechada sob o desenho original: nenhum recorte nem quadrilátero
+        // translúcido dentro do ALPHA. Mantém o contorno e a porta/trilho existentes.
+        ctx.beginPath();
+        ALPHA_OUTLINE.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
+        ctx.closePath();
+        ctx.fillStyle = color.alpha; ctx.fill();
         paintPath(ctx, ALPHA_SOURCE_BODY, color.alpha, color.border, 105, true);
-        paintPath(ctx, ALPHA_SOURCE_INNER, 'rgba(19,40,61,0.52)', null, 0, true);
         paintPath(ctx, ALPHA_SOURCE_RAIL, '#8298b2', null, 0);
         ctx.beginPath();
         ALPHA_TRACK.forEach((pt, i) => i ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]));
@@ -9179,42 +9227,12 @@ window.drawUniReferenceBins = drawReferenceBins;
             let toY = (yCm) => H - 15 - (yCm + 9) * scale;
             if (o.map) ({ toX, toY, scale } = o.map(W, H));
 
-            const fusCenterY = 62.84, R_in = 137.16;
-            let ceilingAtX = () => 144.0;
-            {
-                const xLivre = 25.4;
-                const yTopApex = fusCenterY + Math.sqrt(Math.max(0, R_in * R_in - xLivre * xLivre)) - 1.2;
-                const yPsuEmb = yTopApex - 22.5 * 2.54;
-                const yBottomAlpha = yTopApex - 20.0 * 2.54;
-                const alphaProf = traceBinAlphaProfile(NULLCTX, toX, toY, xLivre, yBottomAlpha, 1, 1.0, R_in, fusCenterY);
-
-                const lerpY = (xa, xb, ya, yb, x) => ya + (yb - ya) * ((x - xa) / (xb - xa));
-                const underConv = (xAbs) => {
-                    const yVec = vectorBinUnderY('conv', xAbs, xLivre, yTopApex + 1.2, R_in / 137.16);   // fundo do bin vetorizado (bins.pdf); +1,2 = mesma referência de ápice do desenho dos bins
-                    if (yVec != null) return yVec;
-                    const xB = 76.0 - 2.0, xC = xLivre + 1.2;
-                    if (xAbs >= xB) return yPsuEmb;
-                    return lerpY(xC, xB, yPsuEmb + 11.2, yPsuEmb, Math.max(xC, xAbs));
-                };
-                const flatEnd = Math.abs(alphaProf.xFlatEnd), rampEnd = Math.abs(alphaProf.xRampEnd), outerTip = Math.abs(alphaProf.xOuterTip);
-                const wTotA = outerTip - xLivre;
-                const underAlpha = (xAbs) => {
-                    const yVec = vectorBinUnderY('alpha', xAbs, xLivre, yTopApex + 1.2, R_in / 137.16);   // fundo do bin vetorizado (bins.pdf); +1,2 = mesma referência de ápice do desenho dos bins
-                    if (yVec != null) return yVec;
-                    if (xAbs <= flatEnd) return alphaProf.yFlatEnd;
-                    if (xAbs <= rampEnd) return lerpY(flatEnd, rampEnd, alphaProf.yFlatEnd, alphaProf.yRampEnd, xAbs);
-                    const P0 = [rampEnd, alphaProf.yRampEnd], P1 = [xLivre + wTotA * 0.80, alphaProf.yLowest - 1.8], P2 = [outerTip, alphaProf.yOuterTip];
-                    let best = P0[1], bestD = Infinity;
-                    for (let k = 0; k <= 100; k++) {
-                        const u = k / 100, v = 1 - u;
-                        const bx = v * v * P0[0] + 2 * v * u * P1[0] + u * u * P2[0];
-                        const by = v * v * P0[1] + 2 * v * u * P1[1] + u * u * P2[1];
-                        if (Math.abs(bx - xAbs) < bestD) { bestD = Math.abs(bx - xAbs); best = by; }
-                    }
-                    return best;
-                };
-                ceilingAtX = (xc, isRight) => isRight ? underAlpha(Math.abs(xc)) : underConv(Math.abs(xc));
-            }
+            // Abaixo de cada cabeça, consulta-se o perfil CAD realmente desenhado
+            // pela Aba 5 (escala 1:10 em cm e estado fechado de referência).
+            // Não usar traceBinAlphaProfile/vectorBinUnderY, que eram de bins antigos.
+            const ceilingAtX = (xc, isRight) =>
+                typeof window.getUniBinUndersideY === 'function'
+                    ? window.getUniBinUndersideY(xc, isRight) : null;
 
             const drawEmbraerSeatAndDummy3D = (centerX, stature, label, isWindow, isRightSide) => {
                 const seatW = 46.0;
@@ -9309,12 +9327,12 @@ window.drawUniReferenceBins = drawReferenceBins;
                 });
 
                 const ceilingY = ceilingAtX(centerX, isRightSide);
-                const clearance = ceilingY - currentHeadTopY;
+                const clearance = Number.isFinite(ceilingY) ? ceilingY - currentHeadTopY : NaN;
 
                 const cotaCor = isRightSide ? '#5952b2' : '#494e75';
                 const cotaTxt = `${clearance >= 0 ? '+' : ''}${fmtIn(clearance, 1)}`; 
                 // Somente a folga entre cabeça do passageiro e bin superior.
-                if (L.dims > 0 && L.pax > 0) {
+                if (Number.isFinite(clearance) && L.dims > 0 && L.pax > 0) {
                     ctx.save();
                     ctx.globalAlpha *= L.dims;
                     drawDimensionLine(
