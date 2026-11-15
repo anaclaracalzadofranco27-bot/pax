@@ -6031,7 +6031,15 @@ function xrayRun(ms) {
         let currentTab = 'cad3d';
         function switchTab(tab) {
             if (tab !== 'tour' && window.tourAbort) window.tourAbort();
+            const previousTab = currentTab;
             currentTab = tab;
+            // Entrar na Aba 6 sempre parte da pega baixa da primeira mala.
+            if (tab === 'sim' && previousTab !== 'sim') {
+                manikinState.phase = 0;
+                manikinState.animating = false;
+                hideCards();
+                setAnimLabel();
+            }
             if (tab !== 'unified' && window.uniPause) window.uniPause();
             if (tab !== 'nova' && window.novaShowHeader) window.novaShowHeader(false);
             if (tab !== 'pax' && window.paxPause) window.paxPause();
@@ -7346,11 +7354,11 @@ function xrayRun(ms) {
                     + 0.288 * stature + 0.118 * stature + 0.068 * stature + h / 2 + 2.5;
                 const yArc = Math.max(yTop + 5.5, headClearY);
                 return {
-                    w, h, tPlace: 0.86, tSupport: 0.62, tPush: 0.80,
+                    mode, w, h, tPlace: 0.81, tSupport: 0.57, tPush: 0.75,
                     footX: -22, fadeIn: [0.045, 0.175],
                     stages: [[0, 'Prepare'], [0.14, 'Grip'], [0.23, 'Lift'],
                              [0.48, 'Clear head'], [0.62, 'Insert'],
-                             [0.86, 'Release'], [0.98, 'Return']],
+                             [0.81, 'Release'], [0.99, 'Return']],
                     // [fase, centro X, centro Y, rotação, adesão das mãos na face de apoio]
                     keys: [
                         [0.00, xLift, yCarry, 0, 0],
@@ -7358,10 +7366,10 @@ function xrayRun(ms) {
                         [0.31, xLift + 10.0, yCarry + (yArc - yCarry) * 0.30, 0, 0],
                         [0.44, xLift + 13.0, yArc, 0, 0],
                         [0.53, xLift + 12.0, yArc + 1.5, 0, 0],
-                        [0.61, xLift + 8.0, yArc + 1.5, 0, 0.15],
-                        [0.74, prof.m1Cx - 3.0, yArc + 0.3, 0, 0.86],
-                        [0.82, prof.m1Cx, yTop, 0, 1],
-                        [0.86, prof.m1Cx, prof.m1Cy, 0, 1],
+                        [0.60, xLift + 13.0, yArc + 1.5, 0, 0.15],
+                        [0.68, prof.m1Cx - 3.0, yArc + 0.3, 0, 0.86],
+                        [0.77, prof.m1Cx, yTop, 0, 1],
+                        [0.81, prof.m1Cx, prof.m1Cy, 0, 1],
                         [1.00, prof.m1Cx, prof.m1Cy, 0, 1]
                     ]
                 };
@@ -7372,14 +7380,14 @@ function xrayRun(ms) {
                 const yArc = Math.max(prof.y0 + 27.5,
                     (0.245 + 0.285 + 0.288 + 0.118 + 0.068) * stature + w / 2 + 2.5);
                 return {
-                    w, h, tPlace: 0.89, tSupport: 0.64, tPush: 0.83,
+                    mode, w, h, tPlace: 0.89, tSupport: 0.64, tPush: 0.83,
                     footX: -22,
                     stages: [[0, 'Grip'], [0.07, 'Lift (bag upright)'],
                              [0.39, 'Clear head'], [0.48, 'Rotate to lay flat'],
                              [0.64, 'Insert'], [0.89, 'Release'], [0.98, 'Return']],
                     keys: [
                         [0.00, xStart, yCarry, -90, 0],
-                        [0.07, xStart, yCarry, -90, 0],
+                        [0.11, xStart, yCarry, -90, 0],
                         [0.18, xStart + 7.0, yCarry + (yArc - yCarry) * 0.23, -90, 0],
                         [0.30, xStart + 12.0, yCarry + (yArc - yCarry) * 0.67, -90, 0],
                         [0.41, prof.x0 + 1.0, yArc, -90, 0],
@@ -7478,6 +7486,11 @@ function xrayRun(ms) {
             // Colisão mala/cabeça: bounding box do retângulo ROTACIONADO
             // contra envoltória conservadora da cabeça + margem de 2,5 cm.
             // A correção é antecipada por easing, impedindo salto no contato.
+            // Desvio frontal progressivo (+X) durante o levantamento, afastando
+            // a mala do rosto. Dissolve antes da inserção sem afetar o bin.
+            const forwardClearance = 9.0 * smooth((phase - 0.115) / 0.155) *
+                (1 - smooth((phase - plan.tSupport - 0.015) / 0.11));
+            bx += forwardClearance;
             const rot = -ba * Math.PI / 180;
             const halfBW = (Math.abs(plan.w * Math.cos(rot)) +
                             Math.abs(plan.h * Math.sin(rot))) * 0.5;
@@ -7501,22 +7514,36 @@ function xrayRun(ms) {
             let [gx, gy] = ergoBagSurfacePoint(
                 bx, by, plan.w, plan.h, ba, dirX, dirY);
             gx -= dirX * 0.45; gy -= dirY * 0.45;
+            if (plan.mode === 'alpha1') {
+                // Empurrão da mala vertical: contato solidário à BASE. A palma
+                // desliza apenas poucos cm ao longo dela, até o encaixe completo.
+                const lx = plan.w * (0.06 - 0.18 * handSlide);
+                const ly = -plan.h / 2 + 0.65;
+                gx = bx + lx * Math.cos(rot) - ly * Math.sin(rot);
+                gy = by + lx * Math.sin(rot) + ly * Math.cos(rot);
+            }
 
             // O segundo ciclo começa com braços em repouso, mala em fade e
             // movimento de pega BAIXO. Ambos terminam com ease-out neutro.
             const pickupBeg = plan.fadeIn ? 0.11 : 0.0;
             const pickupEnd = plan.fadeIn ? 0.23 : 0.075;
-            const pickup = 1 - smooth((phase - pickupBeg) /
-                Math.max(0.01, pickupEnd - pickupBeg));
-            const putDown = smooth((phase - plan.tPlace) /
-                Math.max(0.07, 1.0 - plan.tPlace));
+            // Primeira mala: mãos já seguram na altura do quadril no frame 0.
+            // Segunda mala: braços repousam até o fade-in na pega baixa.
+            const pickup = plan.fadeIn
+                ? 1 - smooth((phase - pickupBeg) / Math.max(0.01, pickupEnd - pickupBeg))
+                : 0;
+            // Retorno com easing C1 + cauda ease-out, incluindo o cotovelo.
+            // ~0,6 s no ciclo frontal com a velocidade original de playback.
+            const returnT = clamp((phase - plan.tPlace) / (1.0 - plan.tPlace));
+            const putDown = 1 - Math.pow(1 - smooth(returnT), 1.6);
             const release = Math.max(pickup, putDown);
             const rest = [shoulderX + 1.4, shoulderY - 0.91 * (L1 + L2)];
             const target = [gx + (rest[0] - gx) * release,
                             gy + (rest[1] - gy) * release];
 
-            // IK planar (2 segmentos). Pole vector para baixo e à frente,
-            // permitindo que antebraços passem POR FORA da região do rosto.
+            // IK planar com pole vector inferoposterior: mantém o ramo
+            // abaixo da linha de alcance e atrás do punho durante a elevação,
+            // sem alternar de solução ao passar a linha dos ombros.
             const armIK = (sx, sy, tx, ty) => {
                 const dx = tx - sx, dy = ty - sy;
                 const dist = Math.max(0.001, Math.hypot(dx, dy));
@@ -7524,7 +7551,7 @@ function xrayRun(ms) {
                 const base = Math.atan2(dy, dx);
                 const c = Math.max(-1, Math.min(1,
                     (L1 * L1 + reach * reach - L2 * L2) / (2 * L1 * reach)));
-                const a = base - Math.acos(c); // cotovelo inferior/frontal
+                const a = base - Math.acos(c); // cotovelo inferoposterior, ramo fixo
                 const ex = sx + L1 * Math.cos(a), ey = sy + L1 * Math.sin(a);
                 const k = Math.min(1, armMax / dist);
                 return { ex, ey, hx: sx + dx * k, hy: sy + dy * k,
@@ -7627,6 +7654,10 @@ function xrayRun(ms) {
 
         function showManikin() {
             cancelResultsSequence();
+            // A abertura da cena no tour também usa o frame inicial real.
+            manikinState.phase = 0;
+            manikinState.animating = false;
+            setAnimLabel();
             const ergo = document.getElementById('module-ergo');
             manikinState.swapped = false;
             ergo.style.display = ''; ergo.style.transition = ''; ergo.style.opacity = '';
