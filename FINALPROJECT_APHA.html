@@ -5588,8 +5588,8 @@ function xrayRun(ms) {
                         <button id="cad3d-export-side" type="button" onclick="cad3dExportSideTransparent()" class="cad-btn" title="Exports two 4K views of the complete bin with four visible bags and translucent side panels: lateral and side-oblique">
                             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>Exportar lateral c/ malas (2 PNG)
                         </button>
-                        <button id="cad3d-export-door" type="button" onclick="cad3dExportDoor()" class="cad-btn" title="Downloads 2 transparent PNGs of the roll-up door only, closed: side view and isometric view">
-                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>Exportar porta (2 PNG)
+                        <button id="cad3d-export-side-cut" type="button" onclick="cad3dExportSideCut()" class="cad-btn" title="Exporta PNG 4K ortográfico da vista lateral aberta em corte, sem a lateral frontal, com malas translúcidas e arestas tracejadas">
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>Exportar Vista Lateral Aberta (Corte)
                         </button>
                         <div class="flex items-center gap-2 bg-cad-bg px-3 py-1.5 rounded-lg border border-cad-border text-xs font-mono">
                             <span class="text-slate-700">Door:</span>
@@ -9371,18 +9371,24 @@ function xrayRun(ms) {
             const X_LEFT  = 292;
             const X_RIGHT = 865;
 
+            // Os dois volumes inferiores acompanham a rampa traseira do piso técnico.
+            // Entre os vértices 5 e 6, o piso sobe ~17° (a quebra seguinte é ~168°).
+            // A rotação Rx é medida na base Y/Z da mala após girá-la 90° em Z.
+            const rampA = FLOOR_SEAT[5], rampB = FLOOR_SEAT[6];
+            const LOWER_BAG_TILT = -Math.PI / 2 +
+                Math.atan2(rampB[1] - rampA[1], rampB[0] - rampA[0]);
+
             const BAG_PATHS = [
                 {
                     p0: new THREE.Vector3(X_LEFT, 340, -1320), r0: new THREE.Euler(0, Math.PI, 0),
                     p1: new THREE.Vector3(X_LEFT, 321, -920),  r1: new THREE.Euler(-1.38, 0, Math.PI/2),
-                    // Folga de aproximadamente 26 mm no canto crítico da mala contra
-                    // a curva superior do perfil; mantém a posição longitudinal e o ângulo.
-                    p2: new THREE.Vector3(X_LEFT, 209, -440),  r2: new THREE.Euler(-1.2252, 0, Math.PI/2)
+                    // Encaixe final na rampa: centro corrigido e inclinação derivada do piso.
+                    p2: new THREE.Vector3(X_LEFT, 255, -480),  r2: new THREE.Euler(LOWER_BAG_TILT, 0, Math.PI/2)
                 },
                 {
                     p0: new THREE.Vector3(X_RIGHT, 340, -1320), r0: new THREE.Euler(0, Math.PI, 0),
                     p1: new THREE.Vector3(X_RIGHT, 321, -920),  r1: new THREE.Euler(-1.38, 0, Math.PI/2),
-                    p2: new THREE.Vector3(X_RIGHT, 209, -440),  r2: new THREE.Euler(-1.2252, 0, Math.PI/2)
+                    p2: new THREE.Vector3(X_RIGHT, 255, -480),  r2: new THREE.Euler(LOWER_BAG_TILT, 0, Math.PI/2)
                 },
                 {
                     p0: new THREE.Vector3(X_LEFT, 345, -1320), r0: new THREE.Euler(0, Math.PI, 0),
@@ -9401,36 +9407,56 @@ function xrayRun(ms) {
                 return x * x * (3 - 2 * x);
             }
 
-            // Controle contra o TETO INTERNO real, amostrando a superfície
-            // arredondada da mala + chanfro (não apenas seu ponto central).
-            const inclinedBagSamples=[];
-            bagShape.getPoints(32).forEach(p=>{
-                for(const depth of [-134,134]){
-                    inclinedBagSamples.push(new THREE.Vector3(
-                        p.x*1.035,(p.y-279.5)*1.025,depth
-                    ));
+            // Colisão das malas deitadas com as superfícies internas do perfil SVG.
+            // Amostra os extremos do casco (incluindo espessura/chanfro), e não só o centro.
+            const lowerBagSamples = [];
+            bagShape.getPoints(32).forEach(p => {
+                for (const depth of [-127, 127]) {
+                    lowerBagSamples.push(new THREE.Vector3(p.x, 0, depth));
                 }
             });
-            function interiorCeiling(profileX){
-                let highest=-Infinity;
-                for(let i=0;i<WALL_SEAT.length-1;i++){
-                    const a=WALL_SEAT[i],b=WALL_SEAT[i+1],dx=b[0]-a[0];
-                    if(Math.abs(dx)<1e-7)continue;
-                    if(profileX>=Math.min(a[0],b[0])&&profileX<=Math.max(a[0],b[0])){
-                        highest=Math.max(highest,a[1]+(profileX-a[0])*(b[1]-a[1])/dx);
+            function interiorFloor(profileX) {
+                for (let i = 0; i < FLOOR_SEAT.length - 1; i++) {
+                    const a = FLOOR_SEAT[i], b = FLOOR_SEAT[i + 1];
+                    if (profileX >= Math.min(a[0], b[0]) &&
+                        profileX <= Math.max(a[0], b[0]) && Math.abs(b[0] - a[0]) > 1e-7) {
+                        return a[1] + (profileX - a[0]) * (b[1] - a[1]) / (b[0] - a[0]);
                     }
                 }
-                return Number.isFinite(highest)?highest:null;
+                return null;
             }
-            function keepTiltedBagUnderRoof(b){
-                const margin=22;
-                let overlap=0;
-                for(const p of inclinedBagSamples){
-                    const v=p.clone().applyQuaternion(b.quaternion);
-                    const height=interiorCeiling(-(b.position.z+v.z));
-                    if(height!==null)overlap=Math.max(overlap,b.position.y+v.y+margin-height);
+            function interiorCeiling(profileX) {
+                let highest = -Infinity;
+                for (let i = 0; i < WALL_SEAT.length - 1; i++) {
+                    const a = WALL_SEAT[i], b = WALL_SEAT[i + 1], dx = b[0] - a[0];
+                    if (Math.abs(dx) < 1e-7) continue;
+                    if (profileX >= Math.min(a[0], b[0]) &&
+                        profileX <= Math.max(a[0], b[0])) {
+                        highest = Math.max(highest, a[1] +
+                            (profileX - a[0]) * (b[1] - a[1]) / dx);
+                    }
                 }
-                if(overlap>0)b.position.y-=overlap;
+                return Number.isFinite(highest) ? highest : null;
+            }
+            function fitLowerBagToFloorAndRoof(b) {
+                // Deslocamento vertical admissível pelo piso e pelo teto (folga de 2,5 mm).
+                // Um único clamp evita que uma correção contra o teto atravesse o piso.
+                let minY = -Infinity, maxY = Infinity, checked = 0;
+                for (const p of lowerBagSamples) {
+                    const v = p.clone().applyQuaternion(b.quaternion);
+                    const profileX = -(b.position.z + v.z);
+                    const bottom = interiorFloor(profileX);
+                    const top = interiorCeiling(profileX);
+                    if (bottom === null || top === null) continue;
+                    minY = Math.max(minY, bottom + 2.5 - v.y);
+                    maxY = Math.min(maxY, top - 2.5 - v.y);
+                    checked++;
+                }
+                if (checked && minY <= maxY) {
+                    b.position.y = Math.max(minY, Math.min(maxY, b.position.y));
+                } else if (checked && minY > maxY) {
+                    console.warn('CAD 3D: folga insuficiente para a mala inferior no perfil.');
+                }
             }
 
             function setBagPoseAlongPath(bagIdx, u, target){
@@ -9452,7 +9478,7 @@ function xrayRun(ms) {
                 } else {
                     b.quaternion.slerpQuaternions(q1, q2, smoothstep((s - 0.5) / 0.5));
                 }
-                if(bagIdx<2&&s>0.5)keepTiltedBagUnderRoof(b);
+                if (bagIdx < 2 && s > 0.985) fitLowerBagToFloorAndRoof(b);
             }
 
             const slider = document.getElementById('cad3d-doorSlider');
@@ -10233,82 +10259,140 @@ function xrayRun(ms) {
                 } catch (err) { console.warn('Side transparent export:', err); restore(); }
             };
 
-            // ---- Exportação só da porta rolante (fechada): 2 PNGs de fundo transparente, vista lateral e vista isométrica ----
-            window.cad3dExportDoor = () => {
+            // Exportação 4K em corte: ortográfica lateral, sem a chapa próxima da câmera.
+            // O material e as linhas tracejadas das malas existem SOMENTE durante a captura.
+            window.cad3dExportSideCut = () => {
                 if (exporting) return;
                 exporting = true;
                 stopAllAnimations();
                 const EW = 3840, EH = 2160;
                 const saved = {
-                    az, el, R, T: T.clone(), door: openProgress,
-                    pr: ren.getPixelRatio(), vis: new Map()
+                    az, el, R, target: T.clone(), door: openProgress,
+                    pr: ren.getPixelRatio(), size: ren.getSize(new THREE.Vector2()),
+                    clear: ren.getClearColor(new THREE.Color()).clone(),
+                    alpha: ren.getClearAlpha(),
+                    bags: bags.map(b => ({
+                        visible: b.root.visible,
+                        envelope: b.env ? b.env.visible : null,
+                        position: b.root.position.clone(),
+                        rotation: b.root.quaternion.clone()
+                    }))
                 };
-                // esconde tudo menos as ripas da porta (com o puxador): bin, trilhos, malas e cotas
-                scene.children.forEach(o => { if (o !== group && !o.isLight) { saved.vis.set(o, o.visible); o.visible = false; } });
-                group.children.forEach(o => { if (!o.userData.novaSlat) { saved.vis.set(o, o.visible); o.visible = false; } });
-                updateDoor(0);                                   // porta fechada
-                // centro e raio da porta, para enquadrar
-                group.updateMatrixWorld(true);
-                const box = new THREE.Box3();
-                group.children.forEach(o => { if (o.userData.novaSlat) box.expandByObject(o); });
-                const sph = box.getBoundingSphere(new THREE.Sphere());
-                T.copy(sph.center);
-                ren.setPixelRatio(1); ren.setSize(EW, EH, false);
-                cam.aspect = EW / EH; cam.updateProjectionMatrix();
-                ren.setClearColor(0x000000, 0);                  // fundo transparente
-                const fov0 = cam.fov, near0 = cam.near, far0 = cam.far;
-                const grab = (name, v, fov) => {                 // fov pequeno = câmera quase ortográfica (perfil limpo, sem perspectiva)
-                    az = v[0]; el = v[1]; R = sph.radius / Math.sin(fov * Math.PI / 360) * 1.08;
-                    cam.fov = fov; cam.near = Math.max(10, R - 3 * sph.radius); cam.far = R + 3 * sph.radius; cam.updateProjectionMatrix();
-                    T.copy(sph.center);
-                    const t = document.createElement('canvas'); t.width = EW; t.height = EH;
-                    const tx = t.getContext('2d');
-                    let x0, y0, x1, y1;
-                    const shot = () => {                         // renderiza e mede a área ocupada pela porta
-                        upd();
-                        tx.clearRect(0, 0, EW, EH); tx.drawImage(cv, 0, 0);
-                        const d = tx.getImageData(0, 0, EW, EH).data;
-                        x0 = EW; y0 = EH; x1 = -1; y1 = -1;
-                        for (let y = 0; y < EH; y++) for (let x = 0; x < EW; x++) if (d[(y * EW + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-                    };
-                    shot();
-                    for (let it = 0; it < 2 && x1 >= 0; it++) {  // aproxima até a porta ocupar ~85% do quadro 4K (mais resolução no recorte)
-                        const k = Math.max((x1 - x0 + 1) / EW, (y1 - y0 + 1) / EH) / 0.85;
-                        cam.updateMatrixWorld(true);
-                        const z = T.clone().project(cam).z;
-                        const c = new THREE.Vector3(((x0 + x1) / 2 / EW) * 2 - 1, 1 - ((y0 + y1) / 2 / EH) * 2, z).unproject(cam);
-                        T.copy(c); R *= k;
-                        cam.near = Math.max(10, R - 3 * sph.radius); cam.far = R + 3 * sph.radius; cam.updateProjectionMatrix();
-                        shot();
-                    }
-                    // recorta a área transparente em volta da porta (com margem)
-                    let out = t;
-                    if (x1 >= 0) {
-                        const pad = 40, w = x1 - x0 + 1, h = y1 - y0 + 1;
-                        out = document.createElement('canvas'); out.width = w + 2 * pad; out.height = h + 2 * pad;
-                        out.getContext('2d').drawImage(t, x0, y0, w, h, pad, pad, w, h);
-                    }
+                const originalVisibility = new Map();
+                const originalMaterials = [];
+                const originalLines = [];
+                const dashedOutlines = [];
+                const keepVisibility = obj => {
+                    if (!originalVisibility.has(obj)) originalVisibility.set(obj, obj.visible);
+                };
+                const cutSurface = [
+                    ...sideWallParts,
+                    ...profileBandMeshes.filter(o => o.userData.innerWallSide === 1),
+                    ...internalRailParts.filter(o => o.userData.innerWallSide === 1)
+                ];
+                const backDetails = [
+                    ...profileBandMeshes.filter(o => o.userData.innerWallSide === 0),
+                    ...internalRailParts.filter(o => o.userData.innerWallSide === 0)
+                ];
+                try {
+                    // Porta totalmente recolhida/oculta e chapa da lateral próxima removida.
+                    updateDoor(1);
+                    slats.forEach(o => { keepVisibility(o); o.visible = false; });
+                    cutSurface.forEach(o => { keepVisibility(o); o.visible = false; });
+                    backDetails.forEach(o => { keepVisibility(o); o.visible = true; });
+
+                    bags.forEach((b, i) => {
+                        b.root.visible = true;
+                        if (b.env) b.env.visible = false;
+                        setBagPoseAlongPath(i, 1);
+                        b.root.traverse(obj => {
+                            if (obj.isMesh) {
+                                const original = obj.material;
+                                const makeClear = mat => {
+                                    const m = mat.clone();
+                                    m.transparent = true;
+                                    m.opacity = 0.18;
+                                    m.depthWrite = false;
+                                    m.needsUpdate = true;
+                                    return m;
+                                };
+                                const translucent = Array.isArray(original)
+                                    ? original.map(makeClear) : makeClear(original);
+                                originalMaterials.push([obj, original, translucent]);
+                                obj.material = translucent;
+                            } else if (obj.isLine) {
+                                originalLines.push([obj, obj.visible]);
+                                obj.visible = false; // linhas sólidas originais não competem com os traços
+                            }
+                        });
+
+                        // Invólucro IATA com as 12 arestas principais, projetado junto com cada mala.
+                        const envelopeGeometry = new THREE.BoxGeometry(356, 559, 254);
+                        const edges = new THREE.EdgesGeometry(envelopeGeometry);
+                        envelopeGeometry.dispose();
+                        const dashedMaterial = new THREE.LineDashedMaterial({
+                            color: 0x1e293b, dashSize: 17, gapSize: 11,
+                            transparent: true, opacity: 0.98,
+                            depthTest: false, depthWrite: false
+                        });
+                        const outline = new THREE.LineSegments(edges, dashedMaterial);
+                        outline.computeLineDistances(); // obrigatório para LineDashedMaterial
+                        outline.renderOrder = 60;
+                        b.root.add(outline);
+                        dashedOutlines.push([b.root, outline]);
+                    });
+
+                    // Eixo óptico exatamente paralelo ao eixo X: perfil Y-Z sem perspectiva.
+                    const hh = 390, target = new THREE.Vector3(DIST / 2, 355, -447);
+                    const cutCamera = new THREE.OrthographicCamera(
+                        -hh * EW / EH, hh * EW / EH, hh, -hh, 1, 8000);
+                    cutCamera.position.set(DIST + 3000, target.y, target.z);
+                    cutCamera.lookAt(target);
+                    cutCamera.updateProjectionMatrix();
+
+                    ren.setPixelRatio(1);
+                    ren.setSize(EW, EH, false);
+                    ren.setClearColor(0x000000, 0);
+                    ren.render(scene, cutCamera);
                     const a = document.createElement('a');
-                    a.href = out.toDataURL('image/png'); a.download = `alpha_bin_door_closed_${name}.png`;
-                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                };
-                const restore = () => {
-                    saved.vis.forEach((v, o) => { o.visible = v; });
-                    T.copy(saved.T);
-                    cam.fov = fov0; cam.near = near0; cam.far = far0;
-                    ren.setClearColor(0xffffff, 0);
+                    a.href = cv.toDataURL('image/png');
+                    a.download = 'alpha_bin_vista_lateral_aberta_corte_4k.png';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                } catch (err) {
+                    console.error('CAD 3D: erro ao exportar vista lateral aberta:', err);
+                    alert('Não foi possível exportar a vista lateral em corte: ' + err.message);
+                } finally {
+                    // Mesmo com erro no canvas/download, devolve os objetos e estados originais.
+                    dashedOutlines.forEach(([parent, obj]) => {
+                        parent.remove(obj);
+                        obj.geometry.dispose();
+                        obj.material.dispose();
+                    });
+                    originalMaterials.forEach(([obj, original, temporary]) => {
+                        obj.material = original;
+                        (Array.isArray(temporary) ? temporary : [temporary])
+                            .forEach(m => m.dispose());
+                    });
+                    originalLines.forEach(([obj, visible]) => { obj.visible = visible; });
+                    originalVisibility.forEach((visible, obj) => { obj.visible = visible; });
+                    saved.bags.forEach((state, i) => {
+                        const b = bags[i];
+                        b.root.visible = state.visible;
+                        if (b.env) b.env.visible = state.envelope;
+                        b.root.position.copy(state.position);
+                        b.root.quaternion.copy(state.rotation);
+                    });
+                    ren.setClearColor(saved.clear, saved.alpha);
                     ren.setPixelRatio(saved.pr);
-                    az = saved.az; el = saved.el; R = saved.R;
-                    updateDoor(saved.door); syncDoorUI();
+                    ren.setSize(saved.size.x, saved.size.y, false);
+                    az = saved.az; el = saved.el; R = saved.R; T.copy(saved.target);
+                    updateDoor(saved.door);
+                    syncDoorUI();
                     rs();
                     exporting = false;
-                };
-                try { grab('side_view', views.side, 0.4); }
-                catch (e) { console.warn('Door export:', e); restore(); return; }
-                setTimeout(() => {
-                    try { grab('isometric_view', views.iso, fov0); } catch (e) { console.warn('Door export:', e); }
-                    restore();
-                }, 700);
+                }
             };
 
             setTimeout(rs, 60);
