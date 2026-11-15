@@ -9339,13 +9339,15 @@ function xrayRun(ms) {
             const BAG_PATHS = [
                 {
                     p0: new THREE.Vector3(X_LEFT, 340, -1320), r0: new THREE.Euler(0, Math.PI, 0),
-                    p1: new THREE.Vector3(X_LEFT, 335, -920),  r1: new THREE.Euler(-1.38, 0, Math.PI/2),
-                    p2: new THREE.Vector3(X_LEFT, 238, -414),  r2: new THREE.Euler(-1.2252, 0, Math.PI/2)
+                    p1: new THREE.Vector3(X_LEFT, 321, -920),  r1: new THREE.Euler(-1.38, 0, Math.PI/2),
+                    // Folga de aproximadamente 26 mm no canto crítico da mala contra
+                    // a curva superior do perfil; mantém a posição longitudinal e o ângulo.
+                    p2: new THREE.Vector3(X_LEFT, 209, -414),  r2: new THREE.Euler(-1.2252, 0, Math.PI/2)
                 },
                 {
                     p0: new THREE.Vector3(X_RIGHT, 340, -1320), r0: new THREE.Euler(0, Math.PI, 0),
-                    p1: new THREE.Vector3(X_RIGHT, 335, -920),  r1: new THREE.Euler(-1.38, 0, Math.PI/2),
-                    p2: new THREE.Vector3(X_RIGHT, 238, -414),  r2: new THREE.Euler(-1.2252, 0, Math.PI/2)
+                    p1: new THREE.Vector3(X_RIGHT, 321, -920),  r1: new THREE.Euler(-1.38, 0, Math.PI/2),
+                    p2: new THREE.Vector3(X_RIGHT, 209, -414),  r2: new THREE.Euler(-1.2252, 0, Math.PI/2)
                 },
                 {
                     p0: new THREE.Vector3(X_LEFT, 345, -1320), r0: new THREE.Euler(0, Math.PI, 0),
@@ -9852,11 +9854,13 @@ function xrayRun(ms) {
                 const camera=new THREE.PerspectiveCamera(15,1,10,25000);
                 const center=new THREE.Vector3(0,300,0);
                 let renderer=null;
-                const body=new THREE.MeshLambertMaterial({color:0x7c8b9e,...po});
-                const ribs=new THREE.MeshLambertMaterial({color:0x8090a3,...po});
-                const wheels=new THREE.MeshLambertMaterial({color:0x697b90,...po});
-                const metal=new THREE.MeshLambertMaterial({color:0x92a3b6,...po});
-                const trim=new THREE.LineBasicMaterial({color:0xb1e4f0,transparent:true,opacity:.23,depthWrite:false});
+                // Mesmos materiais (referências exatas, não cores aproximadas)
+                // das malas azul-índigo do Alpha de 44" e a mesma luz Three.js.
+                const body=bags[2].mBody;  // #32407a
+                const ribs=mPl;            // nervuras #4c598e
+                const wheels=mBlk;         // rodas/alças #2a3358
+                const metal=mMet;          // peças metálicas #6c769c
+                const trim=bagEdgeMat;     // chanfros ciano #38bdf8 (40%)
                 const caseModels=[];
                 for(let i=0;i<4;i++){
                     const b=bags[2].root.clone(true);
@@ -9887,19 +9891,24 @@ function xrayRun(ms) {
                     const transform=c=>{c.translate(ox-B.x0*sc,oy-B.y0*sc);c.scale(sc,sc);c.lineJoin='round';c.lineCap='round';};
                     const b=ctxFor(back,W,H,dpr);b.save();transform(b);
                     const gradient=b.createLinearGradient(0,9850,0,21000);
-                    gradient.addColorStop(0,'rgba(190,205,223,.34)');
-                    gradient.addColorStop(.56,'rgba(126,151,183,.19)');
-                    gradient.addColorStop(1,'rgba(103,126,154,.29)');
+                    gradient.addColorStop(0,'rgba(100,124,157,.23)');
+                    gradient.addColorStop(.56,'rgba(71,94,128,.18)');
+                    gradient.addColorStop(1,'rgba(51,74,109,.27)');
                     b.fillStyle=gradient;b.fill(shell,'evenodd');
                     const cavity=new Path2D();
                     cavity.moveTo(1460,10780);cavity.lineTo(19570,10780);
                     cavity.lineTo(19300,19325);cavity.lineTo(1710,19325);cavity.closePath();
                     const cg=b.createLinearGradient(0,10800,0,19400);
-                    cg.addColorStop(0,'rgba(102,129,163,.15)');
-                    cg.addColorStop(1,'rgba(39,57,86,.24)');
+                    cg.addColorStop(0,'rgba(67,89,121,.10)');
+                    cg.addColorStop(1,'rgba(30,49,81,.17)');
                     b.fillStyle=cg;b.fill(cavity);b.restore();
                     const f=ctxFor(front,W,H,dpr);f.save();transform(f);
-                    f.strokeStyle='rgba(191,211,233,.78)';f.lineWidth=1.2/sc;f.stroke(shell);f.restore();
+                    // As linhas originais do SVG são finas e discretas: sem
+                    // wireframe branco, duplo contorno ou bordas brilhantes.
+                    f.strokeStyle='rgba(118,146,183,.30)';
+                    f.lineWidth=1.0/sc;
+                    f.stroke(shell);
+                    f.restore();
                     return {sc,p};
                 }
                 function draw(){
@@ -9920,11 +9929,13 @@ function xrayRun(ms) {
                     const q0=new THREE.Vector3(0,center.y,0).project(camera);
                     const xs=new THREE.Vector3(1,center.y,0).project(camera).x>q0.x?1:-1;
                     const zs=new THREE.Vector3(0,center.y,1).project(camera).y>q0.y?1:-1;
-                    const left=1620,slot=(19400-left)/4;
+                    // Cavidade útil do SVG original: laterais inclinadas livres,
+                    // margem de respiro superior e apoio acima das duas travas.
+                    const left=1675,right=19325,slot=(right-left)/4;
                     caseModels.forEach((b,i)=>{
-                        const px=geo.p(left+(i+.5)*slot,14930);
+                        const px=geo.p(left+(i+.5)*slot,14960);
                         b.position.set(xs*(px[0]-W/2)*worldPerPixel,center.y,zs*(H/2-px[1])*worldPerPixel);
-                        b.scale.set(slot*.91*geo.sc*worldPerPixel/346,8100*geo.sc*worldPerPixel/559,1);
+                        b.scale.set(slot*.87*geo.sc*worldPerPixel/346,7780*geo.sc*worldPerPixel/559,1);
                     });
                     renderer.render(s3,camera);
                     const c=ctxFor(dim,W,H,dpr);
