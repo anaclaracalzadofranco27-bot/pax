@@ -7787,6 +7787,9 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
         ctx.beginPath();
         ALPHA_TRACK.forEach((pt, i) => i ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]));
         ctx.lineWidth = 110; ctx.strokeStyle = '#334b68'; ctx.stroke();
+        }
+        // Porta rolante compartilhada pelas abas 5 e 6, acompanhando
+        // o trilho curvo existente sem alterar os vazados estruturais.
         // Door occupies 60% of the sampled curved track and never leaves its ends.
         const doorLen = ALPHA_TRACK_LEN * ALPHA_DOOR_FRACTION;
         const start = u * (ALPHA_TRACK_LEN - doorLen), end = start + doorLen;
@@ -7801,7 +7804,6 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
         ctx.lineCap = 'butt'; ctx.lineJoin = 'round';
         ctx.lineWidth = 560; ctx.strokeStyle = '#273e57'; ctx.stroke();
         ctx.lineWidth = 400; ctx.strokeStyle = '#9cb3ca'; ctx.stroke();
-        }
         ctx.restore();
     }
     ctx.restore();
@@ -9651,8 +9653,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const C='#7c8b9e';
                 drawDimensionLine(ctx,toX(-152),toY(0),toX(-152),toY(200),
                     '78.7"',C,11,{x:-15,y:0}); // altura interna
-                drawDimensionLine(ctx,toX(-25.4),toY(225),toX(25.4),toY(225),
-                    '20"',C,11,{x:0,y:-11}); // fora e acima do arco; alinhada às bordas internas dos bins
+                drawDimensionLine(ctx,toX(-25.4),toY(212),toX(25.4),toY(212),
+                    '20"',C,11,{x:0,y:-11}); // mais próxima do topo externo da fuselagem, sem invadir o arco
                 drawDimensionLine(ctx,toX(-126),toY(-9),toX(126),toY(-9),
                     '108"',C,11,{x:0,y:11},null,null,true); // legenda abaixo da linha, em fundo azul; setas intactas
                 ctx.restore();
