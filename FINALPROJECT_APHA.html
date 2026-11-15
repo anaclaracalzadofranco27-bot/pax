@@ -7776,7 +7776,7 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             paintPath(ctx, ALPHA_SOURCE_RAIL, '#8298b2', null, 0);
             ctx.beginPath();
             ALPHA_TRACK.forEach((pt, i) => i ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]));
-            ctx.lineWidth = 110; ctx.strokeStyle = '#334b68'; ctx.stroke();
+            ctx.lineWidth = overrideDoorU == null ? 155 : 110; ctx.strokeStyle = overrideDoorU == null ? '#8DD7FF' : '#334b68'; ctx.stroke();
             // Triângulo inferior direito também realmente vazado.
             paintPath(ctx, ALPHA_LOWER_TRIANGLE, null, 'rgba(39,62,87,0.75)', 85);
         } else {
@@ -7786,7 +7786,7 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
         paintPath(ctx, ALPHA_SOURCE_RAIL, '#8298b2', null, 0);
         ctx.beginPath();
         ALPHA_TRACK.forEach((pt, i) => i ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]));
-        ctx.lineWidth = 110; ctx.strokeStyle = '#334b68'; ctx.stroke();
+        ctx.lineWidth = overrideDoorU == null ? 155 : 110; ctx.strokeStyle = overrideDoorU == null ? '#8DD7FF' : '#334b68'; ctx.stroke();
         }
         // Porta rolante compartilhada pelas abas 5 e 6, acompanhando
         // o trilho curvo existente sem alterar os vazados estruturais.
@@ -7802,8 +7802,32 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
         ctx.beginPath();
         pts.forEach((p, i) => i ? ctx.lineTo(p[0],p[1]) : ctx.moveTo(p[0],p[1]));
         ctx.lineCap = 'butt'; ctx.lineJoin = 'round';
-        ctx.lineWidth = 560; ctx.strokeStyle = '#273e57'; ctx.stroke();
-        ctx.lineWidth = 400; ctx.strokeStyle = '#9cb3ca'; ctx.stroke();
+        if (overrideDoorU == null) {
+            // Aba 5: tambour destacado em ambos os estados (frente fechada
+            // e esteira recolhida no trilho superior), com lâminas discretas.
+            ctx.lineWidth = 610; ctx.strokeStyle = '#143550'; ctx.stroke();
+            ctx.lineWidth = 505; ctx.strokeStyle = '#4FC1FF'; ctx.stroke();
+            ctx.lineWidth = 380; ctx.strokeStyle = '#569CD6'; ctx.stroke();
+            for (let d = start + 350; d < end - 300; d += 540) {
+                const pt = alphaTrackPointAt(d);
+                const prev = alphaTrackPointAt(Math.max(start, d - 50));
+                const next = alphaTrackPointAt(Math.min(end, d + 50));
+                const dx = next[0] - prev[0], dy = next[1] - prev[1];
+                const length = Math.hypot(dx, dy);
+                if (length < 0.001) continue;
+                const nx = -dy / length, ny = dx / length;
+                ctx.beginPath();
+                ctx.moveTo(pt[0] - nx * 216, pt[1] - ny * 216);
+                ctx.lineTo(pt[0] + nx * 216, pt[1] + ny * 216);
+                ctx.lineWidth = 46;
+                ctx.strokeStyle = 'rgba(20,53,80,0.78)';
+                ctx.stroke();
+            }
+        } else {
+            // A cinemática e as cores da porta na aba 6 permanecem originais.
+            ctx.lineWidth = 560; ctx.strokeStyle = '#273e57'; ctx.stroke();
+            ctx.lineWidth = 400; ctx.strokeStyle = '#9cb3ca'; ctx.stroke();
+        }
         ctx.restore();
     }
     ctx.restore();
@@ -9478,7 +9502,13 @@ window.drawUniReferenceBins = drawReferenceBins;
                     const d = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, k);
                     Object.defineProperty(CanvasRenderingContext2D.prototype, k, {
                         configurable: true, enumerable: d.enumerable, get: d.get,
-                        set(val) { d.set.call(this, typeof val !== 'string' ? val : window.BIN_DARK ? dark(val, k === 'strokeStyle' ? 'stroke' : 'fill') : window.BIN_SOLID ? lilac(val) : val); }
+                        set(val) {
+                            // Preserve o contraste da porta tambour na tela e nas exportações,
+                            // inclusive na variante de fundo escuro.
+                            const accent = typeof val === 'string' && window.BIN_SOLID &&
+                                ['#4fc1ff', '#569cd6', '#8dd7ff', '#143550'].includes(val.toLowerCase());
+                            d.set.call(this, typeof val !== 'string' || accent ? val : window.BIN_DARK ? dark(val, k === 'strokeStyle' ? 'stroke' : 'fill') : window.BIN_SOLID ? lilac(val) : val);
+                        }
                     });
                 });
                 const acs0 = CanvasGradient.prototype.addColorStop;
@@ -9644,19 +9674,38 @@ window.drawUniReferenceBins = drawReferenceBins;
                 ctx.fillText(labelLines[1], labelX, labelY + 14);
                 ctx.restore();
             }
-            // Apenas na simulação dinâmica: nunca no SVG/canvas base
-            // nem nos PNGs exportados.
-            function drawInteractiveStructureDims(ctx,W,H,alpha) {
-                if(alpha<=0)return;
-                const {toX,toY}=m4(W,H);
-                ctx.save();ctx.globalAlpha*=alpha;
-                const C='#7c8b9e';
-                drawDimensionLine(ctx,toX(-152),toY(0),toX(-152),toY(200),
-                    '78.7"',C,11,{x:-15,y:0}); // altura interna
-                drawDimensionLine(ctx,toX(-25.4),toY(212),toX(25.4),toY(212),
-                    '20"',C,11,{x:0,y:-11}); // mais próxima do topo externo da fuselagem, sem invadir o arco
-                drawDimensionLine(ctx,toX(-126),toY(-9),toX(126),toY(-9),
-                    '108"',C,11,{x:0,y:11},null,null,true); // legenda abaixo da linha, em fundo azul; setas intactas
+            // Cotas da seção transversal compartilhadas com a exportação (PNG).
+            // A altura geral 78.7" e a largura inferior 108" foram removidas.
+            // As cotas dos bins e as folgas individuais permanecem em suas rotinas.
+            function drawInteractiveStructureDims(ctx, W, H, alpha) {
+                if (alpha <= 0) return;
+                const { toX, toY } = m4(W, H);
+                const C = '#7c8b9e';
+                ctx.save();
+                ctx.globalAlpha *= alpha;
+
+                // Largura do corredor: acima do arco, junto à fuselagem.
+                drawDimensionLine(ctx,
+                    toX(-25.4), toY(212), toX(25.4), toY(212),
+                    '20"', C, 11, {x:0, y:-11});
+
+                // Altura nominal do assento conforme a cota solicitada.
+                // O modelo da cadeira e a antropometria permanecem intactos.
+                const seatDimY = 16.8 * CM_PER_IN;
+                drawDimensionLine(ctx,
+                    toX(138), toY(0), toX(138), toY(seatDimY),
+                    '16.8"', C, 11, {x:21, y:0},
+                    {x1:toX(125), y1:toY(0), x2:toX(142), y2:toY(0)},
+                    {x1:toX(125), y1:toY(seatDimY), x2:toX(142), y2:toY(seatDimY)});
+
+                // Altura do encosto na lateral esquerda, sem conflitar com o
+                // líder "Seatback reclines 20°" situado acima da cadeira.
+                const backDimY = 40.0 * CM_PER_IN;
+                drawDimensionLine(ctx,
+                    toX(-141), toY(0), toX(-141), toY(backDimY),
+                    '40.0"', C, 11, {x:-19, y:0},
+                    {x1:toX(-125), y1:toY(0), x2:toX(-145), y2:toY(0)},
+                    {x1:toX(-125), y1:toY(backDimY), x2:toX(-145), y2:toY(backDimY)});
                 ctx.restore();
             }
             function after(ctx, m) {
@@ -9665,10 +9714,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                     hAisle: st, hWin: st, backAng: window.SEATED_STAT.backAng, map: m4,
                     layers: { seats, pax, dims: seats }
                 });
-                // Cotas estruturais adicionais só no HTML interativo,
-                // mantidas fora de qualquer exportação estática.
-                if(!U.exporting&&!window.EXPORT_EN)
-                    drawInteractiveStructureDims(ctx,m.W,m.H,seats);
+                // Cotas idênticas na visualização e no canvas de exportação.
+                drawInteractiveStructureDims(ctx,m.W,m.H,seats);
                 const i = phaseIdx();
                 ctx.save(); ctx.font = 'bold 13px "JetBrains Mono", monospace'; ctx.textAlign = 'left'; ctx.fillStyle = '#434697';
                 if (!U.exporting && !inTourView()) ctx.fillText(`PHASE ${i + 1}/4 — ${PH[i][0].toUpperCase()}`, 16, m.H - 14); ctx.restore();
