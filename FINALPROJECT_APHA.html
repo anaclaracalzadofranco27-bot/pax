@@ -10281,88 +10281,104 @@ function xrayRun(ms) {
                     })),
                     surfaces: [mat, wm, fm, ...profileBandMaterials].map(m => [m, m.transparent, m.opacity, m.depthWrite, m.color.getHex()])
                 };
-                const isoMaterialStates = [];
-                const isoExtraLines = [];
-                // Câmera isométrica a az=-0.47 observa o lado X_RIGHT (mais próximo).
-                // Uma mala deitada (1) e outra em pé (3) formam essa fileira frontal.
-                const isoNearBagIndices = [1, 3];
+                // Tudo abaixo existe somente durante a SEGUNDA captura (lateral isométrica).
+                // A imagem ortográfica e os materiais acrílicos da cena principal permanecem intactos.
+                const isoVisibilityStates = new Map();
+                const isoMaterialSwaps = [];
+                const isoTemporaryMaterials = new Map();
+                const isoNormalGeometries = new Set();
 
-                // Efeitos estritamente temporários: nunca modificar o PNG ortográfico.
-                const saveIsoMaterial = m => isoMaterialStates.push([
-                    m, m.color.getHex(), m.transparent, m.opacity, m.depthWrite
-                ]);
+                // A câmera az=-0.47 está do lado X_RIGHT (DIST): ocultar essa parede e
+                // as malas 1 e 3, preservando as duas malas da fileira oposta (0 e 2).
+                const isoNearBagIndices = [1, 3];
+                const isoRearBagIndices = [0, 2];
+
+                const hideForIsometric = object => {
+                    if (!isoVisibilityStates.has(object)) isoVisibilityStates.set(object, object.visible);
+                    object.visible = false;
+                };
+                const swapIsoMaterial = (mesh, temporary) => {
+                    isoMaterialSwaps.push([mesh, mesh.material, mesh.renderOrder]);
+                    mesh.material = temporary;
+                    mesh.renderOrder = 0;  // oclusão apenas pelo depth buffer, nunca sobrepor as malas
+                };
                 const resetIsometricAppearance = () => {
-                    isoExtraLines.forEach(([parent, line]) => {
-                        parent.remove(line);
-                        line.geometry.dispose();
-                        line.material.dispose();
+                    isoMaterialSwaps.forEach(([mesh, material, renderOrder]) => {
+                        mesh.material = material;
+                        mesh.renderOrder = renderOrder;
                     });
-                    isoExtraLines.length = 0;
-                    isoMaterialStates.forEach(([m, color, tr, op, dw]) => {
-                        m.color.setHex(color);
-                        m.transparent = tr; m.opacity = op; m.depthWrite = dw; m.needsUpdate = true;
-                    });
-                    isoMaterialStates.length = 0;
+                    isoMaterialSwaps.length = 0;
+                    isoVisibilityStates.forEach((visible, object) => { object.visible = visible; });
+                    isoVisibilityStates.clear();
+                    isoNormalGeometries.forEach(geometry => geometry.deleteAttribute('normal'));
+                    isoNormalGeometries.clear();
+                    isoTemporaryMaterials.forEach(material => material.dispose());
+                    isoTemporaryMaterials.clear();
                 };
                 const highlightIsometricInterior = () => {
-                    // As malas do fundo mantêm os materiais originais, sólidos e opacos
-                    // (MeshLambertMaterial: opacity=1, transparent=false), inclusive rodas e alças.
-
-                    // Reforço das faces internas: piso escalonado, parede inclinada,
-                    // divisória superior e teto/fundo, sem alterar a lateral de acrílico.
-                    // Apenas wm e fm recebem azul mais escuro e maior definição;
-                    // a lateral externa (mat) e a porta (doorMat) permanecem inalteradas.
-                    [wm, fm, bl, railLineMat].forEach(saveIsoMaterial);
-                    wm.color.setHex(0x5d7196); wm.transparent = true;
-                    wm.opacity = 0.84; wm.depthWrite = false; wm.needsUpdate = true;
-                    fm.color.setHex(0x405779); fm.transparent = true;
-                    fm.opacity = 0.90; fm.depthWrite = false; fm.needsUpdate = true;
-                    profileBandMaterials.forEach(m => { m.opacity = 0.42; m.needsUpdate = true; });
-                    bl.color.setHex(0x102b50);
-                    railLineMat.color.setHex(0x14395a);
-
-                    // Contorno técnico interno construído a partir dos perfis reais do SVG.
-                    // Sem triangulações na parede curva: apenas as bordas longitudinais,
-                    // a quebra do piso e as travessas nas mudanças de superfície.
-                    const edgePoints = [];
-                    const x0 = TH / 2 + 1.5, x1 = DIST - TH / 2 - 1.5;
-                    const addPath = (path, x) => {
-                        for (let i = 1; i < path.length; i++) {
-                            edgePoints.push(x, path[i - 1][1], -path[i - 1][0],
-                                            x, path[i][1], -path[i][0]);
+                    // Cores foscas/acetinadas, diferenciadas pelo sombreamento real das luzes
+                    // ambiente e direcionais já presentes. Não mudar os materiais originais.
+                    const wallColors = new Map([
+                        [mat, 0xbecddd],       // parede lateral distante
+                        [wm, 0x9fb5c9],        // parede inclinada e divisória superior
+                        [fm, 0x849eb8],        // piso escalonado
+                        [doorMat, 0xc5d4e3],   // porta/teto retrátil
+                        [handleMat, 0x899fb4] // puxador da porta
+                    ]);
+                    profileBandMaterials.forEach(material => wallColors.set(material, 0x99b0c3));
+                    const solidMaterialFor = (source, isBag) => {
+                        if (!isoTemporaryMaterials.has(source)) {
+                            const solid = isBag
+                                ? source.clone()
+                                : new THREE.MeshStandardMaterial({
+                                    color: wallColors.get(source) ?? source.color.getHex(),
+                                    side: THREE.DoubleSide,
+                                    roughness: 0.78, metalness: 0.03,
+                                    polygonOffset: !!source.polygonOffset,
+                                    polygonOffsetFactor: source.polygonOffsetFactor || 0,
+                                    polygonOffsetUnits: source.polygonOffsetUnits || 0
+                                });
+                            solid.opacity = 1.0;
+                            solid.transparent = false;
+                            solid.depthWrite = true;
+                            solid.depthTest = true;
+                            solid.wireframe = false;
+                            solid.needsUpdate = true;
+                            isoTemporaryMaterials.set(source, solid);
                         }
+                        return isoTemporaryMaterials.get(source);
                     };
-                    [WALL_SEAT, FLOOR_SEAT, DOOR_GUIDE].forEach(path => {
-                        addPath(path, x0);
-                        addPath(path, x1);
-                    });
-                    [FLOOR_SEAT[0], FLOOR_SEAT[8], FLOOR_SEAT[FLOOR_SEAT.length - 1],
-                     WALL_SEAT[0], WALL_SEAT[WALL_SEAT.length - 1]].forEach(p => {
-                        edgePoints.push(x0, p[1], -p[0], x1, p[1], -p[0]);
-                    });
-                    const outlineGeometry = new THREE.BufferGeometry();
-                    outlineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(edgePoints, 3));
-                    const outline = new THREE.LineSegments(outlineGeometry,
-                        new THREE.LineBasicMaterial({
-                            color: 0x173656, transparent: true, opacity: 0.86,
-                            depthTest: false, depthWrite: false
-                        }));
-                    outline.renderOrder = 18;
-                    group.add(outline);
-                    isoExtraLines.push([group, outline]);
 
-                    // EdgesGeometry destaca os degraus/arestas reais do piso (sem objetos permanentes).
-                    group.children.filter(obj => obj.isMesh && obj.material === fm).forEach(mesh => {
-                        const edges = new THREE.LineSegments(
-                            new THREE.EdgesGeometry(mesh.geometry, 40),
-                            new THREE.LineBasicMaterial({
-                                color: 0x213d66, transparent: true, opacity: 0.38,
-                                depthTest: false, depthWrite: false
-                            })
-                        );
-                        edges.renderOrder = 17;
-                        mesh.add(edges);
-                        isoExtraLines.push([mesh, edges]);
+                    // Retira toda a lateral X_RIGHT, inclusive suas tiras de extrusão.
+                    // Retira também TODAS as linhas estruturais do bin, inclusive EdgesGeometry,
+                    // guias e divisões das ripas: nenhuma linha pode atravessar as malas.
+                    sideWallParts.forEach(hideForIsometric);
+                    group.traverse(object => {
+                        if (object.isLine || object.isLineSegments || object.isLineLoop) {
+                            hideForIsometric(object);
+                        }
+                        if (!object.isMesh) return;
+                        // Paredes planas construídas com BufferGeometry precisam de normais
+                        // para receber sombreamento físico; remover as normais temporárias no reset.
+                        if (object.geometry && !object.geometry.getAttribute('normal') &&
+                            object.geometry.getAttribute('position')) {
+                            object.geometry.computeVertexNormals();
+                            isoNormalGeometries.add(object.geometry);
+                        }
+                        swapIsoMaterial(object, solidMaterialFor(object.material, false));
+                    });
+
+                    // As duas malas do fundo (casco, rodinhas e alças) ficam integralmente
+                    // opacas. As linhas decorativas das próprias malas continuam visíveis.
+                    isoRearBagIndices.forEach(index => {
+                        const bag = bags[index];
+                        bag.root.visible = true;
+                        if (bag.env) bag.env.visible = false;
+                        bag.root.traverse(object => {
+                            if (object.isMesh) {
+                                swapIsoMaterial(object, solidMaterialFor(object.material, true));
+                            }
+                        });
                     });
                 };
                 const exportShot = (name, angle, elevation, radius) => {
