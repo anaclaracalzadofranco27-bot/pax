@@ -10650,8 +10650,26 @@ function xrayRun(ms) {
                         const yA = cy + side * cm(g.lat[0]), yB = cy + side * cm(g.lat[1]);
                         const y0 = Math.min(yA, yB), h = Math.abs(yB - yA);
                         ctx.fillStyle = `rgba(${RGB_S},.25)`; ctx.fillRect(x0, y0, len, h);
-                        ctx.setLineDash([lwS, lwS]); ctx.strokeStyle = `rgb(${RGB_S})`; ctx.lineWidth = lwS; ctx.lineJoin = 'miter';
-                        ctx.strokeRect(x0, y0, len, h); ctx.setLineDash([]);
+                        // Open-ended section S: no right-hand closing edge.
+                        // The faint dashed continuation stops at the final bin, inside the fuselage.
+                        const sEnd = Math.min(x0 + len, xEnd);
+                        ctx.setLineDash([lwS, lwS]); ctx.strokeStyle = `rgb(${RGB_S})`;
+                        ctx.lineWidth = lwS; ctx.lineJoin = 'miter';
+                        ctx.beginPath();
+                        ctx.moveTo(x0, y0 + h); ctx.lineTo(x0, y0);
+                        ctx.lineTo(sEnd, y0);
+                        ctx.moveTo(x0, y0 + h); ctx.lineTo(sEnd, y0 + h);
+                        ctx.stroke();
+                        if (xEnd > sEnd) {
+                            ctx.globalAlpha = p3 * 0.48;
+                            ctx.lineWidth = Math.max(1, lwS * 0.65);
+                            ctx.beginPath();
+                            ctx.moveTo(sEnd, y0); ctx.lineTo(xEnd, y0);
+                            ctx.moveTo(sEnd, y0 + h); ctx.lineTo(xEnd, y0 + h);
+                            ctx.stroke();
+                            ctx.globalAlpha = p3;
+                        }
+                        ctx.setLineDash([]);
                         // etiqueta "S" no canto da janela (fora da faixa: acima no Alpha, abaixo no Conventional)
                         const tw = 17 / PDFR * kk * 0.9, th = tw, ty = side < 0 ? y0 - th : y0 + h;
                         ctx.fillStyle = `rgb(${RGB_S})`; ctx.fillRect(x0, ty, tw, th);
@@ -10663,37 +10681,6 @@ function xrayRun(ms) {
                     ctx.restore();
                 }
 
-                // Da seção S até a borda aberta do recorte da cabine: propagação modular,
-                // sem extrapolar para uma contagem total específica de aeronave/fabricante.
-                const propagation = S(4.8, 0.8);
-                if (propagation > 0 && binA > 0) {
-                    const startX = mx(XC0) + cm(8 * GEO_A.mod) + 6; // após o trecho S Alpha
-                    const farX = W + 24; // continuação aberta, para além do recorte
-                    const arrowY = cy - cm((GEO_A.lat[0] + GEO_A.lat[1]) / 2);
-                    if (farX > startX + 20) {
-                        ctx.save();
-                        ctx.globalAlpha = binA * propagation;
-                        const fade = ctx.createLinearGradient(startX, arrowY, farX, arrowY);
-                        fade.addColorStop(0, 'rgba(255,90,54,.98)');
-                        fade.addColorStop(0.56, 'rgba(255,116,68,.72)');
-                        fade.addColorStop(1, 'rgba(255,90,54,.06)');
-                        ctx.strokeStyle = fade;
-                        ctx.lineWidth = 3; ctx.lineCap = 'round';
-                        ctx.setLineDash([9, 6]);
-                        ctx.beginPath(); ctx.moveTo(startX, arrowY); ctx.lineTo(farX, arrowY); ctx.stroke();
-                        ctx.setLineDash([]);
-                        // Seta discreta na extremidade, preservando a indicação de continuidade.
-                        ctx.strokeStyle = 'rgba(255,110,67,.40)'; ctx.lineWidth = 2;
-                        ctx.beginPath();
-                        ctx.moveTo(W - 27, arrowY - 5); ctx.lineTo(W - 19, arrowY); ctx.lineTo(W - 27, arrowY + 5);
-                        ctx.stroke();
-                        ctx.fillStyle = '#ff986f'; ctx.font = mono(700, 11);
-                        ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
-                        ctx.fillText('SCALABLE CABIN-WIDE PROPAGATION →',
-                            W - 20, cy - cm(GEO_A.lat[1]) - 13, Math.min(320, W * 0.42));
-                        ctx.restore();
-                    }
-                }
             } finally { [window.ERGO_DARK, window.BIN_SOLID, window.BIN_DARK] = pBin; ctx.restore(); }
             ctx.restore(); // fim translate aeronave
 
@@ -10718,7 +10705,7 @@ function xrayRun(ms) {
                     ctx.scale(kDet, kDet);
                     ctx.clearRect(16, 380, 1422, 56); // antiga cota 16 bags = 176" e selo +4 bags
 
-                    // Duas cotas com a mesma origem, cobrindo exatamente 8 malas / 2 módulos.
+                    // Uma única cota comparativa entre as fileiras, cobrindo 8 malas / 2 módulos do ALPHA.
                     const eightBagDimension = (x0, x1, y, color, label) => {
                         ctx.save();
                         ctx.strokeStyle = color; ctx.lineWidth = 2;
@@ -10744,22 +10731,16 @@ function xrayRun(ms) {
                     // 16 malas Alpha ocupam a cota anterior x=25.5..1127.5.
                     // Portanto, 8 malas terminam no ponto médio exato desse segmento.
                     eightBagDimension(25.5, 25.5 + (1127.5 - 25.5) / 2,
-                        398, '#ff5a36', '8 bags = 88"');
-                    // Convencional: metade da cota total de 16 malas, x=25.15..1430.42.
-                    // A nova cota fica sob a de 224", na margem do canvas, sem encobri-la.
-                    eightBagDimension(25.15, 25.15 + (1430.42 - 25.15) / 2,
-                        688, '#dce5ef', '8 bags = 112"');
+                        398, '#ff5a36', '8 bags: 88" vs 112"');
 
-                    // Selo compacto à direita do detalhe: ganho da seção S (20 vs 16 malas),
-                    // em quatro polegadas a menos, nunca um total fechado da aeronave.
-                    const bx = 1138, by = 386, bw = 284, bh = 55;
-                    ctx.fillStyle = '#10152c'; ctx.fillRect(bx, by, bw, bh);
-                    ctx.strokeStyle = '#ff5a36'; ctx.lineWidth = 2; ctx.strokeRect(bx, by, bw, bh);
-                    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-                    ctx.fillStyle = '#ff7648'; ctx.font = mono(800, 23);
-                    ctx.fillText('+25% CAPACITY', bx + 14, by + 26);
-                    ctx.fillStyle = '#e8d8cb'; ctx.font = mono(700, 13);
-                    ctx.fillText('+4 BAGS  •  -4" LENGTH', bx + 14, by + 46);
+                    // Minimal pill inside the orange annotation strip, without a heavy box.
+                    const bx = 1174, by = 390, bw = 247, bh = 34, rad = 17;
+                    ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, rad);
+                    ctx.fillStyle = 'rgba(0,2,35,.78)'; ctx.fill();
+                    ctx.strokeStyle = 'rgba(255,90,54,.9)'; ctx.lineWidth = 1.2; ctx.stroke();
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillStyle = '#ff916e'; ctx.font = mono(700, 17);
+                    ctx.fillText('+25% (+4 bags)', bx + bw / 2, by + bh / 2);
                     ctx.restore();
                 }
                 ctx.restore();
