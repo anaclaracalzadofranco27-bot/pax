@@ -7339,6 +7339,37 @@ function xrayRun(ms) {
         }
 
 
+        // Mesmo piso usado por traceBinAlphaProfile: trecho horizontal e
+        // rampa de 17° da geometria original, sem alterar o renderer.
+        function ergoBinFloorAt(prof, x) {
+            return x <= prof.xFlatEnd ? prof.y0 :
+                prof.y0 + (x - prof.xFlatEnd) *
+                (prof.yRampEnd - prof.y0) / (prof.xRampEnd - prof.xFlatEnd);
+        }
+        function ergoBagSupportY(prof, cx, w, h, angleDeg, gap = 0) {
+            const r = -angleDeg*Math.PI/180, c = Math.cos(r), sn = Math.sin(r);
+            const corners = [[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]]
+                .map(([x,y]) => [x*c-y*sn, x*sn+y*c]);
+            const required = [];
+            const check = (dx,dy) => {
+                const x = cx+dx;
+                if (x >= prof.x0-1e-7 && x <= prof.xRampEnd+1e-7)
+                    required.push(ergoBinFloorAt(prof,x)-dy);
+            };
+            corners.forEach(([dx,dy]) => check(dx,dy));
+            // Considera também intersecções com a borda e com a quebra
+            // do piso, para a mala não atravessar a quina ao deslizar.
+            corners.forEach(([ax,ay],i) => {
+                const [bx,by] = corners[(i+1)%4];
+                if (Math.abs(bx-ax)<1e-8) return;
+                for (const edge of [prof.x0,prof.xFlatEnd,prof.xRampEnd]) {
+                    const t=(edge-cx-ax)/(bx-ax);
+                    if (t>=0 && t<=1) check(ax+t*(bx-ax),ay+t*(by-ay));
+                }
+            });
+            return (required.length ? Math.max(...required) : prof.y0+h/2)+gap;
+        }
+
         // Timeline em duas etapas: a primeira mala (alpha2) entra no fundo e a
         // segunda (alpha1) aparece na altura da cintura, com aproximação suave.
         // Coordenadas em cm na MESMA projeção e escala geométrica das abas 5/6.
@@ -7354,7 +7385,9 @@ function xrayRun(ms) {
                     + 0.288 * stature + 0.118 * stature + 0.068 * stature + h / 2 + 2.5;
                 const yArc = Math.max(yTop + 5.5, headClearY);
                 return {
-                    mode, w, h, tPlace: 0.81, tSupport: 0.57, tPush: 0.75,
+                    mode, w, h, tPlace: 0.81, tSupport: 0.67, tPush: 0.78,
+                    floor: prof, floorContact: 0.67,
+                    floorGap: prof.m1Cy-ergoBagSupportY(prof,prof.m1Cx,w,h,0),
                     footX: -22, fadeIn: [0.045, 0.175],
                     stages: [[0, 'Prepare'], [0.14, 'Grip'], [0.23, 'Lift'],
                              [0.48, 'Clear head'], [0.62, 'Insert'],
@@ -7366,9 +7399,13 @@ function xrayRun(ms) {
                         [0.31, xLift + 10.0, yCarry + (yArc - yCarry) * 0.30, 0, 0],
                         [0.44, xLift + 13.0, yArc, 0, 0],
                         [0.53, xLift + 12.0, yArc + 1.5, 0, 0],
-                        [0.60, xLift + 13.0, yArc + 1.5, 0, 0.15],
-                        [0.68, prof.m1Cx - 3.0, yArc + 0.3, 0, 0.86],
-                        [0.77, prof.m1Cx, yTop, 0, 1],
+                        // Aproxima e BAIXA até apoiar no trecho horizontal do bin.
+                        [0.59, xLift+13.0, yArc-2.0, 0, 0.05],
+                        [0.63, prof.x0+1.0, prof.y0+h/2+6.0, 0, 0.20],
+                        [0.67, prof.x0+5.0, prof.m1Cy, 0, 0.46],
+                        // Com a base em contato, desliza 8 cm até o encaixe.
+                        [0.73, prof.x0+8.0, prof.m1Cy, 0, 0.72],
+                        [0.77, prof.x0+11.0, prof.m1Cy, 0, 0.93],
                         [0.81, prof.m1Cx, prof.m1Cy, 0, 1],
                         [1.00, prof.m1Cx, prof.m1Cy, 0, 1]
                     ]
@@ -7380,7 +7417,9 @@ function xrayRun(ms) {
                 const yArc = Math.max(prof.y0 + 27.5,
                     (0.245 + 0.285 + 0.288 + 0.118 + 0.068) * stature + w / 2 + 2.5);
                 return {
-                    mode, w, h, tPlace: 0.89, tSupport: 0.64, tPush: 0.83,
+                    mode, w, h, tPlace: 0.89, tSupport: 0.71, tPush: 0.83,
+                    floor: prof, floorContact: 0.71,
+                    floorGap: prof.m2Cy-ergoBagSupportY(prof,prof.m2Cx,w,h,17),
                     footX: -22,
                     stages: [[0, 'Grip'], [0.07, 'Lift (bag upright)'],
                              [0.39, 'Clear head'], [0.48, 'Rotate to lay flat'],
@@ -7393,10 +7432,19 @@ function xrayRun(ms) {
                         [0.41, prof.x0 + 1.0, yArc, -90, 0],
                         [0.48, prof.x0 + 6.0, yArc + 1.0, -66, 0],
                         [0.56, prof.x0 + 8.0, yArc, -32, 0],
-                        [0.63, prof.x0 + 8.0, prof.y0 + 24.0, -10, 0.10],
-                        [0.70, prof.x0 + 12.0, prof.y0 + 21.0, 4, 0.46],
-                        [0.79, prof.x0 + 26.4, prof.y0 + 14.0, 15, 0.90],
-                        [0.85, prof.x0 + 36.4, prof.y0 + 10.0, 17, 1],
+                        [0.63, prof.x0+8.0, prof.y0+24.0, -10, 0.10],
+                        [0.67, prof.x0+15.0, prof.y0+21.0, 8, 0.23],
+                        // Apoio na rampa antes do avanço, já a 17°.
+                        [0.71, prof.x0+20.0,
+                         ergoBagSupportY(prof,prof.x0+20.0,w,h,17,
+                             prof.m2Cy-ergoBagSupportY(prof,prof.m2Cx,w,h,17)),17,0.46],
+                        // Translação solidária ao piso inclinado.
+                        [0.79, prof.x0+35.0,
+                         ergoBagSupportY(prof,prof.x0+35.0,w,h,17,
+                             prof.m2Cy-ergoBagSupportY(prof,prof.m2Cx,w,h,17)),17,0.78],
+                        [0.85, prof.x0+44.0,
+                         ergoBagSupportY(prof,prof.x0+44.0,w,h,17,
+                             prof.m2Cy-ergoBagSupportY(prof,prof.m2Cx,w,h,17)),17,0.95],
                         [0.89, prof.m2Cx, prof.m2Cy, 17, 1],
                         [1.00, prof.m2Cx, prof.m2Cy, 17, 1]
                     ]
@@ -7454,9 +7502,12 @@ function xrayRun(ms) {
             const shY = hipY + Ltorso * Math.cos(torsoTilt);
 
             // Passada posterior discreta, sem agachamento durante o alcance.
-            const step = 0.32 * smooth((phase - 0.14) / 0.27) *
-                (1 - smooth((phase - plan.tPlace) / 0.10));
-            const rAx = ankleX - 7.0 * step, rAy = ankleY;
+            // Passo para trás de 11 cm apenas com o pé posterior.
+            // Perna de apoio e quadril continuam altos; a centralização
+            // existente do corpo o mantém dentro dos 20" do corredor.
+            const step = smooth((phase - 0.46) / 0.22) *
+                (1 - smooth((phase - plan.tPlace) / 0.11));
+            const rAx = ankleX - 11.0*step, rAy = ankleY;
             const kneeIK = (ax, ay) => {
                 const dx = hipX - ax, dy = hipY - ay;
                 const dist = Math.max(0.001, Math.hypot(dx, dy));
@@ -7489,7 +7540,7 @@ function xrayRun(ms) {
             // Desvio frontal progressivo (+X) durante o levantamento, afastando
             // a mala do rosto. Dissolve antes da inserção sem afetar o bin.
             const forwardClearance = 9.0 * smooth((phase - 0.115) / 0.155) *
-                (1 - smooth((phase - plan.tSupport - 0.015) / 0.11));
+                (1 - smooth((phase - (plan.tSupport - 0.20)) / 0.17));
             bx += forwardClearance;
             const rot = -ba * Math.PI / 180;
             const halfBW = (Math.abs(plan.w * Math.cos(rot)) +
@@ -7502,6 +7553,17 @@ function xrayRun(ms) {
             const avoidance = smooth((criticalY + 7.0 - sepY) / 7.0);
             const safeX = headX + headR + halfBW + margin;
             bx += Math.max(0, safeX - bx) * avoidance;
+
+            // Sustenta a mala na aproximação e, APÓS APOIAR, vincula sua
+            // altura diretamente à linha real do piso. Sem "flutuação",
+            // descida através da parede ou teleporte na entrada do bin.
+            if (phase >= plan.floorContact) {
+                by = ergoBagSupportY(plan.floor,bx,plan.w,plan.h,ba,
+                    plan.floorGap);
+            } else if (phase >= plan.floorContact-0.14) {
+                by = Math.max(by,ergoBagSupportY(plan.floor,bx,
+                    plan.w,plan.h,ba,plan.floorGap));
+            }
 
             // Mãos acopladas à lateral/alça da mala; APÓS APOIO na borda,
             // deslizam ao setor inferior-traseiro para executar o empurrão.
