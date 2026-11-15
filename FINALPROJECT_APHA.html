@@ -5588,7 +5588,7 @@ function xrayRun(ms) {
                         <button id="cad3d-export-side" type="button" onclick="cad3dExportSideTransparent()" class="cad-btn" title="Exports two 4K views of the complete bin with four visible bags and translucent side panels: lateral and side-oblique">
                             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>Exportar lateral c/ malas (2 PNG)
                         </button>
-                        <button id="cad3d-export-side-cut" type="button" onclick="cad3dExportSideCut()" class="cad-btn" title="Exporta PNG 4K ortográfico da vista lateral aberta em corte, sem a lateral frontal, com malas translúcidas e arestas tracejadas">
+                        <button id="cad3d-export-side-cut" type="button" onclick="cad3dExportSideCut()" class="cad-btn" title="Exporta PNG 4K da vista lateral aberta em corte com perspectiva suave, sem a lateral próxima, com malas translúcidas e contornos tracejados">
                             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>Exportar Vista Lateral Aberta (Corte)
                         </button>
                         <div class="flex items-center gap-2 bg-cad-bg px-3 py-1.5 rounded-lg border border-cad-border text-xs font-mono">
@@ -10408,14 +10408,24 @@ function xrayRun(ms) {
                             }
                         });
 
-                        // Só a caixa externa IATA recebe EdgesGeometry + LineDashedMaterial.
-                        const envelopeGeometry = new THREE.BoxGeometry(356, 559, 254);
+                        // Contorno IATA apenas nesta exportação: recuo de 1,75 mm em
+                        // cada face do envelope (sem alterar a pose nem o volume real).
+                        // Mantém o tracejado dentro das faces internas do piso,
+                        // da parede traseira inclinada e da divisória vertical.
+                        const CUT_OUTLINE_INSET_MM = 1.75;
+                        const envelopeGeometry = new THREE.BoxGeometry(
+                            356 - 2 * CUT_OUTLINE_INSET_MM,
+                            559 - 2 * CUT_OUTLINE_INSET_MM,
+                            254 - 2 * CUT_OUTLINE_INSET_MM
+                        );
                         const edges = new THREE.EdgesGeometry(envelopeGeometry);
                         envelopeGeometry.dispose();
                         const dashedMaterial = new THREE.LineDashedMaterial({
                             color: 0x1e293b, dashSize: 17, gapSize: 11,
                             transparent: true, opacity: 0.98,
-                            depthTest: false, depthWrite: false
+                            // As arestas do bin devem ocultar o tracejado, nunca
+                            // ser atravessadas por linhas desenhadas em primeiro plano.
+                            depthTest: true, depthWrite: false
                         });
                         const outline = new THREE.LineSegments(edges, dashedMaterial);
                         outline.computeLineDistances(); // obrigatório para LineDashedMaterial
@@ -10424,11 +10434,19 @@ function xrayRun(ms) {
                         dashedOutlines.push([b.root, outline]);
                     });
 
-                    // Eixo óptico exatamente paralelo ao eixo X: perfil Y-Z sem perspectiva.
-                    const hh = 390, target = new THREE.Vector3(DIST / 2, 355, -447);
-                    const cutCamera = new THREE.OrthographicCamera(
-                        -hh * EW / EH, hh * EW / EH, hh, -hh, 1, 8000);
-                    cutCamera.position.set(DIST + 3000, target.y, target.z);
+                    // Perspectiva técnica suave: câmera permanece do lado aberto (+X),
+                    // com 15° de giro horizontal rumo à abertura e 10° de elevação.
+                    // FOV baixo preserva a leitura das medidas e revela as faces 3D.
+                    const target = new THREE.Vector3(DIST / 2, 305, -420);
+                    const cutYaw = THREE.MathUtils.degToRad(-15);
+                    const cutElevation = THREE.MathUtils.degToRad(10);
+                    const cutRadius = 2450;
+                    const cutCamera = new THREE.PerspectiveCamera(28, EW / EH, 1, 10000);
+                    cutCamera.position.set(
+                        target.x + cutRadius * Math.cos(cutElevation) * Math.cos(cutYaw),
+                        target.y + cutRadius * Math.sin(cutElevation),
+                        target.z + cutRadius * Math.cos(cutElevation) * Math.sin(cutYaw)
+                    );
                     cutCamera.lookAt(target);
                     cutCamera.updateProjectionMatrix();
 
