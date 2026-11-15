@@ -7749,16 +7749,24 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
         ctx.translate(0, CABIN_YC);
         ctx.translate(ALPHA_FIXED.tx, ALPHA_FIXED.ty);
         ctx.scale(ALPHA_FIXED.scaleX, ALPHA_FIXED.scaleY);
-        ctx.beginPath();
-        ALPHA_OUTLINE.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
-        ctx.closePath();
-        ctx.fillStyle = color.alpha; ctx.fill();
+        // Contorno CAD da peça, com vazados estruturais exclusivos da Aba 5.
+        const alphaShell = new Path2D();
+        ALPHA_OUTLINE.forEach((p, i) => i ? alphaShell.lineTo(p[0], p[1]) : alphaShell.moveTo(p[0], p[1]));
+        alphaShell.closePath();
         if (overrideDoorU == null) {
-            // Aba 5: casco opaco e contínuo, sem recortes da cavidade inferior/frontal
-            // ou linhas de trilho/porta abaixo do limite indicado na referência.
-            ctx.lineWidth = 105; ctx.strokeStyle = color.border; ctx.stroke();
-            // Preserva somente os detalhes superiores do CAD, acima da área removida.
-            paintPath(ctx, ALPHA_UPPER_DETAIL, 'rgba(223,234,244,0.42)', 'rgba(39,62,87,0.55)', 70);
+            // Os triângulos são subpaths de recorte reais: a malha azul-escura
+            // da cabine aparece através deles, sem apagar a fuselagem de fundo.
+            const alphaWithCutouts = new Path2D(alphaShell);
+            alphaWithCutouts.addPath(new Path2D(ALPHA_UPPER_DETAIL));
+            alphaWithCutouts.addPath(new Path2D(ALPHA_LOWER_TRIANGLE));
+            ctx.save();
+            ctx.clip(alphaShell);
+            ctx.fillStyle = color.alpha;
+            ctx.fill(alphaWithCutouts, 'evenodd');
+            ctx.restore();
+            ctx.lineWidth = 105; ctx.strokeStyle = color.border; ctx.stroke(alphaShell);
+            // Somente bordas finas dos vazados; nenhum preenchimento opaco.
+            paintPath(ctx, ALPHA_UPPER_DETAIL, null, 'rgba(39,62,87,0.75)', 70);
             ctx.beginPath();
             ctx.moveTo(2882.10, 9351.24);
             ctx.bezierCurveTo(4353.21, 9328.50, 7185.94, 9385.51, 7185.94, 9385.51);
@@ -7769,10 +7777,11 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             ctx.beginPath();
             ALPHA_TRACK.forEach((pt, i) => i ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]));
             ctx.lineWidth = 110; ctx.strokeStyle = '#334b68'; ctx.stroke();
-            // Chanfro inferior direito translúcido, mantendo sua geometria.
-            paintPath(ctx, ALPHA_LOWER_TRIANGLE, 'rgba(223,234,244,0.40)', 'rgba(39,62,87,0.55)', 85);
+            // Triângulo inferior direito também realmente vazado.
+            paintPath(ctx, ALPHA_LOWER_TRIANGLE, null, 'rgba(39,62,87,0.75)', 85);
         } else {
-            // Aba 6: mantém integralmente o trilho e a porta cinemática originais.
+            // Aba 6: mantém a silhueta sólida, o trilho e a porta cinemática originais.
+            ctx.fillStyle = color.alpha; ctx.fill(alphaShell);
         paintPath(ctx, ALPHA_SOURCE_BODY, color.alpha, color.border, 105, true);
         paintPath(ctx, ALPHA_SOURCE_RAIL, '#8298b2', null, 0);
         ctx.beginPath();
@@ -9615,14 +9624,16 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const x0 = toX(-99.5 - 46/2 + 6), y0 = toY(98);
                 const label = 'Seatback reclines 20°';
                 const labelLines = [label.slice(0, 8), label.slice(9)];
-                const labelX = toX(-152) + 9; // à direita, sem cruzar a cota de altura
-                const labelY = toY(187);
-                const leaderX = toX(-136), leaderY = labelY + 29;
+                const labelX = toX(-152) + 9; // mantém o vão entre a cota vertical e o arco
+                const labelY = toY(165); // centro da área assinalada, abaixo da posição anterior
                 ctx.save();
                 ctx.globalAlpha *= alpha;
                 ctx.font = 'bold 11px "JetBrains Mono", monospace';
+                // A líder começa no canto inferior direito do texto, sem atravessá-lo.
+                const leaderX = labelX + ctx.measureText(labelLines[1]).width;
+                const leaderY = labelY + 14;
                 ctx.strokeStyle = '#7c8b9e'; ctx.lineWidth = 1.2;
-                ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(leaderX, leaderY); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(leaderX, leaderY); ctx.lineTo(x0, y0); ctx.stroke();
                 ctx.beginPath(); ctx.arc(x0, y0, 2.1, 0, 2*Math.PI);
                 ctx.fillStyle = '#7c8b9e'; ctx.fill();
                 ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
@@ -9640,10 +9651,10 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const C='#7c8b9e';
                 drawDimensionLine(ctx,toX(-152),toY(0),toX(-152),toY(200),
                     '78.7"',C,11,{x:-15,y:0}); // altura interna
-                drawDimensionLine(ctx,toX(-25.4),toY(134),toX(25.4),toY(134),
-                    '20"',C,11,{x:0,y:-11}); // vão livre no topo do corredor, acima dos joelhos
+                drawDimensionLine(ctx,toX(-25.4),toY(225),toX(25.4),toY(225),
+                    '20"',C,11,{x:0,y:-11}); // fora e acima do arco; alinhada às bordas internas dos bins
                 drawDimensionLine(ctx,toX(-126),toY(-9),toX(126),toY(-9),
-                    '108"',C,11,{x:0,y:-11},null,null,true); // cota nominal, sem contorno de texto; setas intactas
+                    '108"',C,11,{x:0,y:11},null,null,true); // legenda abaixo da linha, em fundo azul; setas intactas
                 ctx.restore();
             }
             function after(ctx, m) {
