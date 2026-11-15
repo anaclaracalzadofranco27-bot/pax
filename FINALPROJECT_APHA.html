@@ -7330,56 +7330,67 @@ function xrayRun(ms) {
             return out;
         }
 
-        // Keyframes da mala: [fase, cx, cy, ângulo(°, horário +), aderência(0=mãos sob a mala … 1=empurrando pela traseira)]
-        // Retorna também a fase em que a mala assenta (tPlace) e a postura (afastamento dos pés).
-        function ergoStowPlan(mode, prof, stature) {   // mode: 'alpha1' (frente, em pé) | 'alpha2' (fundo, rampa)
-            const carryBottom = 0.56 * stature;           // altura do fundo da mala com os braços relaxados
+
+        // Timeline em duas etapas: a primeira mala (alpha2) entra no fundo e a
+        // segunda (alpha1) aparece na altura da cintura, com aproximação suave.
+        // Coordenadas em cm na MESMA projeção e escala geométrica das abas 5/6.
+        function ergoStowPlan(mode, prof, stature) {
+            const carryBottom = 0.56 * stature;
             if (mode === 'alpha1') {
                 const w = prof.m1W, h = prof.m1H;
-                const xLift = prof.x0 - 1.8 - w / 2;      // face dianteira 1,8 cm antes do trilho da porta
-                const yTop = prof.y0 + 2.2 + h / 2;       // fundo da mala 2,2 cm acima do piso do bin
+                const xLift = prof.x0 - 1.8 - w / 2;
                 const yCarry = carryBottom + h / 2;
+                const yTop = prof.y0 + 2.2 + h / 2;
+                // Ultrapassa a cabeça ANTES do deslocamento para dentro do bin.
+                const headClearY = (0.245 * stature + 0.285 * stature - 4.0 + 4.0)
+                    + 0.288 * stature + 0.118 * stature + 0.068 * stature + h / 2 + 2.5;
+                const yArc = Math.max(yTop + 5.5, headClearY);
                 return {
-                    w, h, tPlace: 0.80, footX: -22,
-                    stride: [0.14, 0.40, 0.52, 0.76],   // [início do passo p/ trás, passo completo (pose do PDF), início do avanço, fim do avanço]
-                    stages: [[0, 'Grip'], [0.07, 'Lift'], [0.42, 'Align'], [0.52, 'Insert'], [0.80, 'Release'], [0.90, 'Return']],
+                    w, h, tPlace: 0.86, tSupport: 0.62, tPush: 0.80,
+                    footX: -22, fadeIn: [0.045, 0.175],
+                    stages: [[0, 'Prepare'], [0.14, 'Grip'], [0.23, 'Lift'],
+                             [0.48, 'Clear head'], [0.62, 'Insert'],
+                             [0.86, 'Release'], [0.98, 'Return']],
+                    // [fase, centro X, centro Y, rotação, adesão das mãos na face de apoio]
                     keys: [
-                        [0.00, xLift + 0.8, yCarry, 0, 0.0],
-                        [0.07, xLift + 0.8, yCarry, 0, 0.0],
-                        [0.22, xLift - 0.4, yCarry + (yTop - yCarry) * 0.52, 0, 0.3],
-                        [0.40, xLift, yTop, 0, 0.9],
-                        [0.50, xLift + 0.6, yTop + 0.2, 0, 1.0],
-                        [0.70, prof.m1Cx, yTop, 0, 1.0],
-                        [0.80, prof.m1Cx, prof.m1Cy, 0, 1.0],
-                        [1.00, prof.m1Cx, prof.m1Cy, 0, 1.0]
+                        [0.00, xLift, yCarry, 0, 0],
+                        [0.22, xLift, yCarry, 0, 0],
+                        [0.31, xLift + 10.0, yCarry + (yArc - yCarry) * 0.30, 0, 0],
+                        [0.44, xLift + 13.0, yArc, 0, 0],
+                        [0.53, xLift + 12.0, yArc + 1.5, 0, 0],
+                        [0.61, xLift + 8.0, yArc + 1.5, 0, 0.15],
+                        [0.74, prof.m1Cx - 3.0, yArc + 0.3, 0, 0.86],
+                        [0.82, prof.m1Cx, yTop, 0, 1],
+                        [0.86, prof.m1Cx, prof.m1Cy, 0, 1],
+                        [1.00, prof.m1Cx, prof.m1Cy, 0, 1]
                     ]
                 };
             }
             if (mode === 'alpha2') {
                 const w = prof.m2W, h = prof.m2H;
-                const X0 = prof.x0, Y0 = prof.y0;
-                const yCarry = carryBottom + w / 2;
-                // Waypoints obtidos por planejamento livre de colisão contra a cavidade do bin (margem 3 mm)
+                const xStart = prof.x0 - 13.1, yCarry = carryBottom + w / 2;
+                const yArc = Math.max(prof.y0 + 27.5,
+                    (0.245 + 0.285 + 0.288 + 0.118 + 0.068) * stature + w / 2 + 2.5);
                 return {
-                    w, h, tPlace: 0.88, footX: -22,
-                    stride: [0.16, 0.38, 0.58, 0.84],
-                    green: [0.44, 0.58, 0.66, 0.88],   // [início da transição, pose do PDF completa (ombro fica verde), início do avanço, fim do avanço]
-                    stages: [[0, 'Grip'], [0.06, 'Lift (bag upright)'], [0.37, 'Rotate to lay flat'], [0.66, 'Insert'], [0.88, 'Release'], [0.97, 'Return']],
+                    w, h, tPlace: 0.89, tSupport: 0.64, tPush: 0.83,
+                    footX: -22,
+                    stages: [[0, 'Grip'], [0.07, 'Lift (bag upright)'],
+                             [0.39, 'Clear head'], [0.48, 'Rotate to lay flat'],
+                             [0.64, 'Insert'], [0.89, 'Release'], [0.98, 'Return']],
                     keys: [
-                        [0.00, X0 - 13.1, yCarry, -90, 0.0],
-                        [0.06, X0 - 13.1, yCarry, -90, 0.0],
-                        [0.20, X0 - 13.9, yCarry + (Y0 + 20.0 - yCarry) * 0.5, -90, 0.12],
-                        [0.36, X0 - 13.1, Y0 + 20.0, -90, 0.3],
-                        [0.43, X0 - 10.1, Y0 + 19.5, -72, 0.6],
-                        [0.50, X0 - 6.6, Y0 + 19.0, -55, 0.8],
-                        [0.56, X0 - 4.1, Y0 + 18.5, -30, 0.92],
-                        [0.62, X0 - 3.1, Y0 + 18.3, -12, 1.0],
-                        [0.67, X0 + 0.4, Y0 + 17.6, 2, 0.95],
-                        [0.73, X0 + 12.4, Y0 + 15.6, 9, 1.0],
-                        [0.79, X0 + 26.4, Y0 + 13.0, 15, 1.0],
-                        [0.84, X0 + 36.4, Y0 + 9.8, 17, 1.0],
-                        [0.88, prof.m2Cx, prof.m2Cy, 17, 1.0],
-                        [1.00, prof.m2Cx, prof.m2Cy, 17, 1.0]
+                        [0.00, xStart, yCarry, -90, 0],
+                        [0.07, xStart, yCarry, -90, 0],
+                        [0.18, xStart + 7.0, yCarry + (yArc - yCarry) * 0.23, -90, 0],
+                        [0.30, xStart + 12.0, yCarry + (yArc - yCarry) * 0.67, -90, 0],
+                        [0.41, prof.x0 + 1.0, yArc, -90, 0],
+                        [0.48, prof.x0 + 6.0, yArc + 1.0, -66, 0],
+                        [0.56, prof.x0 + 8.0, yArc, -32, 0],
+                        [0.63, prof.x0 + 8.0, prof.y0 + 24.0, -10, 0.10],
+                        [0.70, prof.x0 + 12.0, prof.y0 + 21.0, 4, 0.46],
+                        [0.79, prof.x0 + 26.4, prof.y0 + 14.0, 15, 0.90],
+                        [0.85, prof.x0 + 36.4, prof.y0 + 10.0, 17, 1],
+                        [0.89, prof.m2Cx, prof.m2Cy, 17, 1],
+                        [1.00, prof.m2Cx, prof.m2Cy, 17, 1]
                     ]
                 };
             }
@@ -7398,215 +7409,152 @@ function xrayRun(ms) {
             return [cx + dirX * t, cy + dirY * t];
         }
 
-        // Resolve postura completa do manequim (vista lateral, olhando para +x)
+
+        // Cinemática inversa em cadeia: tornozelos -> joelhos -> quadril -> tronco
+        // -> pescoço -> ombros -> cotovelos -> mãos. Não altera a malha vetorial.
         function ergoSolvePosture(stature, plan, phase) {
             const H = stature;
-            const [bx, by, ba, grip] = ergoSampleKeys(plan.keys, phase);
-            const pickup = 1 - ergoSmooth(phase / 0.06);            // mãos saem do repouso e agarram a mala
-            const release = Math.max(ergoSmooth((phase - plan.tPlace) / 0.10), pickup);
-
-            // Antropometria (proporções de Drillis & Contini, alinhadas ao desenho original)
+            const clamp = ergoClamp01, smooth = ergoSmooth;
+            let [bx, by, ba, grip] = ergoSampleKeys(plan.keys, phase);
             const Lthigh = 0.245 * H, Lshank = 0.285 * H - 4.0;
-            const Ltorso = 0.288 * H;
-            const L1 = 0.186 * H, L2 = 0.146 * H + 5.0;
-            const reachMax = 0.965 * (L1 + L2);
+            const Ltorso = 0.288 * H, L1 = 0.186 * H, L2 = 0.146 * H + 5.0;
+            const armMax = L1 + L2 - 0.35;
 
-            // Ponto de contato da mão com a mala: sob a mala/atrás (grip=0) -> face traseira (grip=1)
-            // Na pose verde (PDF) a palma apoia na parte de BAIXO da mala, perto da ponta de trás, com o braço quase esticado
-            const gC = plan.green ? ergoSmooth((phase - plan.green[0]) / (plan.green[1] - plan.green[0])) * (1 - ergoSmooth((phase - plan.tPlace) / 0.10)) : 0;
-            const gAdv = plan.green ? ergoSmooth((phase - plan.green[2]) / (plan.green[3] - plan.green[2])) : 0;   // ao empurrar, a mão desliza p/ a ponta de trás (menos alcance, menos inclinação)
-            const gDX = -0.50 + (-0.90 + 0.50) * gAdv, gDY = -0.87 + (-0.40 + 0.87) * gAdv;
-            const shK = ergoClamp01((170 - H) / 18);                 // 0 em 170 cm, 1 na P5 Feminina
-            const dY0 = -1.00 + 0.90 * grip - 0.55 * grip * shK;      // estatura menor: palma mais embaixo na face traseira (alcance)
-            const dirX = (-0.10 - 0.90 * grip) + (gDX - (-0.10 - 0.90 * grip)) * gC, dirY = dY0 + (gDY - dY0) * gC;
-            const dl = Math.hypot(dirX, dirY);
-            let [gx, gy] = ergoBagSurfacePoint(bx, by, plan.w, plan.h, ba, dirX / dl, dirY / dl);
-            gx += (dirX / dl) * -1.2; gy += (dirY / dl) * -1.2;     // mão levemente "dentro" do contorno
+            // Flexão curta para impulso APENAS na pega/primeiros centímetros;
+            // chega a zero antes dos braços passarem da linha dos ombros.
+            const impulse = smooth((phase - 0.02) / 0.085) *
+                (1 - smooth((phase - 0.15) / 0.19));
+            const dip = 0.024 * H * impulse;
+            // Panturrilhas estendidas + ponta dos pés durante alcance alto.
+            const toeReach = smooth((phase - 0.24) / 0.24) *
+                (1 - smooth((phase - plan.tPlace) / 0.115));
+            const heel = 3.2 * toeReach;
+            const push = smooth((phase - plan.tSupport) /
+                Math.max(0.06, plan.tPush - plan.tSupport)) *
+                (1 - smooth((phase - plan.tPlace) / 0.11));
+            // 12,6 graus no final de inserção; tronco e quadril articulados.
+            const torsoTilt = 0.024 + 0.196 * push;
+            const phi = Math.asin(Math.min(0.9, heel / 10.5));
+            const toeX = plan.footX + 10.5, toeY = 2.0;
+            const ankleX = toeX - 10.5 * Math.cos(phi) + 2.0 * Math.sin(phi);
+            const ankleY = toeY + 10.5 * Math.sin(phi) + 2.0 * Math.cos(phi);
+            const legLen = Lthigh + Lshank - 0.6 - dip;
+            const hipDX = 2.0 + 3.8 * push;
+            const hipX = ankleX + hipDX;
+            const hipY = ankleY + Math.sqrt(Math.max(1, legLen * legLen - hipDX * hipDX));
+            const shX = hipX + Ltorso * Math.sin(torsoTilt);
+            const shY = hipY + Ltorso * Math.cos(torsoTilt);
 
-            // ---- Referência de vídeo (CCSA "Corrected Demo – Overhead Lift") ------------------------------------
-            // Valores medidos/estimados nos quadros do vídeo; ajuste aqui para calibrar o movimento.
-            const VID = {
-                depth: 0.09,       // queda do quadril no agachamento (fração de H)  → joelhos ~75–85° de flexão
-                hipBack: 0.035,    // recuo do quadril no fundo do agachamento (fração de H)
-                trunk: 0.20,       // flexão extra do tronco no fundo do agachamento (rad ≈ 11°)
-                sqDown: 0.10, sqHold: 0.13, sqUp: 0.22,   // janelas da fase: descer, segurar, subir (explosão)
-                heelRear: 8.0      // calcanhar de trás elevado (cm) → pé em ponta, flexão plantar ≈ 59°
-            };
-            // Contramovimento de agachamento ao pegar/elevar: o quadril desce e recua, o tronco inclina e, em seguida,
-            // as pernas estendem de forma explosiva (quadril sobe e avança) enquanto o pé de trás vai para a ponta.
-            const sq = ergoClamp01(ergoSmooth(phase / VID.sqDown) - ergoSmooth((phase - VID.sqHold) / VID.sqUp)) * (1 - release);
-            const dip = VID.depth * H * sq;
-
-            // Passo: durante o fim da subida o pé de trás recua e fica na PONTA (pose do PDF, ombro laranja);
-            // ao empurrar, o corpo avança sobre o pé de apoio e o pé de trás desliza para frente; na soltura os pés se juntam.
-            const sp = plan.stride || [9, 9, 9, 9];
-            const stepBack = ergoSmooth((phase - sp[0]) / (sp[1] - sp[0]));
-            const stepFwd = ergoSmooth((phase - sp[2]) / (sp[3] - sp[2]));
-            const ret = ergoSmooth((phase - plan.tPlace) / 0.10);
-            const sa = stepBack * (1 - ret);                                   // intensidade do passo (0 = pés juntos)
-            // Pose de referência do ombro VERDE (PDF "Sem título-2"): medidas do desenho em fração da estatura H,
-            // tomadas a partir do tornozelo da perna da frente. gp = quanto da pose já foi assumida (transição suave
-            // a partir da pose anterior); adv = avanço do corpo sobre o pé da frente durante o empurrão.
-            const GREF = { hip: -0.049, lean: 0.04, rear: -0.134 };            // quadril 9,8% H atrás do tornozelo; tronco 7° p/ frente; tornozelo de trás 26,8% H atrás
-            const GADV = { hip: 0.120, lean: 0.03, rear: 0.030 };   // (o passo de +8 cm do pé da frente já soma ao avanço do quadril)              // quanto cada valor avança até o fim do empurrão
-            const G = plan.green;
-            const gp = G ? ergoSmooth((phase - G[0]) / (G[1] - G[0])) * (1 - ret) : 0;
-            const adv = G ? ergoSmooth((phase - G[2]) / (G[3] - G[2])) * (1 - ret) : 0;
-            const sfw = stepFwd * (1 - gp);                                    // o avanço antigo é substituído pelo da pose verde
-            // Ao empurrar, a perna de trás fica PLANA e ESTICADA no chão e a perna da frente dá um pequeno passo p/ frente:
-            // o pé sai do chão (arco de ~5 cm), avança ~8 cm e volta a apoiar.
-            const stT = G ? ergoClamp01((phase - (G[2] - 0.04)) / 0.20) : 0;
-            const stepF = ergoSmooth(stT) * (1 - ret);
-            const liftF = 5.0 * Math.sin(Math.PI * stT) * (1 - ret);
-            const footX = plan.footX;                                          // pé da frente FIXO no piso
-            const toeX = footX + 10.5 + 8.0 * stepF, toeY = 2.0;   // passo da frente: +8 cm
-
-            // Pose de repouso da mão (braços soltos ao lado do corpo)
-            const baseHipY = Lthigh + Lshank + 4.0;
-            const shoulderBaseY = baseHipY + Ltorso;
-
-            // 1) elevação dos calcanhares conforme a altura exigida acima do ombro
-            const restY = shoulderBaseY - 0.955 * (L1 + L2);
-            const tgtY = gy + (restY - gy) * release;             // altura efetiva da mão
-            const needUp = tgtY - (shoulderBaseY + 4.0);
-            const heel = ergoSmooth(ergoClamp01(needUp / 24.0)) * 9.0 * (1 - 0.85 * sa) * (1 - 0.95 * gp);   // com o passo / na pose verde, o pé de apoio fica plano
-
-            const build = (beta) => {
-                const phi = Math.asin(Math.min(1, heel / 10.5));
-                const ankleX = toeX + (-10.5 * Math.cos(phi) + 2.0 * Math.sin(phi));
-                const ankleY = toeY + (10.5 * Math.sin(phi) + 2.0 * Math.cos(phi));
-                // inclinação além da mínima (necessária para alcançar): no empurrão vira avanço do quadril, e não só tombo do tronco
-                const ex = Math.max(0, beta - betaBase), pk = pushK;
-                const legTilt = 0.80 * (beta - ex * pk) + 0.55 * ex * pk, torsoTilt = 1.05 * (beta - ex * pk) + 0.45 * ex * pk + VID.trunk * sq;
-                const legLen = (Lthigh + Lshank) - dip - 1.2 - 7.0 * sfw * (1 - ret);   // empurrando: joelho da frente dobra
-                let hipX = ankleX + legLen * Math.sin(legTilt) - VID.hipBack * H * sq;
-                let hipY = ankleY + legLen * Math.cos(legTilt);
-                if (gp > 0) {                                                      // pose do PDF: quadril ATRÁS do pé da frente, perna quase esticada
-                    const Lg = (Lthigh + Lshank) * 0.99 - 2.0 * adv - dip;   // joelho da frente quase não dobra ao empurrar
-                    const hx = ankleX + (GREF.hip + GADV.hip * adv) * H;
-                    const hy = ankleY + Math.sqrt(Math.max(Lg * Lg - (hx - ankleX) ** 2, 0.25 * Lg * Lg));
-                    hipX += (hx - hipX) * gp; hipY += (hy - hipY) * gp;
-                }
-                const shX = hipX + Ltorso * Math.sin(torsoTilt);
-                const shY = hipY + Ltorso * Math.cos(torsoTilt);
-                hipX += 0.55 * ex * pk * Ltorso;                                   // quadril acompanha a mala para frente
-                const shX2 = hipX + Ltorso * Math.sin(torsoTilt), shY2 = hipY + Ltorso * Math.cos(torsoTilt);
-                return { phi, ankleX, ankleY, hipX, hipY, shX: shX2, shY: shY2, torsoTilt };
-            };
-
-            // 2) inclinação do corpo (β): menor valor que permite alcançar a mão alvo
-            let betaMin = 0.035 - 0.02 * Math.sin(Math.PI * ergoClamp01(phase / 0.4)) + 0.11 * sfw * (1 - ret);   // empurrando: tronco inclina p/ frente
-            betaMin += (((GREF.lean + GADV.lean * adv) / 1.05) - betaMin) * gp;                                  // pose do PDF: tronco ~7° à frente, inclinando mais ao avançar
-            const pushK = Math.max(adv, sfw) * (1 - ret);                       // 0 = parado, 1 = empurrando a mala
-            const betaBase = betaMin;
-            let beta = betaMin, P = build(beta);
-            const handTarget = [gx, gy];
-            const restHand = (Pm) => [Pm.shX + 2.0, Pm.shY - 0.955 * (L1 + L2)];
-            let target = handTarget;
-            for (let it = 0; it < 80; it++) {
-                P = build(beta);
-                const tgt = (release > 0) ? [handTarget[0] + (restHand(P)[0] - handTarget[0]) * release, handTarget[1] + (restHand(P)[1] - handTarget[1]) * release] : handTarget;
-                target = tgt;
-                if (Math.hypot(tgt[0] - P.shX, tgt[1] - P.shY) <= reachMax || beta >= 0.70) break;
-                beta += 0.01;
-            }
-            P = build(beta);
-            const rest = restHand(P);
-            target = [handTarget[0] + (rest[0] - handTarget[0]) * release, handTarget[1] + (rest[1] - handTarget[1]) * release];
-
-            // Joelho (IK 2 elos, joelho para frente) — usado pela perna de apoio e pela perna de trás
+            // Passada posterior discreta, sem agachamento durante o alcance.
+            const step = 0.32 * smooth((phase - 0.14) / 0.27) *
+                (1 - smooth((phase - plan.tPlace) / 0.10));
+            const rAx = ankleX - 7.0 * step, rAy = ankleY;
             const kneeIK = (ax, ay) => {
-                const dAH = Math.hypot(P.hipX - ax, P.hipY - ay) || 1;
-                const dd = Math.min(dAH, Lthigh + Lshank - 0.01);
-                const cosA = Math.max(-1, Math.min(1, (Lshank * Lshank + dd * dd - Lthigh * Lthigh) / (2 * Lshank * dd)));
-                const A = Math.acos(cosA);
-                const ux = (P.hipX - ax) / dAH, uy = (P.hipY - ay) / dAH;
-                return [ax + Lshank * (ux * Math.cos(A) + uy * Math.sin(A)), ay + Lshank * (-ux * Math.sin(A) + uy * Math.cos(A))];
+                const dx = hipX - ax, dy = hipY - ay;
+                const dist = Math.max(0.001, Math.hypot(dx, dy));
+                const d = Math.min(dist, Lthigh + Lshank - 0.01);
+                const c = Math.max(-1, Math.min(1,
+                    (Lshank * Lshank + d * d - Lthigh * Lthigh) / (2 * Lshank * d)));
+                const a = Math.acos(c), ux = dx / dist, uy = dy / dist;
+                return [ax + Lshank * (ux * Math.cos(a) + uy * Math.sin(a)),
+                        ay + Lshank * (-ux * Math.sin(a) + uy * Math.cos(a))];
             };
-            const [kneeX, kneeY] = kneeIK(P.ankleX, P.ankleY + liftF);
+            const knee = kneeIK(ankleX, ankleY), kneeR = kneeIK(rAx, rAy);
 
-            // Perna de trás: tornozelo ~27 cm atrás do quadril, calcanhar elevado (ponta do pé no piso); fecha ~45% ao empurrar
-            // A perna de trás é a MESMA que já aparece no início: começa sobreposta à perna de apoio (mesmo tornozelo,
-            // mesmo joelho) e vai se inclinando para trás conforme o passo (sa: 0 = junto, 1 = passo completo).
-            const phiRT = Math.asin(VID.heelRear / 10.5);
-            const rAyT = 2.0 + 10.5 * Math.sin(phiRT) + 2.0 * Math.cos(phiRT);   // calcanhar elevado, ponta do pé no piso
-            const rAyToe = P.ankleY + (rAyT - P.ankleY) * Math.min(1, sa * 1.5);
-            const flatR = G ? ergoSmooth((phase - (G[3] - 0.09)) / 0.09) : 0;   // só no fim do empurrão o pé de trás volta ao piso
-            const rAyGreen = rAyT + ((2.0 + 2.0) - rAyT) * flatR;                // vídeo: pé de trás em ponta (planta flexionada) enquanto empurra
-            const rAy = rAyToe + (rAyGreen - rAyToe) * gp;
-            const heelR = VID.heelRear * sa * (1 - gp * flatR);                   // elevação do calcanhar de trás (usada na telemetria)
-            let rAxT = P.hipX - (13.5 + 6.5 * sfw);                            // destino: ~27 cm atrás do quadril (pose do PDF), depois desliza p/ frente
-            if (gp > 0) {                                                       // pose verde: perna de trás ESTICADA (pé plano, desliza p/ frente acompanhando o quadril)
-                // perna de trás quase esticada (joelho com ~20° de flexão, como no vídeo): passada ≈ 93% da perna reta
-                const dyS = P.hipY - rAy, dxS = 0.93 * Math.sqrt(Math.max(0, (Lthigh + Lshank - 0.8) ** 2 - dyS * dyS));
-                rAxT += ((P.hipX - dxS) - rAxT) * gp;
-            }
-            rAxT += 9.0 * pushK;                                                // perna de trás dá um leve avanço ao empurrar
-            let rAx = P.ankleX + (rAxT - P.ankleX) * sa;
-            const dyR = P.hipY - rAy, dxMax = Math.sqrt(Math.max(0, (Lthigh + Lshank - 0.5) ** 2 - dyR * dyR));
-            rAx = Math.max(rAx, P.hipX - dxMax);                                // nunca além do comprimento da perna
-            // Corredor de 20": a passada posterior não pode ocupar o espaço dos assentos.
-            // Reduz apenas o recuo extremo; mantém as juntas, proporções e o estilo vetorial.
-            rAx = Math.max(rAx, P.ankleX - 18.0);
-            const kneeR = kneeIK(rAx, rAy);
+            // Centraliza SOMENTE o corpo dentro dos 20" do corredor, mantendo
+            // comprimentos dos ossos e o referencial original do overhead bin.
+            const headLen = 0.118 * H, neckTilt = 0.22 * torsoTilt;
+            const headPreviewX = shX + headLen * Math.sin(neckTilt) + 0.2;
+            const frontFoot = (267.3 - 215.29) * H / 545.0;
+            const bodyLeft = Math.min(ankleX - 5, rAx - 5,
+                knee[0] - 5, kneeR[0] - 5, hipX - 6, shX - 7, headPreviewX - 0.068 * H);
+            const bodyRight = Math.max(ankleX + frontFoot, rAx + frontFoot,
+                knee[0] + 5, kneeR[0] + 5, hipX + 6, shX + 7, headPreviewX + 0.068 * H);
+            const shiftX = -(bodyLeft + bodyRight) * 0.5;
+            const shoulderX = shX + shiftX, shoulderY = shY;
+            const headX = headPreviewX + shiftX;
+            const headY = shY + headLen * Math.cos(neckTilt);
 
-            // Braço (IK 2 elos, cotovelo para baixo/trás)
+            // Colisão mala/cabeça: bounding box do retângulo ROTACIONADO
+            // contra envoltória conservadora da cabeça + margem de 2,5 cm.
+            // A correção é antecipada por easing, impedindo salto no contato.
+            const rot = -ba * Math.PI / 180;
+            const halfBW = (Math.abs(plan.w * Math.cos(rot)) +
+                            Math.abs(plan.h * Math.sin(rot))) * 0.5;
+            const halfBH = (Math.abs(plan.w * Math.sin(rot)) +
+                            Math.abs(plan.h * Math.cos(rot))) * 0.5;
+            const headR = 0.068 * H, margin = 2.5;
+            const sepY = Math.abs(by - headY);
+            const criticalY = headR + halfBH + margin;
+            const avoidance = smooth((criticalY + 13.0 - sepY) / 13.0);
+            const safeX = headX + headR + halfBW + margin;
+            bx += Math.max(0, safeX - bx) * avoidance;
+
+            // Mãos acopladas à lateral/alça da mala; APÓS APOIO na borda,
+            // deslizam ao setor inferior-traseiro para executar o empurrão.
+            const handSlide = smooth((phase - plan.tSupport) /
+                Math.max(0.06, plan.tPush - plan.tSupport));
+            let dirX = -0.38 + (-0.93 + 0.38) * handSlide;
+            let dirY = -0.925 + (-0.37 + 0.925) * handSlide;
+            const mag = Math.hypot(dirX, dirY);
+            dirX /= mag; dirY /= mag;
+            let [gx, gy] = ergoBagSurfacePoint(
+                bx, by, plan.w, plan.h, ba, dirX, dirY);
+            gx -= dirX * 0.45; gy -= dirY * 0.45;
+
+            // O segundo ciclo começa com braços em repouso, mala em fade e
+            // movimento de pega BAIXO. Ambos terminam com ease-out neutro.
+            const pickupBeg = plan.fadeIn ? 0.11 : 0.0;
+            const pickupEnd = plan.fadeIn ? 0.23 : 0.075;
+            const pickup = 1 - smooth((phase - pickupBeg) /
+                Math.max(0.01, pickupEnd - pickupBeg));
+            const putDown = smooth((phase - plan.tPlace) /
+                Math.max(0.07, 1.0 - plan.tPlace));
+            const release = Math.max(pickup, putDown);
+            const rest = [shoulderX + 1.4, shoulderY - 0.91 * (L1 + L2)];
+            const target = [gx + (rest[0] - gx) * release,
+                            gy + (rest[1] - gy) * release];
+
+            // IK planar (2 segmentos). Pole vector para baixo e à frente,
+            // permitindo que antebraços passem POR FORA da região do rosto.
             const armIK = (sx, sy, tx, ty) => {
                 const dx = tx - sx, dy = ty - sy;
-                const dReach = Math.min(L1 + L2 - 0.3, Math.hypot(dx, dy));
+                const dist = Math.max(0.001, Math.hypot(dx, dy));
+                const reach = Math.min(armMax, Math.max(Math.abs(L1 - L2) + 0.15, dist));
                 const base = Math.atan2(dy, dx);
-                const cosE = Math.max(-1, Math.min(1, (L1 * L1 + dReach * dReach - L2 * L2) / (2 * L1 * dReach)));
-                const ang = base - Math.acos(cosE);
-                const ex = sx + L1 * Math.cos(ang), ey = sy + L1 * Math.sin(ang);
-                const reached = Math.hypot(dx, dy) <= L1 + L2 - 0.3;
-                // se não alcança, a mão fica na extensão máxima do braço (sem "esticar" o segmento)
-                const k = reached ? 1 : (dReach / Math.hypot(dx, dy));
-                return { ex, ey, hx: sx + dx * k, hy: sy + dy * k, reached };
+                const c = Math.max(-1, Math.min(1,
+                    (L1 * L1 + reach * reach - L2 * L2) / (2 * L1 * reach)));
+                const a = base - Math.acos(c); // cotovelo inferior/frontal
+                const ex = sx + L1 * Math.cos(a), ey = sy + L1 * Math.sin(a);
+                const k = Math.min(1, armMax / dist);
+                return { ex, ey, hx: sx + dx * k, hy: sy + dy * k,
+                         reached: dist <= armMax + 0.001 };
             };
-            // A envoltória do corpo (pés, pernas, quadril, tronco e cabeça) fica
-            // dentro da faixa de 20" da Aba 5: -25,4 cm <= x <= +25,4 cm.
-            // Translação rígida: não comprime o manequim nem altera a posição da mala.
-            // Mãos e braços continuam livres para alcançar o bin à direita do corredor.
-            const aisleHalf = (window.cabinSectionReference && window.cabinSectionReference.aisle) || 25.4;
-            const figureScale = H / 151.892;
-            const footFront = (267.3 - 215.29) * H / 545.0;
-            const headPreviewX = P.shX + (0.118 * H) * Math.sin(0.30 * P.torsoTilt) + 0.2;
-            const bodyLeft = Math.min(
-                P.ankleX - 4.5 * figureScale, rAx - 4.5 * figureScale,
-                kneeX - 4.5 * figureScale, kneeR[0] - 4.5 * figureScale,
-                P.hipX - 5 * figureScale, P.shX - 6 * figureScale, headPreviewX - 7.5 * figureScale
-            );
-            const bodyRight = Math.max(
-                P.ankleX + footFront, rAx + footFront, toeX + 2 * figureScale,
-                kneeX + 4.5 * figureScale, kneeR[0] + 4.5 * figureScale,
-                P.hipX + 5 * figureScale, P.shX + 6 * figureScale, headPreviewX + 7.5 * figureScale
-            );
-            // Centraliza a envoltória no corredor, acompanhando a flexão e a passada
-            // durante todo o ciclo, em vez de apenas mover a pose inicial.
-            const shiftX = -(bodyLeft + bodyRight) / 2;
-            P.ankleX += shiftX;
-            P.hipX += shiftX;
-            P.shX += shiftX;
-            const arm = armIK(P.shX, P.shY, target[0], target[1]);
-            const farTarget = [target[0] - 1.4, target[1] + 0.8];
-            const armFar = armIK(P.shX - 1.0, P.shY - 0.6, farTarget[0], farTarget[1]);
+            const arm = armIK(shoulderX, shoulderY, target[0], target[1]);
+            const armFar = armIK(shoulderX - 1.0, shoulderY - 0.6,
+                target[0] - 1.7, target[1] + 0.7);
+            const look = Math.atan2(by - headY, bx - headX);
+            const headPitch = 0.045 + 0.30 *
+                smooth((phase - 0.25) / 0.25) *
+                (1 - smooth((phase - plan.tPlace) / 0.12));
+            // Acompanhar visualmente a entrada da mala e relaxar o pescoço ao final.
+            const gaze = Math.max(0, Math.min(0.16, look * 0.16));
+            const pitch = Math.min(0.39, headPitch + gaze);
 
-            // Cabeça: pescoço acompanha o tronco; olhar dirigido à mala
-            const neckTilt = 0.30 * P.torsoTilt;
-            const headLen = 0.118 * H;
-            const headX = P.shX + headLen * Math.sin(neckTilt) + 0.2;
-            const headY = P.shY + headLen * Math.cos(neckTilt);
-            const look = Math.atan2(by - headY, bx - headX);        // >0 = olhando para cima
-            const headPitch = Math.max(-0.15, Math.min(0.75, look * 0.6 - neckTilt * 0.4));
-
+            const alpha = plan.fadeIn ?
+                smooth((phase - plan.fadeIn[0]) /
+                    (plan.fadeIn[1] - plan.fadeIn[0])) : 1;
             return {
-                bag: { x: bx, y: by, a: ba, grip, release },
-                footX: footX + shiftX, toeX: toeX + shiftX, toeY, phi: P.phi, heel: Math.max(heel, heelR),
-                ankle: [P.ankleX, P.ankleY + liftF], knee: [kneeX + shiftX, kneeY], hip: [P.hipX, P.hipY],
-                ankleR: [rAx + shiftX, rAy], kneeR: [kneeR[0] + shiftX, kneeR[1]], sa,
-                shoulder: [P.shX, P.shY], head: [headX, headY], headPitch,
-                neckTilt, torsoTilt: P.torsoTilt, beta,
-                arm, armFar, handTarget: target, reachable: arm.reached
+                bag: { x: bx, y: by, a: ba, grip: handSlide, release, alpha },
+                footX: plan.footX + shiftX, toeX: toeX + shiftX, toeY,
+                phi, heel, ankle: [ankleX + shiftX, ankleY],
+                knee: [knee[0] + shiftX, knee[1]], hip: [hipX + shiftX, hipY],
+                ankleR: [rAx + shiftX, rAy], kneeR: [kneeR[0] + shiftX, kneeR[1]],
+                sa: step, shoulder: [shoulderX, shoulderY],
+                head: [headX, headY], headPitch: pitch, neckTilt,
+                torsoTilt, beta: torsoTilt,
+                arm, armFar, handTarget: target,
+                reachable: arm.reached
             };
         }
 
@@ -8165,6 +8113,10 @@ function xrayRun(ms) {
             pdfPiece(ctx, 'neck', pdfMatSim(A.neckN, neckP, pose.neckTilt, KPX), PDFM.gray, OW);
             pdfPiece(ctx, 'head', pdfMatSim(A.neck, neckP, -pose.headPitch, KPX), PDFM.fill, OW);
 
+            // Segunda mala: fade-in apenas na fase de pega baixa; a primeira
+            // permanece apoiada no bin, sem teleporte entre os dois ciclos.
+            ctx.save();
+            ctx.globalAlpha *= pose.bag.alpha;
             // Mala (rótulo sempre na horizontal, mesmo com a mala girando)
             drawRealisticSuitcase(
                 ctx,
@@ -8176,6 +8128,7 @@ function xrayRun(ms) {
                 '', '',
                 true
             );
+            ctx.restore();
 
             // Braço próximo: ombro → cotovelo → mão (sobre a mala)
             pdfArm(ctx, { sh: shP, el: Pp(elbowX, elbowY), hand: Pp(handX, handY),
