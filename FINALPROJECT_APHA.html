@@ -7545,6 +7545,9 @@ function xrayRun(ms) {
             let rAx = P.ankleX + (rAxT - P.ankleX) * sa;
             const dyR = P.hipY - rAy, dxMax = Math.sqrt(Math.max(0, (Lthigh + Lshank - 0.5) ** 2 - dyR * dyR));
             rAx = Math.max(rAx, P.hipX - dxMax);                                // nunca além do comprimento da perna
+            // Corredor de 20": a passada posterior não pode ocupar o espaço dos assentos.
+            // Reduz apenas o recuo extremo; mantém as juntas, proporções e o estilo vetorial.
+            rAx = Math.max(rAx, P.ankleX - 18.0);
             const kneeR = kneeIK(rAx, rAy);
 
             // Braço (IK 2 elos, cotovelo para baixo/trás)
@@ -7560,6 +7563,30 @@ function xrayRun(ms) {
                 const k = reached ? 1 : (dReach / Math.hypot(dx, dy));
                 return { ex, ey, hx: sx + dx * k, hy: sy + dy * k, reached };
             };
+            // A envoltória do corpo (pés, pernas, quadril, tronco e cabeça) fica
+            // dentro da faixa de 20" da Aba 5: -25,4 cm <= x <= +25,4 cm.
+            // Translação rígida: não comprime o manequim nem altera a posição da mala.
+            // Mãos e braços continuam livres para alcançar o bin à direita do corredor.
+            const aisleHalf = (window.cabinSectionReference && window.cabinSectionReference.aisle) || 25.4;
+            const figureScale = H / 151.892;
+            const footFront = (267.3 - 215.29) * H / 545.0;
+            const headPreviewX = P.shX + (0.118 * H) * Math.sin(0.30 * P.torsoTilt) + 0.2;
+            const bodyLeft = Math.min(
+                P.ankleX - 4.5 * figureScale, rAx - 4.5 * figureScale,
+                kneeX - 4.5 * figureScale, kneeR[0] - 4.5 * figureScale,
+                P.hipX - 5 * figureScale, P.shX - 6 * figureScale, headPreviewX - 7.5 * figureScale
+            );
+            const bodyRight = Math.max(
+                P.ankleX + footFront, rAx + footFront, toeX + 2 * figureScale,
+                kneeX + 4.5 * figureScale, kneeR[0] + 4.5 * figureScale,
+                P.hipX + 5 * figureScale, P.shX + 6 * figureScale, headPreviewX + 7.5 * figureScale
+            );
+            // Centraliza a envoltória no corredor, acompanhando a flexão e a passada
+            // durante todo o ciclo, em vez de apenas mover a pose inicial.
+            const shiftX = -(bodyLeft + bodyRight) / 2;
+            P.ankleX += shiftX;
+            P.hipX += shiftX;
+            P.shX += shiftX;
             const arm = armIK(P.shX, P.shY, target[0], target[1]);
             const farTarget = [target[0] - 1.4, target[1] + 0.8];
             const armFar = armIK(P.shX - 1.0, P.shY - 0.6, farTarget[0], farTarget[1]);
@@ -7574,9 +7601,9 @@ function xrayRun(ms) {
 
             return {
                 bag: { x: bx, y: by, a: ba, grip, release },
-                footX, toeX, toeY, phi: P.phi, heel: Math.max(heel, heelR),
-                ankle: [P.ankleX, P.ankleY + liftF], knee: [kneeX, kneeY], hip: [P.hipX, P.hipY],
-                ankleR: [rAx, rAy], kneeR, sa,
+                footX: footX + shiftX, toeX: toeX + shiftX, toeY, phi: P.phi, heel: Math.max(heel, heelR),
+                ankle: [P.ankleX, P.ankleY + liftF], knee: [kneeX + shiftX, kneeY], hip: [P.hipX, P.hipY],
+                ankleR: [rAx + shiftX, rAy], kneeR: [kneeR[0] + shiftX, kneeR[1]], sa,
                 shoulder: [P.shX, P.shY], head: [headX, headY], headPitch,
                 neckTilt, torsoTilt: P.torsoTilt, beta,
                 arm, armFar, handTarget: target, reachable: arm.reached
@@ -8027,6 +8054,30 @@ function xrayRun(ms) {
                 }
                 ctx.restore();
                 if (cabin) cabin.drawShell(ctx, toX, toY, scale);
+            }
+
+            // Faixa real de circulação: mesmos 20" (50,8 cm) da Aba 5, entre
+            // x=-25,4 e x=+25,4 cm. O retângulo vai do piso ao teto interno da
+            // fuselagem neste vão, sempre na mesma projeção m4 (sem mudar escala).
+            // Renderizado atrás dos bancos/manequim; exportação de passos permanece limpa.
+            if (!window.__mkExport) {
+                const aisleTopY = centerY + Math.sqrt(R * R - aisle * aisle);
+                const xL = toX(-aisle), xR = toX(aisle);
+                const yT = toY(aisleTopY), yB = toY(0);
+                ctx.save();
+                ctx.fillStyle = 'rgba(67, 70, 151, 0.065)';
+                ctx.fillRect(xL, yT, xR - xL, yB - yT);
+                ctx.strokeStyle = 'rgba(112, 125, 215, 0.85)';
+                ctx.lineWidth = 1.7;
+                ctx.setLineDash([6, 4]);
+                ctx.strokeRect(xL, yT, xR - xL, yB - yT);
+                ctx.setLineDash([]);
+                ctx.fillStyle = '#a4accb';
+                ctx.font = '700 10px "JetBrains Mono", monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('20" AISLE', toX(0), toY(aisleTopY - 9));
+                ctx.restore();
             }
 
             // Cadeiras da Aba 5, reutilizadas diretamente pelo renderer original:
