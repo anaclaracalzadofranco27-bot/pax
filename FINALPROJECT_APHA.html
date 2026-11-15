@@ -9371,36 +9371,109 @@ function xrayRun(ms) {
             const X_LEFT  = 292;
             const X_RIGHT = 865;
 
-            // Os dois volumes inferiores acompanham a rampa traseira do piso técnico.
-            // Entre os vértices 5 e 6, o piso sobe ~17° (a quebra seguinte é ~168°).
-            // A rotação Rx é medida na base Y/Z da mala após girá-la 90° em Z.
-            const rampA = FLOOR_SEAT[5], rampB = FLOOR_SEAT[6];
-            const LOWER_BAG_TILT = -Math.PI / 2 +
-                Math.atan2(rampB[1] - rampA[1], rampB[0] - rampA[0]);
+            // Encaixe no perfil lateral real: U = -Z e H = Y (mm).
+            // A quebra do piso em FLOOR_SEAT[8] separa a rampa de 360,68 mm
+            // do piso frontal de 265,09 mm (ângulo interno próximo de 168°).
+            // Os 356 x 254 mm são as dimensões EXTERNAS da seção da mala IATA,
+            // incluindo o envelope das rodas e alças: não posicionar só pelo casco.
+            const floorRear = FLOOR_SEAT[0], floorJoint = FLOOR_SEAT[8];
+            const floorFront = FLOOR_SEAT[FLOOR_SEAT.length - 1];
+            const floorAngle = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
+            const rearSlope = floorAngle(floorRear, floorJoint);
+            const frontSlope = floorAngle(floorJoint, floorFront);
+            const BAG_LONG_HALF = 356 / 2, BAG_THICK_HALF = 254 / 2;
+            const PROFILE_GAP = 1.5; // folga técnica mínima para evitar z-fighting/penetração
 
+            // Mala deitada: a aresta traseira acompanha a parede oblíqua de ~259 mm,
+            // e a aresta inferior acompanha o primeiro segmento do piso.
+            // Pequeno recuo longitudinal compensa a discretização do contorno SVG.
+            function pointOnFloor(a, angle, along, normal) {
+                return {
+                    u: a[0] + along * Math.cos(angle) - normal * Math.sin(angle),
+                    h: a[1] + along * Math.sin(angle) + normal * Math.cos(angle)
+                };
+            }
+            const rearFoot = pointOnFloor(floorRear, rearSlope, 2.2, PROFILE_GAP);
+            const lowerCenter = {
+                u: rearFoot.u + BAG_LONG_HALF * Math.cos(rearSlope) - BAG_THICK_HALF * Math.sin(rearSlope),
+                h: rearFoot.h + BAG_LONG_HALF * Math.sin(rearSlope) + BAG_THICK_HALF * Math.cos(rearSlope)
+            };
+            const LOWER_BAG_TILT = -Math.PI / 2 + rearSlope;
+
+            // Mala em pé: sua base acompanha o segundo segmento do piso; a face
+            // traseira inclina ~5° para trás, paralela à divisória de 124,25 mm.
+            // O início da base fica perto da quebra para não colidir com a mala deitada.
+            const frontFoot = pointOnFloor(floorJoint, frontSlope, -2.8, PROFILE_GAP);
+            const uprightCenter = {
+                u: frontFoot.u + BAG_THICK_HALF * Math.cos(frontSlope) - BAG_LONG_HALF * Math.sin(frontSlope),
+                h: frontFoot.h + BAG_THICK_HALF * Math.sin(frontSlope) + BAG_LONG_HALF * Math.cos(frontSlope)
+            };
+            const UPRIGHT_BAG_TILT = frontSlope;
+
+            // As duas malas de cada tipo ficam em fileiras distintas no eixo X;
+            // a exportação lateral em corte usa apenas um exemplar de cada perfil.
             const BAG_PATHS = [
                 {
                     p0: new THREE.Vector3(X_LEFT, 340, -1320), r0: new THREE.Euler(0, Math.PI, 0),
                     p1: new THREE.Vector3(X_LEFT, 321, -920),  r1: new THREE.Euler(-1.38, 0, Math.PI/2),
-                    // Encaixe final na rampa: centro corrigido e inclinação derivada do piso.
-                    p2: new THREE.Vector3(X_LEFT, 255, -480),  r2: new THREE.Euler(LOWER_BAG_TILT, 0, Math.PI/2)
+                    p2: new THREE.Vector3(X_LEFT, lowerCenter.h, -lowerCenter.u),
+                    r2: new THREE.Euler(LOWER_BAG_TILT, 0, Math.PI/2)
                 },
                 {
                     p0: new THREE.Vector3(X_RIGHT, 340, -1320), r0: new THREE.Euler(0, Math.PI, 0),
                     p1: new THREE.Vector3(X_RIGHT, 321, -920),  r1: new THREE.Euler(-1.38, 0, Math.PI/2),
-                    p2: new THREE.Vector3(X_RIGHT, 255, -480),  r2: new THREE.Euler(LOWER_BAG_TILT, 0, Math.PI/2)
+                    p2: new THREE.Vector3(X_RIGHT, lowerCenter.h, -lowerCenter.u),
+                    r2: new THREE.Euler(LOWER_BAG_TILT, 0, Math.PI/2)
                 },
                 {
                     p0: new THREE.Vector3(X_LEFT, 345, -1320), r0: new THREE.Euler(0, Math.PI, 0),
                     p1: new THREE.Vector3(X_LEFT, 345, -1020), r1: new THREE.Euler(-0.0087, 0, Math.PI/2),
-                    p2: new THREE.Vector3(X_LEFT, 345, -755),  r2: new THREE.Euler(-0.0087, 0, Math.PI/2)
+                    p2: new THREE.Vector3(X_LEFT, uprightCenter.h, -uprightCenter.u),
+                    r2: new THREE.Euler(UPRIGHT_BAG_TILT, 0, Math.PI/2)
                 },
                 {
                     p0: new THREE.Vector3(X_RIGHT, 345, -1320), r0: new THREE.Euler(0, Math.PI, 0),
                     p1: new THREE.Vector3(X_RIGHT, 345, -1020), r1: new THREE.Euler(-0.0087, 0, Math.PI/2),
-                    p2: new THREE.Vector3(X_RIGHT, 345, -755),  r2: new THREE.Euler(-0.0087, 0, Math.PI/2)
+                    p2: new THREE.Vector3(X_RIGHT, uprightCenter.h, -uprightCenter.u),
+                    r2: new THREE.Euler(UPRIGHT_BAG_TILT, 0, Math.PI/2)
                 }
             ];
+
+            // Teste de separação (SAT) entre os retângulos do envelope técnico no corte Y-Z.
+            // Em particular, não permitir interseção na quebra do piso.
+            function sectionRect(foot, angle, longitudinal, transverse) {
+                const tx = Math.cos(angle), ty = Math.sin(angle);
+                const nx = -ty, ny = tx;
+                return [
+                    [foot.u, foot.h],
+                    [foot.u + longitudinal * tx, foot.h + longitudinal * ty],
+                    [foot.u + longitudinal * tx + transverse * nx, foot.h + longitudinal * ty + transverse * ny],
+                    [foot.u + transverse * nx, foot.h + transverse * ny]
+                ];
+            }
+            function sectionGap(a, b) {
+                let separation = -Infinity;
+                [a, b].forEach(poly => {
+                    for (let i = 0; i < poly.length; i++) {
+                        const p = poly[i], q = poly[(i + 1) % poly.length];
+                        const d = Math.hypot(q[0] - p[0], q[1] - p[1]);
+                        const nx = -(q[1] - p[1]) / d, ny = (q[0] - p[0]) / d;
+                        const proj = v => v.map(p => p[0] * nx + p[1] * ny);
+                        const pa = proj(a), pb = proj(b);
+                        separation = Math.max(separation,
+                            Math.min(...pa) - Math.max(...pb),
+                            Math.min(...pb) - Math.max(...pa));
+                    }
+                });
+                return separation; // >= 0: separados, < 0: interseção
+            }
+            const sectionClearance = sectionGap(
+                sectionRect(rearFoot, rearSlope, 356, 254),
+                sectionRect(frontFoot, frontSlope, 254, 356)
+            );
+            if (sectionClearance < 0) {
+                console.warn('CAD 3D: envelopes das malas se interceptam no corte:', sectionClearance);
+            }
 
             function smoothstep(t){
                 const x = Math.max(0, Math.min(1, t));
@@ -10302,31 +10375,40 @@ function xrayRun(ms) {
                     backDetails.forEach(o => { keepVisibility(o); o.visible = true; });
 
                     bags.forEach((b, i) => {
-                        b.root.visible = true;
-                        if (b.env) b.env.visible = false;
+                        // Vista lateral ortográfica: são 4 malas em 3D, mas somente
+                        // 2 perfis distintos. Ocultar as cópias da fileira distante
+                        // evita duplicação de alfa e tracejados sobrepostos no PNG.
                         setBagPoseAlongPath(i, 1);
+                        b.root.visible = i % 2 === 1; // exemplares próximos da câmera (+X)
+                        if (b.env) b.env.visible = false;
+                        if (!b.root.visible) return;
                         b.root.traverse(obj => {
                             if (obj.isMesh) {
+                                keepVisibility(obj);
                                 const original = obj.material;
-                                const makeClear = mat => {
-                                    const m = mat.clone();
-                                    m.transparent = true;
-                                    m.opacity = 0.18;
-                                    m.depthWrite = false;
-                                    m.needsUpdate = true;
-                                    return m;
+                                const makeClear = material => {
+                                    const clear = material.clone();
+                                    clear.transparent = true;
+                                    clear.opacity = 0.13;
+                                    clear.depthWrite = false;
+                                    clear.needsUpdate = true;
+                                    return clear;
                                 };
                                 const translucent = Array.isArray(original)
                                     ? original.map(makeClear) : makeClear(original);
                                 originalMaterials.push([obj, original, translucent]);
                                 obj.material = translucent;
+                                // Corpo principal em 13% de opacidade; rodinhas, suportes,
+                                // nervuras, zíperes e alças ocultos APENAS na captura.
+                                // Todos os filhos são percorridos e têm estado restaurado.
+                                if (obj.geometry !== bagBodyGeo) obj.visible = false;
                             } else if (obj.isLine) {
                                 originalLines.push([obj, obj.visible]);
-                                obj.visible = false; // linhas sólidas originais não competem com os traços
+                                obj.visible = false; // sem contornos individuais nas rodas/alças
                             }
                         });
 
-                        // Invólucro IATA com as 12 arestas principais, projetado junto com cada mala.
+                        // Só a caixa externa IATA recebe EdgesGeometry + LineDashedMaterial.
                         const envelopeGeometry = new THREE.BoxGeometry(356, 559, 254);
                         const edges = new THREE.EdgesGeometry(envelopeGeometry);
                         envelopeGeometry.dispose();
