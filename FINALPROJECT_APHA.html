@@ -7996,85 +7996,8 @@ function xrayRun(ms) {
         }
         window.ergoTorqueSummary = () => { const L = manikinState.last; if (!L) return null; const t = L.times[0]; return ergoTorqueCurve(ERGO_PERCENTILES[0].h, L.Fg, L.Ft, t.tA2, t.tA1); };
 
-        // Manequim biomecânico da Aba 6: compartilha com a Aba 5 a paleta,
-        // os sólidos vetoriais, as articulações e a escala centimétrica do piso.
-        // A cinemática inversa de guardamento continua sendo ergoSolvePosture().
-        function drawStowDummyFromIntegrated(ctx, toX, toY, scale, stature, pose) {
-            const P = (v) => [toX(v[0]), toY(v[1])];
-            const K = 0.74;  // mesmo fator de esbeltez de drawDummyFrontFigure() — Aba 5
-            const radius = v => Math.max(1.5, stature * v * K * scale);
-            const seg = (a, b, rA, rB) => {
-                const p = P(a), q = P(b);
-                drawDummyLimbSegment(ctx, p[0], p[1], q[0], q[1], radius(rA), radius(rB));
-            };
-            const joint = (a, r) => {
-                const p = P(a);
-                drawDummyJointBall(ctx, p[0], p[1], radius(r));
-            };
-            const ankle = pose.ankle, knee = pose.knee, hip = pose.hip;
-            const sh = pose.shoulder, head = pose.head;
-            const farSh = [sh[0] - 1.0, sh[1] - 0.6];
-            const rearAnkle = pose.ankleR, rearKnee = pose.kneeR;
-            const foot = (a, toeX) => {
-                // Ponta da sola no piso (a ~1,6 cm com raio de ~1,6 cm).
-                // O tornozelo acompanha o IK, inclusive quando o calcanhar levanta.
-                const toe = [toeX, 1.6];
-                seg(a, toe, 0.029, 0.0145);
-                joint(a, 0.019);
-            };
-            const prevRole = window.__dkRole;
-            window.__dkRole = 'dummy';
-            try {
-                // Membros distantes: desenhados atrás do torso, como na figura integrada.
-                ctx.save();
-                ctx.globalAlpha *= 0.82;
-                seg(rearAnkle, rearKnee, 0.040, 0.046);
-                seg(rearKnee, hip, 0.047, 0.057);
-                foot(rearAnkle, rearAnkle[0] + 10.5);
-                joint(rearKnee, 0.035);
-                seg(farSh, [pose.armFar.ex, pose.armFar.ey], 0.046, 0.036);
-                seg([pose.armFar.ex, pose.armFar.ey], [pose.armFar.hx, pose.armFar.hy], 0.036, 0.025);
-                joint([pose.armFar.ex, pose.armFar.ey], 0.032);
-                ctx.restore();
-
-                // Perna próxima, com os pontos exatos do IK e pé tangente ao piso.
-                seg(ankle, knee, 0.043, 0.050);
-                seg(knee, hip, 0.053, 0.063);
-                foot(ankle, pose.toeX);
-                joint(knee, 0.037);
-                joint(hip, 0.045);
-
-                // Pescoço liga fisicamente a base do crânio ao topo do tronco.
-                // Desenhado antes do tronco e da cabeça para que ambas as
-                // extremidades fiquem escondidas dentro das respectivas peças.
-                seg(sh, head, 0.030, 0.025);
-
-                // Mesma peça vetorial de tronco da Aba 5, rigidamente alinhada
-                // ao segmento quadril→ombro que sai do solver biomecânico.
-                const hp = P(hip), sp = P(sh);
-                const len = Math.hypot(sp[0] - hp[0], sp[1] - hp[1]);
-                const rot = Math.atan2(sp[0] - hp[0], hp[1] - sp[1]);
-                ctx.save();
-                ctx.translate(hp[0], hp[1]);
-                ctx.rotate(rot);
-                drawDummyTorsoFront3D(ctx, 0, 0, -len,
-                    radius(0.106), radius(0.073), radius(0.067));
-                ctx.restore();
-
-                // Braço próximo: ancorado no próprio ombro do tronco, com IK
-                // de dois segmentos (ombro→cotovelo→punho) não deformado.
-                seg(sh, [pose.arm.ex, pose.arm.ey], 0.048, 0.037);
-                seg([pose.arm.ex, pose.arm.ey], [pose.arm.hx, pose.arm.hy], 0.037, 0.026);
-                joint(sh, 0.052);
-                joint([pose.arm.ex, pose.arm.ey], 0.034);
-                joint([pose.arm.hx, pose.arm.hy], 0.026);
-                const hd = P(head);
-                drawDummyHead3D(ctx, hd[0], hd[1], stature * 0.066 * scale);
-            } finally {
-                window.__dkRole = prevRole;
-            }
-        }
-
+        // A Aba 6 mantém o manequim vetorial original (vermelho.pdf)
+        // e usa apenas uma esfera de junta do modelo da Aba 5 no ombro.
         function drawManikinPanel(ctx, W, H, stature, mass, angleDeg, Fg, Fn, Ft, phase, tBack, tFront, title) {
             const cabin = window.cabinSectionReference;
             // Durante a inicialização, preservar a mesma fórmula m4 da Aba 5.
@@ -8106,6 +8029,18 @@ function xrayRun(ms) {
                 if (cabin) cabin.drawShell(ctx, toX, toY, scale);
             }
 
+            // Cadeiras da Aba 5, reutilizadas diretamente pelo renderer original:
+            // mesmas posições, dimensões, inclinação do encosto e escala real.
+            // Apenas a camada "seats" fica ativa, sem passageiros ou cotas.
+            // São desenhadas atrás do bin e do manequim em movimento.
+            if (!window.__mkExport && typeof window.drawSeatedScene === 'function') {
+                window.drawSeatedScene(ctx, W, H, {
+                    hAisle: stature, hWin: stature,
+                    layers: { seats: 1, pax: 0, dims: 0 },
+                    map: () => ({ toX, toY, scale })
+                });
+            }
+
             // Exatamente a mesma posição, profundidade e curvatura da seção ALPHA
             // da Aba 5. Sem fundo plano especial, sem ajustes visuais de escala.
             const prof = traceBinAlphaProfile(ctx, toX, toY,
@@ -8122,14 +8057,87 @@ function xrayRun(ms) {
             }
             const plan = ergoStowPlan(mode, prof, stature);
             const pose = ergoSolvePosture(stature, plan, localPhase);
+            const bagCx = pose.bag.x, bagCy = pose.bag.y;
+            const currentBagAngleRad = pose.bag.a * Math.PI / 180;
+            const [ankleX, ankleY] = pose.ankle, [kneeX, kneeY] = pose.knee, [hipX, hipY] = pose.hip;
+            const [shoulderX, shoulderY] = pose.shoulder, [headX, headY] = pose.head;
+            const arm = pose.arm, armFar = pose.armFar;
+            const handX = arm.hx, handY = arm.hy, elbowX = arm.ex, elbowY = arm.ey;
 
-            // A mala permanece vinculada ao plano de inserção original.
-            drawRealisticSuitcase(ctx,
-                toX(pose.bag.x), toY(pose.bag.y),
-                plan.w * scale, plan.h * scale,
-                pose.bag.a * Math.PI / 180, '', '', true);
+            // Manequim articulado montado com as peças vetoriais de vermelho.pdf
+            const KPX = (stature / PDF_REF_H) * scale;                 // px por pt do PDF
+            const OW = Math.max(2.2, 5.2 * KPX);                       // espessura do traço (metade externa = contorno preto)
+            const Pp = (x, y) => [toX(x), toY(y)];
+            const hipP = Pp(hipX, hipY), kneeP = Pp(kneeX, kneeY), shP = Pp(shoulderX, shoulderY);
+            const A = PDFA;
 
-            drawStowDummyFromIntegrated(ctx, toX, toY, scale, stature, pose);
+            // braço distante (atrás do corpo, tom mais escuro)
+            pdfArm(ctx, { sh: Pp(shoulderX - 1.0, shoulderY - 0.6), el: Pp(armFar.ex, armFar.ey), hand: Pp(armFar.hx, armFar.hy),
+                grip: pose.bag.grip, kpx: KPX, ow: OW, fill: PDFM.far, gray: PDFM.farGray, far: true });
+
+            // pernas (apoio + perna de trás do passo). O tornozelo "desenhado" fica FT_DY acima da sola (como no PDF),
+            // deslocado ao longo da canela; o pé gira até a ponta tocar o piso quando o calcanhar sobe.
+            const FT_DX = 52.0 * stature / PDF_REF_H, FT_DY = 23.6 * stature / PDF_REF_H;
+            const drawLeg = (aX, aY, kX, kY) => {
+                const kP = Pp(kX, kY);
+                const sx = kX - aX, sy = kY - aY, sl = Math.hypot(sx, sy) || 1, dAnk = FT_DY - 4.0;
+                const dAx = aX + sx / sl * dAnk, dAy = aY + sy / sl * dAnk;
+                let phiD = 0;
+                if (dAy > FT_DY + 0.05) {
+                    let lo = 0, hi = 1.14;
+                    for (let q = 0; q < 30; q++) { const mid = (lo + hi) / 2; if (FT_DX * Math.sin(mid) + FT_DY * Math.cos(mid) < dAy) lo = mid; else hi = mid; }
+                    phiD = (lo + hi) / 2;
+                }
+                const dAnkP = Pp(dAx, dAy);
+                pdfPiece(ctx, 'foot', pdfMatSim(A.ankle, dAnkP, phiD, KPX), PDFM.fill, OW);
+                pdfPiece(ctx, 'shin', pdfMatBone(A.knee, A.ankle, kP, dAnkP, KPX), PDFM.fill, OW);
+                pdfPiece(ctx, 'ankleJ', pdfMatSim(A.ankle, dAnkP, 0, KPX), PDFM.gray, OW);
+                pdfPiece(ctx, 'thigh', pdfMatBone(A.hip, A.knee, hipP, kP, KPX), PDFM.fill, OW);
+                pdfPiece(ctx, 'kneeJ', pdfMatSim(A.knee, kP, 0, KPX), PDFM.gray, OW);
+            };
+            drawLeg(ankleX, ankleY, kneeX, kneeY);                                           // perna de apoio (pé plano)
+            drawLeg(pose.ankleR[0], pose.ankleR[1], pose.kneeR[0], pose.kneeR[1]);   // perna de trás (sempre visível: parte da posição da perna de apoio e inclina p/ trás)
+
+            // tronco: pelve, costas, miolo do peito, peito, faixa da cintura, junta do quadril
+            const Mt = pdfMatBone(A.hip, A.shoulder, hipP, shP, KPX);
+            // tronco revetorizado (Sem_título-5.pdf): costas → peito → faixa da cintura → pelve → junta do quadril
+            pdfPiece(ctx, 'chestBack', Mt, PDFM.fill, OW);
+            pdfPiece(ctx, 'chestFront', Mt, PDFM.fill, OW);
+            pdfPiece(ctx, 'waist', Mt, PDFM.gray, OW);
+            pdfPiece(ctx, 'pelvis', Mt, PDFM.fill, OW);
+            pdfPiece(ctx, 'hipJ', pdfMatSim(A.hip, hipP, 0, KPX), PDFM.gray, OW);
+
+            // pescoço e cabeça (a cabeça inclina em torno da base do pescoço para olhar a mala)
+            const hdP = Pp(headX, headY), nl = Math.hypot(hdP[0] - shP[0], hdP[1] - shP[1]) || 1;
+            const neckLen = (A.shoulder[1] - A.neck[1]) * KPX;
+            const neckP = [shP[0] + (hdP[0] - shP[0]) / nl * neckLen, shP[1] + (hdP[1] - shP[1]) / nl * neckLen];
+            pdfPiece(ctx, 'neck', pdfMatSim(A.neckN, neckP, pose.neckTilt, KPX), PDFM.gray, OW);
+            pdfPiece(ctx, 'head', pdfMatSim(A.neck, neckP, -pose.headPitch, KPX), PDFM.fill, OW);
+
+            // Mala (rótulo sempre na horizontal, mesmo com a mala girando)
+            drawRealisticSuitcase(
+                ctx,
+                toX(bagCx),
+                toY(bagCy),
+                plan.w * scale,
+                plan.h * scale,
+                currentBagAngleRad,
+                '', '',
+                true
+            );
+
+            // Braço próximo: ombro → cotovelo → mão (sobre a mala)
+            pdfArm(ctx, { sh: shP, el: Pp(elbowX, elbowY), hand: Pp(handX, handY),
+                grip: pose.bag.grip, kpx: KPX, ow: OW, fill: PDFM.fill, gray: PDFM.gray });
+
+            // ÚNICO acabamento novo sobre o boneco original:
+            // esfera preenchida idêntica às juntas da Aba 5, cobrindo a
+            // pequena folga entre o braço e o tronco sem anéis nem forças.
+            drawDummyJointBall(
+                ctx, shP[0], shP[1],
+                Math.max(3.5, stature * 0.052 * 0.74 * scale)
+            );
+
 
             // Mantém os cálculos para os cartões externos/exports sem desenhar telemetria.
             const ld = ergoLoad(mode, plan, pose, localPhase, Fg, Ft);
