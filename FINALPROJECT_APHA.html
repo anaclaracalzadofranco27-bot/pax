@@ -33,6 +33,13 @@
             });
         })();
         window.APHA_CABIN_PALETTE = APHA_CABIN_PALETTE;
+        // Dimensões físicas compartilhadas pela projeção m4 (centímetros).
+        const APHA_CABIN_GEOMETRY = Object.freeze({
+            fuselageRadiusCm: 137.16, fuselageCenterYCm: 62.84,
+            shellThicknessCm: 5.5, aisleHalfWidthCm: 25.4,
+            floorWidthCm: 252, floorThicknessCm: 8
+        });
+        window.APHA_CABIN_GEOMETRY = APHA_CABIN_GEOMETRY;
         Object.entries({
             '--apha-bg': APHA_CABIN_PALETTE.background,
             '--apha-border': APHA_CABIN_PALETTE.border,
@@ -61,6 +68,7 @@
         const APHA_BRIDGE_CFG = Object.freeze({
             zoomInMs: 760, doorMs: 1220, zoomOutMs: 1580,
             startZoom: 1.72, closeZoom: 2.04, binFocusYcm: 173,
+            startOffsetSeconds: 0.5,
             uiFadeMs: 280, figurePhase: .52, figureScale: 3,
             figureW: 1060, figureH: 760, figureMargin: 22
         });
@@ -6145,7 +6153,7 @@ function xrayRun(ms) {
                 }
             });
             setTimeout(() => {
-                if (tab === 'sim') scheduleAba6Engine({tour:false});
+                if (tab === 'sim') scheduleAba6Engine({tour:false,reset:true});
                 if (tab === 'pax' && window.paxEnter) window.paxEnter();
                 if (tab === 'nova' && window.novaEnter) { window.novaEnter(); if(window.novaShowHeader)window.novaShowHeader(true); }
                 if (tab === 'unified' && window.uniEnter) window.uniEnter();
@@ -6194,7 +6202,7 @@ function xrayRun(ms) {
         // MÓDULO 1: GEOMETRIA CAD 2D (APÊNDICE A)
         // -------------------------------------------------------------------------
         function computeAllGeometries() {
-            const R = 137.16;              // 54.00" (Fuselagem E195-E2)
+            const R = APHA_CABIN_GEOMETRY.fuselageRadiusCm; // 54.00" (Fuselagem E195-E2)
             const x_livre = 25.4;          // 10.00"
             const folga = 0.508;           // 0.20"
             const espessura_porta = 1.5;   // 0.59"
@@ -9167,10 +9175,17 @@ window.drawUniReferenceBins = drawReferenceBins;
 
         addEventListener('keydown', e => { if (e.key === 'Escape' && window.__stopTourRec) window.__stopTourRec(); });
 
+        // Frame inicial único do canvas, da apresentação completa e das capturas:
+        // +0,5 s do ciclo calculado, sem alterar as durações biomecânicas.
+        function aphaInitialManikinPhase() {
+            const times = manikinState.last && manikinState.last.times;
+            const t = times && times.length ? Math.max(...times.map(x => x.tA1+x.tA2))
+                : (() => { const v=ergoTimes(ERGO_PERCENTILES[0].h,10,17); return v.tA1+v.tA2; })();
+            return Math.min(0.95, APHA_BRIDGE_CFG.startOffsetSeconds / Math.max(0.001,t));
+        }
         function showManikin() {
             cancelResultsSequence();
-            // A abertura da cena no tour também usa o frame inicial real.
-            manikinState.phase = 0;
+            manikinState.phase = aphaInitialManikinPhase();
             manikinState.animating = false;
             setAnimLabel();
             const ergo = document.getElementById('aba6-module-ergo');
@@ -9559,7 +9574,11 @@ window.drawUniReferenceBins = drawReferenceBins;
         const cineEase = v => { v = cineClamp(v); return v < .5 ? 4*v*v*v : 1-Math.pow(-2*v+2,3)/2; };
         const cineWindow = (t, start, end) => cineEase((t-start) / Math.max(.001,end-start));
         function cinematicFrame(phase) {
-            const tl = APHA_CINE_TIMELINE, t = cineClamp(phase) * tl.duration;
+            const tl = APHA_CINE_TIMELINE;
+            // A câmera começa exatamente na projeção m4 entregue pela Aba 5,
+            // e usa todo o restante do ciclo para dolly e retorno sem saltos.
+            const seed = aphaInitialManikinPhase();
+            const t = cineClamp((phase - seed) / (1 - seed)) * tl.duration;
             const dolly = cineWindow(t, tl.dolly.start, tl.dolly.end) *
                 (1 - cineWindow(t, tl.dolly.reverseStart, tl.dolly.reverseEnd));
             const low = cineWindow(t, tl.lowAngle.start, tl.lowAngle.end) *
@@ -9581,9 +9600,9 @@ window.drawUniReferenceBins = drawReferenceBins;
                 return { toX: x => cx + x * sc, toY: y => H - 22 - (y + 14) * sc, scale: sc };
             })();
             const { toX, toY, scale } = map;
-            const R = cabin ? cabin.R : 137.16;
-            const centerY = cabin ? cabin.centerY : 62.84;
-            const aisle = cabin ? cabin.aisle : 25.4;
+            const R = cabin ? cabin.R : APHA_CABIN_GEOMETRY.fuselageRadiusCm;
+            const centerY = cabin ? cabin.centerY : APHA_CABIN_GEOMETRY.fuselageCenterYCm;
+            const aisle = cabin ? cabin.aisle : APHA_CABIN_GEOMETRY.aisleHalfWidthCm;
             const binFloor = cabin ? cabin.binFloorY()
                 : centerY + Math.sqrt(R * R - aisle * aisle) - 20.0 * CM_PER_IN;
 
@@ -9633,11 +9652,14 @@ window.drawUniReferenceBins = drawReferenceBins;
             // Apenas a camada "seats" fica ativa, sem passageiros ou cotas.
             // São desenhadas atrás do bin e do manequim em movimento.
             if (!window.__mkExport && typeof window.drawSeatedScene === 'function') {
+                ctx.save();
+                ctx.globalAlpha *= window.__aphaBridgeSeatsAlpha == null ? 1 : window.__aphaBridgeSeatsAlpha;
                 withAba5CabinColors(() => window.drawSeatedScene(ctx, W, H, {
                     hAisle: stature, hWin: stature,
                     layers: { seats: 1, pax: 0, dims: 0 },
                     map: () => ({ toX, toY, scale })
                 }));
+                ctx.restore();
             }
 
             // O desenho e a porta rolante são exatamente os mesmos da aba 5.
@@ -9651,10 +9673,10 @@ window.drawUniReferenceBins = drawReferenceBins;
                     aisle, binFloor, 1, 1.0, R, centerY, false);
             if (exactCAD) {
                 const timeline = APHA_CINE_TIMELINE;
+                // A abertura termina na Aba 5; não é repetida na Aba 6.
                 const doorU = window.__aphaBridgeDoorU != null ? window.__aphaBridgeDoorU :
-                    ergoSmooth(phase / (timeline.doorOpen.end / timeline.duration)) *
-                    (1 - ergoSmooth((phase - timeline.doorClose.start / timeline.duration) /
-                        ((timeline.doorClose.end - timeline.doorClose.start) / timeline.duration)));
+                    1 - ergoSmooth((phase - timeline.doorClose.start / timeline.duration) /
+                        ((timeline.doorClose.end - timeline.doorClose.start) / timeline.duration));
                 withAba5CabinColors(() => window.drawUniReferenceBins(ctx, W, H,
                     window.__aphaShowConventional ? 1 : 0, 1, doorU));
             }
@@ -10170,7 +10192,7 @@ window.drawUniReferenceBins = drawReferenceBins;
         // MÓDULO 8: SIMULAÇÃO INTEGRADA (aba 1 → cabine/piso → bancos/passageiros → estatura)
         // -------------------------------------------------------------------------
         (function () {
-            const FC = 62.84;                                   // centro da fuselagem acima do piso (cm)
+            const FC = APHA_CABIN_GEOMETRY.fuselageCenterYCm; // centro da fuselagem acima do piso (cm)
             // ---- Paleta lilás/roxa só nesta aba: enquanto BIN_SOLID está ativo (só durante o desenho da Simulação Integrada e da sua exportação), cinzas-azulados viram lilás ----
             (function installUniPalette() {
                 if (CanvasRenderingContext2D.prototype.__uniPal) return;
@@ -10274,7 +10296,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             const cubic=x=>{x=cl(x);return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2};
             const cameraAmount=()=>cubic((U.t-TL.zoom)/TL.zoomDur);
             const doorAmount=()=>cubic((U.t-TL.open)/TL.openDur);
-            const cinematicCamera=(W,H)=>{const a=cameraAmount(),k=1+.72*a,cy=m4(W,H).toY(173);return {k,x:W/2,y:H/2+(cy-H/2)*a}};
+            const cinematicCamera=(W,H)=>{const a=cameraAmount(),k=1+(APHA_BRIDGE_CFG.startZoom-1)*a,cy=m4(W,H).toY(APHA_BRIDGE_CFG.binFocusYcm);return {k,x:W/2,y:H/2+(cy-H/2)*a}};
             
             const YMIN = -14;                                   // enquadra apenas do piso para cima (sem porão)
             const m4 = (W, H) => { const sc = Math.min((W - 60) / 380, (H - 50) / (230 - YMIN)), cx = W / 2; return { toX: x => cx + x * sc, toY: y => H - 22 - (y - YMIN) * sc, scale: sc }; };
@@ -10282,10 +10304,10 @@ window.drawUniReferenceBins = drawReferenceBins;
             // A projeção m4 é a mesma usada na planta integrada: y=0 é o piso, em centímetros.
             window.cabinSectionReference = {
                 map: m4,
-                R: 137.16,
-                centerY: FC,
-                wall: 5.5,
-                aisle: 25.4,
+                R: APHA_CABIN_GEOMETRY.fuselageRadiusCm,
+                centerY: APHA_CABIN_GEOMETRY.fuselageCenterYCm,
+                wall: APHA_CABIN_GEOMETRY.shellThicknessCm,
+                aisle: APHA_CABIN_GEOMETRY.aisleHalfWidthCm,
                 binFloorY() {
                     return this.centerY + Math.sqrt(this.R * this.R - this.aisle * this.aisle) - 20.0 * CM_PER_IN;
                 },
@@ -10326,7 +10348,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                     ctx.fillStyle = '#cbd5e1';
                     ctx.strokeStyle = '#64748b';
                     ctx.lineWidth = 1.8;
-                    const x = toX(-126), w = 252 * scale, y = toY(0), h = 8 * scale;
+                    const x = toX(-APHA_CABIN_GEOMETRY.floorWidthCm / 2), w = APHA_CABIN_GEOMETRY.floorWidthCm * scale,
+                          y = toY(0), h = APHA_CABIN_GEOMETRY.floorThicknessCm * scale;
                     ctx.fillRect(x, y, w, h);
                     ctx.strokeRect(x, y, w, h);
                     ctx.restore();
@@ -10584,7 +10607,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             window.uniTourReset = () => { U.started = true; U.customStature = null; U.playing = false; cancelAnimationFrame(U.raf); U.t = 0; U.fx = null; U.focus = 0; window.__uniRefDoorProgress=0; window.__uniSweepProgress=0; refresh(); };
             window.uniTourStart = () => { U.started = true; if (!U.playing) play(0); };
             // Entregar ao plano único após zoom, antes da abertura das portas.
-            window.uniTourBridgeReady = () => U.t >= TL.open - .015;
+            window.uniTourBridgeReady = () => U.t >= TOTAL - .0001;
             window.uniTourSet = t => { U.started = true; U.customStature = null; U.playing = false; cancelAnimationFrame(U.raf); U.t = t; U.fx = null; U.focus = 0; refresh(); };
             window.uniSetFx = (f, focus) => { U.fx = f ? Object.assign({}, f) : null; U.focus = focus || 0; refresh(); };
             window.uniTourStartAt = t => { U.started = true; U.customStature = null; play(t); };
@@ -12642,9 +12665,10 @@ window.drawUniReferenceBins = drawReferenceBins;
             const width=Math.round(W*dpr),height=Math.round(H*dpr);
             if(b.canvas.width!==width||b.canvas.height!==height){b.canvas.width=width;b.canvas.height=height;}
             const g=b.canvas.getContext('2d'),elapsed=now-b.started;
+            // A abertura pertence inteiramente à Aba 5; a ponte não a reinicia.
             const doorU=b.mode==='stow'
                 ? 1-bridgeEase(((manikinState.phase||0)-.96)/.04)
-                : bridgeEase((elapsed-C.zoomInMs)/C.doorMs);
+                : 1;
             let m=b.end;
             if(b.mode!=='stow'){
                 if(elapsed<C.zoomInMs)m=bridgeMix(b.start,b.close,bridgeEase(elapsed/C.zoomInMs));
@@ -12659,13 +12683,14 @@ window.drawUniReferenceBins = drawReferenceBins;
             const L=manikinState.last,mass=L?L.mass:10,ang=L?L.angleDeg:17;
             const Fg=L?L.Fg:mass*9.81,Fn=L?L.Fn:Fg*Math.cos(ang*Math.PI/180),Ft=L?L.Ft:Fg*Math.sin(ang*Math.PI/180);
             const t=L?L.times[0]:ergoTimes(ERGO_PERCENTILES[0].h,mass,ang);
-            const phase=b.mode==='stow'?(manikinState.phase||0):0;
-            const old=[window.__aphaOnlyCabin,window.__aphaShowConventional,window.__aphaBridgeDoorU,window.__aphaBridgeMinimalHUD,window.__aphaBridgeManikinAlpha];
+            const phase=b.mode==='stow'?Math.max(manikinState.phase||0,aphaInitialManikinPhase()):0;
+            const old=[window.__aphaOnlyCabin,window.__aphaShowConventional,window.__aphaBridgeDoorU,window.__aphaBridgeMinimalHUD,window.__aphaBridgeManikinAlpha,window.__aphaBridgeSeatsAlpha];
             try{
                 // Renderiza o cenário inteiro em todos os quadros. O manequim surge
                 // no final do recuo, sem trocar de canvas nem deslocar a fuselagem.
-                window.__aphaOnlyCabin=false;
+                window.__aphaOnlyCabin=b.mode!=='stow';
                 const outU=bridgeEase((elapsed-C.zoomInMs-C.doorMs)/C.zoomOutMs);
+                window.__aphaBridgeSeatsAlpha=b.mode==='stow'?1:outU;
                 window.__aphaBridgeManikinAlpha=b.mode==='stow'?1:
                     bridgeEase((outU-.70)/.30);
                 window.__aphaShowConventional=true;
@@ -12679,7 +12704,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             }catch(err){
                 if(!b.error){b.error=true;console.error('Continuous cabin camera:',err);}
             }finally{
-                [window.__aphaOnlyCabin,window.__aphaShowConventional,window.__aphaBridgeDoorU,window.__aphaBridgeMinimalHUD,window.__aphaBridgeManikinAlpha]=old;
+                [window.__aphaOnlyCabin,window.__aphaShowConventional,window.__aphaBridgeDoorU,window.__aphaBridgeMinimalHUD,window.__aphaBridgeManikinAlpha,window.__aphaBridgeSeatsAlpha]=old;
             }
             // A geometria não sofre fade: apenas rótulos e cronômetro.
             g.save();g.setTransform(dpr,0,0,dpr,0,0);
@@ -12721,15 +12746,19 @@ window.drawUniReferenceBins = drawReferenceBins;
             const sr=stage.getBoundingClientRect(),r=parent.getBoundingClientRect();
             const baseW=r.width,baseH=r.height,W=stage.clientWidth,H=stage.clientHeight;
             if(baseW<1||baseH<1||W<1||H<1)return false;
-            const from=cabin.map(baseW,baseH),to=cabin.map(W,H);
+            // Aba 6 usa viewport dentro de inset:2.2% durante o tour.
+            // O destino coincide com as coordenadas REAIS desse canvas.
+            const margin=stage.classList.contains('rec')?.022:0;
+            const ix=W*margin,iy=H*margin,destW=W-2*ix,destH=H-2*iy;
+            const from=cabin.map(baseW,baseH),to=cabin.map(destW,destH);
             const fx=from.toX(0),fy=from.toY(C.binFocusYcm);
             const k0=C.startZoom,kc=C.closeZoom,k1=to.scale/from.scale;
             const start={k:k0,tx:r.left-sr.left+baseW/2-k0*baseW/2,
                                   ty:r.top-sr.top+baseH/2-k0*fy};
             const close={k:kc,tx:W*.48-kc*fx,ty:H*.50-kc*fy};
             // Similaridade exata m4 → m4: posição final do bin idêntica à aba 6.
-            const end={k:k1,tx:to.toX(0)-k1*from.toX(0),
-                             ty:to.toY(0)-k1*from.toY(0)};
+            const end={k:k1,tx:ix+to.toX(0)-k1*from.toX(0),
+                             ty:iy+to.toY(0)-k1*from.toY(0)};
             const canvas=document.createElement('canvas');
             canvas.id='apha-continuous-cabin';
             canvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:12;pointer-events:none;opacity:1';
