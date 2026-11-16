@@ -2018,10 +2018,6 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
         dirLight.shadow.bias = -0.0005;
         scene.add(dirLight);
 
-        const rimLight = new THREE.DirectionalLight(0xe2e8f0, 0.40);
-        rimLight.position.set(-7, 5, -6);
-        scene.add(rimLight);
-
         const shadowPlane = new THREE.Mesh(
             new THREE.PlaneGeometry(40, 40),
             new THREE.ShadowMaterial({ opacity: 0.22 })
@@ -12611,9 +12607,10 @@ window.drawUniReferenceBins = drawReferenceBins;
                 window.__aphaBridgeDoorU=doorU;
                 window.__aphaBridgeMinimalHUD=true;
                 g.save();
-                g.transform(m.k,0,0,m.k,m.tx,m.ty);
-                drawManikinPanel(g,b.baseW,b.baseH,ERGO_PERCENTILES[0].h,mass,ang,Fg,Fn,Ft,phase,t.tA2,t.tA1,'');
-                g.restore();
+                try {
+                    g.transform(m.k,0,0,m.k,m.tx,m.ty);
+                    drawManikinPanel(g,b.baseW,b.baseH,ERGO_PERCENTILES[0].h,mass,ang,Fg,Fn,Ft,phase,t.tA2,t.tA1,'');
+                } finally { g.restore(); }
             }catch(err){
                 if(!b.error){b.error=true;console.error('Continuous cabin camera:',err);}
             }finally{
