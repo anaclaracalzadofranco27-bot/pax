@@ -109,7 +109,7 @@
         window.APHA_CINE_TIMELINE = APHA_CINE_TIMELINE;
         // Parâmetros de câmera única m4 (abas 5/6) e figura isolada.
         const APHA_BRIDGE_CFG = Object.freeze({
-            zoomInMs: 0, doorMs: 0, zoomOutMs: 1580,
+            zoomInMs: 0, doorMs: 0, zoomOutMs: 1580, handoffMs: 480,
             startZoom: 1.72, closeZoom: 2.04, binFocusYcm: 173,
             startOffsetSeconds: 0.5,
             uiFadeMs: 280, figurePhase: .83, figureScale: 3,
@@ -6219,7 +6219,13 @@ function xrayRun(ms) {
                 window.aba6Initialized = true;
             }
             window.__aba6TourMode = !!options.tour;
-            if (options.reset || !manikinState.last) showManikin();
+            if (options.reset || !manikinState.last) {
+                showManikin();
+                // A pose do primeiro frame deve ser a mesma que a ponte entregou.
+                if (Number.isFinite(options.initialPhase)) {
+                    manikinState.phase = Math.max(0, Math.min(.95, options.initialPhase));
+                }
+            }
             manikinState.animating = true;
             startManikinLoop(); // one cancellable RAF per active simulation
             setAnimLabel();
@@ -12798,7 +12804,8 @@ window.drawUniReferenceBins = drawReferenceBins;
               leave: () => call(window.uniPause) },
             { key: 'sim', sec: 'module-sim', title: '6. Biomechanical Validation & Boarding Time (Turnaround)', hold: 2500, timeout: 300000,
               enter: () => { window.ergoDone = false; },
-              start: () => scheduleAba6Engine({tour:true,reset:true}),
+              start: () => scheduleAba6Engine({tour:true,reset:true,
+                   initialPhase: bridge ? bridge.initialPhase : undefined}),
               done: () => window.ergoDone === true,
               leave: () => pauseAba6Engine() },
             // ato de encerramento (30 s): começa logo depois da biomecânica (fade sem sobreposição: a biomecânica some por inteiro,
@@ -12868,10 +12875,30 @@ window.drawUniReferenceBins = drawReferenceBins;
             g.setTransform(dpr,0,0,dpr,0,0);
             // O #tour-stage mantém a malha e a cor por trás do canvas móvel.
             drawUnifiedCabinBackground(g, W, H, { tour: true });
+            // O CAD da Aba 5 e o renderizador do manikin não têm os mesmos
+            // paths. Usar o frame real final do CAD, movendo-o pela MESMA
+            // matriz, evita o corte visual ao trocar de renderizador.
+            const handoff = b.mode==='transition'
+                ? bridgeEase(elapsed/C.handoffMs) : 1;
+            if(b.snapshot && handoff<1){
+                const relativeZoom=m.k/b.start.k;
+                g.save();
+                g.globalAlpha=1-handoff;
+                g.transform(relativeZoom,0,0,relativeZoom,
+                    m.tx-relativeZoom*b.start.tx,
+                    m.ty-relativeZoom*b.start.ty);
+                g.drawImage(b.snapshot,b.srcX,b.srcY,b.srcW,b.srcH);
+                g.restore();
+            }else if(b.snapshot && handoff>=1){
+                b.snapshot=null; // liberar memória da captura após a emenda
+            }
             const L=manikinState.last,mass=L?L.mass:10,ang=L?L.angleDeg:17;
             const Fg=L?L.Fg:mass*9.81,Fn=L?L.Fn:Fg*Math.cos(ang*Math.PI/180),Ft=L?L.Ft:Fg*Math.sin(ang*Math.PI/180);
             const t=L?L.times[0]:ergoTimes(ERGO_PERCENTILES[0].h,mass,ang);
-            const phase=b.mode==='stow'?Math.max(manikinState.phase||0,aphaInitialManikinPhase()):aphaInitialManikinPhase();
+            // Fixar o frame inicial: a inicialização da física não salta a mala.
+            const phase=b.mode==='stow'
+                ? Math.max(manikinState.phase||0,b.initialPhase)
+                : b.initialPhase;
             const old=[window.__aphaOnlyCabin,window.__aphaShowConventional,window.__aphaBridgeDoorU,window.__aphaBridgeMinimalHUD,window.__aphaBridgeManikinAlpha,window.__aphaBridgeSeatsAlpha,window.__aphaAlphaBodyOpacity];
             try{
                 // Renderiza o cenário inteiro em todos os quadros. O manequim surge
@@ -12887,6 +12914,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 window.__aphaBridgeMinimalHUD=true;
                 g.save();
                 try {
+                    g.globalAlpha *= handoff;
                     g.transform(m.k,0,0,m.k,m.tx,m.ty);
                     drawManikinPanel(g,b.baseW,b.baseH,ERGO_PERCENTILES[0].h,mass,ang,Fg,Fn,Ft,phase,t.tA2,t.tA1,'');
                 } finally { g.restore(); }
@@ -12933,28 +12961,49 @@ window.drawUniReferenceBins = drawReferenceBins;
             const src=$('uniCanvas'),C=APHA_BRIDGE_CFG,cabin=window.cabinSectionReference;
             const parent=src&&src.parentElement;if(!parent||!cabin)return false;
             const sr=stage.getBoundingClientRect(),r=parent.getBoundingClientRect();
+            const visible=src.getBoundingClientRect();
             const baseW=r.width,baseH=r.height,W=stage.clientWidth,H=stage.clientHeight;
-            if(baseW<1||baseH<1||W<1||H<1)return false;
-            // Aba 6 usa viewport dentro de inset:2.2% durante o tour.
-            // O destino coincide com as coordenadas REAIS desse canvas.
+            if(baseW<1||baseH<1||W<1||H<1||sr.width<1||sr.height<1)return false;
+            // Converter pixels do boundingClientRect em coordenadas lógicas do palco.
+            // Crucial quando a simulação está redimensionada ou sendo gravada.
+            const stageX=W/sr.width,stageY=H/sr.height;
+            const srcX=(visible.left-sr.left)*stageX;
+            const srcY=(visible.top-sr.top)*stageY;
+            const srcW=visible.width*stageX,srcH=visible.height*stageY;
+            const fitX=srcW/baseW,fitY=srcH/baseH;
+            const sourceFit=(fitX+fitY)*.5;
+            // O destino respeita o mesmo m4, com margem da área de simulação.
             const margin=stage.classList.contains('rec')?.022:0;
             const ix=W*margin,iy=H*margin,destW=W-2*ix,destH=H-2*iy;
             const from=cabin.map(baseW,baseH),to=cabin.map(destW,destH);
-            const fx=from.toX(0),fy=from.toY(C.binFocusYcm);
+            const fy=from.toY(C.binFocusYcm);
             const lastCamera=typeof window.uniCameraState==='function'
                 ? window.uniCameraState(baseW,baseH) : {k:C.startZoom,x:baseW/2,y:fy};
             const k1=to.scale/from.scale;
-            const start={k:lastCamera.k,
-                tx:r.left-sr.left+baseW/2-lastCamera.k*lastCamera.x,
-                ty:r.top-sr.top+baseH/2-lastCamera.k*lastCamera.y};
-            const close=start;
-            // Similaridade exata m4 → m4: posição final do bin idêntica à aba 6.
+            // Começa na matriz exata usada pelo canvas da Aba 5.
+            const start={k:sourceFit*lastCamera.k,
+                tx:srcX+sourceFit*(baseW/2-lastCamera.k*lastCamera.x),
+                ty:srcY+sourceFit*(baseH/2-lastCamera.k*lastCamera.y)};
+            // Termina no referencial m4 do manikin; sem alterar geometria física.
             const end={k:k1,tx:ix+to.toX(0)-k1*from.toX(0),
                              ty:iy+to.toY(0)-k1*from.toY(0)};
+            let snapshot=null;
+            try{
+                if(src.width>0 && src.height>0){
+                    snapshot=document.createElement('canvas');
+                    snapshot.width=src.width;snapshot.height=src.height;
+                    snapshot.getContext('2d').drawImage(src,0,0);
+                }
+            }catch(err){
+                console.warn('Aba 5 source frame capture unavailable:',err);
+                snapshot=null;
+            }
             const canvas=document.createElement('canvas');
             canvas.id='apha-continuous-cabin';
             canvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:12;pointer-events:none;opacity:1';
-            bridge={canvas,baseW,baseH,start,close,end,started:performance.now(),mode:'transition',stowStart:0,raf:0,error:false};
+            bridge={canvas,baseW,baseH,srcX,srcY,srcW,srcH,snapshot,
+                start,end,initialPhase:aphaInitialManikinPhase(),
+                started:performance.now(),mode:'transition',stowStart:0,raf:0,error:false};
             window.__aphaTourBridgeActive = true;
             paintBridge(bridge.started);
             stage.appendChild(canvas);
