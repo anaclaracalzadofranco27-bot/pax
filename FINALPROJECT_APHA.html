@@ -65,6 +65,12 @@
             figureW: 1060, figureH: 760, figureMargin: 22
         });
         window.APHA_BRIDGE_CFG = APHA_BRIDGE_CFG;
+        // Atrasos relativos à estabilização dos objetos no primeiro quadro CAD.
+        const APHA_INTRO_CFG = Object.freeze({
+            crossfadeMs: 520, titleDelayMs: 180, legendDelayMs: 610,
+            measuresDelayMs: 1020, descriptionDelayMs: 1460, fadeMs: 560
+        });
+        window.APHA_INTRO_CFG = APHA_INTRO_CFG;
         tailwind.config = {
             darkMode: 'class',
             theme: {
@@ -235,6 +241,17 @@
         /* Título "OVERHEAD BIN ALPHA" e descrição: caixas HUD sobre a malha, na entrada da cena 3D (logo depois do alerta da cena 1).
            Ficam dentro de .hud-callout como os callouts, então entram e saem (hudIn / hudOut no pai) junto com eles.
            Tamanhos em cqw: relativos à largura do quadro 16:9 (#cad3d-container é container-type:inline-size no roteiro). */
+        /* No tour, nenhum título aparece enquanto o CAD ainda inicializa. */
+        #tour-stage .cad3d-balloons:not(.tour-sequenced):not(.hud-off) .hud-callout{
+            animation:none !important;opacity:0 !important;
+        }
+        #tour-stage .cad3d-balloons.tour-sequenced:not(.hud-off) .hud-callout{
+            animation:hudIn var(--apha-intro-fade,.56s) cubic-bezier(.22,.61,.36,1) both;
+        }
+        #tour-stage .cad3d-balloons.tour-sequenced .hud-callout-hero{animation-delay:var(--apha-title-delay,.18s)}
+        #tour-stage .cad3d-balloons.tour-sequenced .hud-callout-door{animation-delay:var(--apha-legend-delay,.61s)}
+        #tour-stage .cad3d-balloons.tour-sequenced .hud-callout-iata{animation-delay:var(--apha-measures-delay,1.02s)}
+        #tour-stage .cad3d-balloons.tour-sequenced .hud-callout-desc{animation-delay:var(--apha-desc-delay,1.46s)}
         .cad3d-balloons .hud-callout-hero{animation-delay:.25s}
         .cad3d-balloons .hud-callout-desc{animation-delay:.9s}
         .cad3d-balloons.hud-off .hud-callout-hero,.cad3d-balloons.hud-off .hud-callout-desc{animation-delay:0s}
@@ -11209,7 +11226,28 @@ window.drawUniReferenceBins = drawReferenceBins;
                 upd();
             }
             window.resizeCAD3D = rs;
+            let introSequenceId=0;
+            function resetIntroSequence(){
+                introSequenceId++;
+                if (_balloons) {
+                    _balloons.classList.remove('tour-sequenced','hud-off');
+                    const C=window.APHA_INTRO_CFG;
+                    _balloons.style.setProperty('--apha-intro-fade',C.fadeMs+'ms');
+                    _balloons.style.setProperty('--apha-title-delay',C.titleDelayMs+'ms');
+                    _balloons.style.setProperty('--apha-legend-delay',C.legendDelayMs+'ms');
+                    _balloons.style.setProperty('--apha-measures-delay',C.measuresDelayMs+'ms');
+                    _balloons.style.setProperty('--apha-desc-delay',C.descriptionDelayMs+'ms');
+                }
+            }
+            function showIntroAfterStableFrame(){
+                const id=++introSequenceId;
+                requestAnimationFrame(()=>requestAnimationFrame(()=>{
+                    if(id!==introSequenceId || !container.closest('#tour-stage')) return;
+                    if(_balloons) _balloons.classList.add('tour-sequenced');
+                }));
+            }
             window.cad3dTourPrep = () => {
+                resetIntroSequence();
                 warmUp();
                 stopAllAnimations();
                 if (window.cad3dMorphReset) window.cad3dMorphReset();
@@ -11313,6 +11351,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             }
 
             function startSimulation(){
+                if (container.closest('#tour-stage')) resetIntroSequence();
                 warmUp();
                 stopAllAnimations();
                 if (window.cad3dMorphReset) window.cad3dMorphReset();
@@ -11331,6 +11370,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 btnStartSim.innerHTML = '<span>⏳ Simulating...</span>';
                 upd();
                 simReq = requestAnimationFrame(runSimulationFrame);
+                if (inTour) showIntroAfterStableFrame();
             }
             window.startCAD3DSim = startSimulation;
 
@@ -12499,8 +12539,8 @@ window.drawUniReferenceBins = drawReferenceBins;
         // Cada passo: módulo a emprestar, como iniciar, como saber que terminou, quanto esperar no final
         const STEPS = [
             { key: 'pax', sec: 'module-pax', title: '1. Boarding Bridge – Passengers Walking', hold: 200, timeout: 45000, noFit: true,   // alerta OVERHEAD BINS FULL parado só ~2 s
-              overlapMs: 1,                                      // o bin 3D só entra depois que o avião sumiu
-              morphOut: my => call(window.paxXray, 1000),        // avião parado: some inteiro, suavemente
+              overlapMs: APHA_INTRO_CFG.crossfadeMs,             // sobreposição entre avião e bin, sem frame escuro
+              morphOut: null,                                    // avião e CAD trocam opacidade simultaneamente
               keepAlive: true,                                   // move o módulo sem recarregar o iframe (moveBefore), quando o navegador permite
               enter: () => { call(window.paxEnter); call(window.paxTourReset); },
               start: () => call(window.paxTourStart),
@@ -12561,6 +12601,15 @@ window.drawUniReferenceBins = drawReferenceBins;
             requestAnimationFrame(f);
         });
         const ezo = x => 1 - Math.pow(1 - x, 2);
+        // Verificação subpixel da matriz de câmera na junção dos dois atos.
+        function verifyBridgeSeam(b){
+            const m=b.end;
+            for(const [x,y] of [[0,0],[b.baseW/2,b.baseH/2],[b.baseW*.63,b.baseH*.22]]){
+                const a=[m.k*x+m.tx,m.k*y+m.ty];
+                const c=[b.end.k*x+b.end.tx,b.end.k*y+b.end.ty];
+                console.assert(Math.hypot(a[0]-c[0],a[1]-c[1])<.01,'Discontinuity at cabin seam');
+            }
+        }
 
         // UMA cena m4, UMA matriz de escala+translação e UM canvas contínuo.
         let bridge=null;
@@ -12661,6 +12710,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             bridge.raf=requestAnimationFrame(tick);
             const ok=await tween(C.zoomInMs+C.doorMs+C.zoomOutMs,my,()=>{});
             if(!ok){destroyBridge();return false;}
+            verifyBridgeSeam(bridge);
             bridge.mode='stow';bridge.stowStart=performance.now();
             paintBridge(bridge.stowStart);
             return true;
