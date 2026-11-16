@@ -9,6 +9,26 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@700&family=Open+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script>
+
+        // Mesma fonte de verdade visual de FINALPROJECT_APHA.html.
+        // Arquivo independente: manter os valores espelhados ao alterar o projeto.
+        const APHA_CABIN_PALETTE = Object.freeze({
+            background: '#000223', panel: '#0a1a3a', border: '#2f4a6b',
+            cyan: '#6d90b8', mid: '#5b7b9e', neutral: '#9ba9b5',
+            muted: '#bababa', text: '#e2e8f0', darkOutline: '#08122a',
+            shellFill: '#94a3b8', shellOutline: '#1e293b',
+            floorFill: '#cbd5e1', floorOutline: '#64748b'
+        });
+        const APHA_CABIN_GEOMETRY = Object.freeze({
+            fuselageRadiusCm: 137.16, fuselageCenterYCm: 62.84,
+            shellThicknessCm: 5.5, aisleHalfWidthCm: 25.4,
+            floorWidthCm: 252, floorThicknessCm: 8
+        });
+        const APHA_BRIDGE_CFG = Object.freeze({
+            startOffsetSeconds: 0.5, startZoom: 1.72, binFocusYcm: 173
+        });
+        window.APHA_CABIN_PALETTE = APHA_CABIN_PALETTE;
+        window.APHA_CABIN_GEOMETRY = APHA_CABIN_GEOMETRY;
         tailwind.config = {
             darkMode: 'class',
             theme: {
@@ -790,7 +810,7 @@
             currentTab = tab;
             // Entrar na Aba 6 sempre parte da pega baixa da primeira mala.
             if (tab === 'sim' && previousTab !== 'sim') {
-                manikinState.phase = 0;
+                manikinState.phase = aphaInitialManikinPhase();
                 manikinState.animating = false;
                 hideCards();
                 toggleManikinAnimation();
@@ -829,7 +849,7 @@
         // MÓDULO 1: GEOMETRIA CAD 2D (APÊNDICE A)
         // -------------------------------------------------------------------------
         function computeAllGeometries() {
-            const R = 137.16;              // 54.00" (Fuselagem E195-E2)
+            const R = APHA_CABIN_GEOMETRY.fuselageRadiusCm; // 54.00" (Fuselagem E195-E2)
             const x_livre = 25.4;          // 10.00"
             const folga = 0.508;           // 0.20"
             const espessura_porta = 1.5;   // 0.59"
@@ -2485,8 +2505,8 @@ const ALPHA_LOWER_TRIANGLE = "M14961.99 20758.65c-85.66,309.78 -127.08,449.15 36
 const ALPHA_UPPER_DETAIL = "M1027.50 7728.56c-16,119.92 -18.41,1194.82 -15.03,1296.15 3.03,90.69 5.13,197.82 245.31,203.09 1524.04,33.41 1656.84,12.16 4148.17,-19.87 357.22,-4.59 220.49,-358.68 -1.78,-428.79 -684.77,-216.07 -1461.52,-476.13 -4182.27,-1174.08 -115.02,-29.5 -188.87,67.22 -194.4,123.5z";
 const ALPHA_SOURCE_RAIL = "M2882.1 9351.24c1471.11,-22.74 4303.84,34.27 4303.84,34.27 1742.73,656.48 5627.94,3009.22 6802.31,4120.07 175.53,166.05 14.14,240.82 -147.23,79.85 -507.4,-506.07 -3977.45,-3048.69 -6694.76,-4074.36 -59.29,-22.4 -2723.79,-46.73 -4233.04,0.86 -1154.02,36.42 -1896.4,1192.08 -1896.4,1783.58 0,1746.41 -59.63,5060.41 -38.39,6756.2 1.76,141.04 -3.99,215.54 10.42,250.67 0,0 -158.94,-13.4 -158.94,-13.4 -37.94,-1107.33 -8.39,-2118.83 -6.04,-3681.79 0,-8.97 -53.02,-2138.4 27.41,-3461.37 50.33,-827.95 1110.61,-1780.35 2030.82,-1794.58z";
 const clamp = n => Math.max(0, Math.min(1, n));
-const color = { conventional: '#9ba9b5', alpha: '#5b7b9e',
-                underside: '#bababa', border: '#273e57', cavity: '#304054' };
+const color = { conventional: APHA_CABIN_PALETTE.neutral, alpha: APHA_CABIN_PALETTE.mid,
+                underside: APHA_CABIN_PALETTE.muted, border: '#273e57', cavity: '#304054' };
 function paintPath(ctx, d, fill, stroke, lw, evenodd) {
     const p = new Path2D(d);
     if (fill) { ctx.fillStyle = fill; ctx.fill(p, evenodd ? 'evenodd' : 'nonzero'); }
@@ -3602,7 +3622,7 @@ window.drawUniReferenceBins = drawReferenceBins;
         function toggleManikinAnimation() {
             if (manikinState.animating) { manikinState.animating = false; setAnimLabel(); return; }
             cancelResultsSequence();
-            if (manikinState.phase >= 0.999) { manikinState.phase = 0; hideCards(); }
+            if (manikinState.phase >= 0.999) { manikinState.phase = aphaInitialManikinPhase(); hideCards(); }
             manikinState.animating = true;
             setAnimLabel();
         }
@@ -3618,10 +3638,18 @@ window.drawUniReferenceBins = drawReferenceBins;
 
         addEventListener('keydown', e => { if (e.key === 'Escape' && window.__stopTourRec) window.__stopTourRec(); });
 
+
+        // Primeiro frame e cronômetro começam +0,5 s dentro do ciclo físico.
+        function aphaInitialManikinPhase() {
+            const times = manikinState.last && manikinState.last.times;
+            const t = times && times.length ? Math.max(...times.map(x => x.tA1 + x.tA2))
+                : (() => { const v=ergoTimes(ERGO_PERCENTILES[0].h,10,17); return v.tA1+v.tA2; })();
+            return Math.min(0.95, APHA_BRIDGE_CFG.startOffsetSeconds / Math.max(0.001,t));
+        }
         function showManikin() {
             cancelResultsSequence();
-            // A abertura da cena no tour também usa o frame inicial real.
-            manikinState.phase = 0;
+            // Mala já levemente em movimento desde a primeira imagem.
+            manikinState.phase = aphaInitialManikinPhase();
             manikinState.animating = false;
             setAnimLabel();
             const ergo = document.getElementById('module-ergo');
@@ -3661,7 +3689,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                         window.parent.postMessage({type:'apha-aba6-cycle-complete'}, '*');
                     } else {
                         // Tab 6 itself plays continuously, without requiring a click.
-                        manikinState.phase = 0;
+                        manikinState.phase = aphaInitialManikinPhase();
                         hideCards();
                         updateErgonomics();
                     }
@@ -3995,9 +4023,9 @@ window.drawUniReferenceBins = drawReferenceBins;
                 return { toX: x => cx + x * sc, toY: y => H - 22 - (y + 14) * sc, scale: sc };
             })();
             const { toX, toY, scale } = map;
-            const R = cabin ? cabin.R : 137.16;
-            const centerY = cabin ? cabin.centerY : 62.84;
-            const aisle = cabin ? cabin.aisle : 25.4;
+            const R = cabin ? cabin.R : APHA_CABIN_GEOMETRY.fuselageRadiusCm;
+            const centerY = cabin ? cabin.centerY : APHA_CABIN_GEOMETRY.fuselageCenterYCm;
+            const aisle = cabin ? cabin.aisle : APHA_CABIN_GEOMETRY.aisleHalfWidthCm;
             const binFloor = cabin ? cabin.binFloorY()
                 : centerY + Math.sqrt(R * R - aisle * aisle) - 20.0 * CM_PER_IN;
 
@@ -4064,9 +4092,9 @@ window.drawUniReferenceBins = drawReferenceBins;
                 : traceBinAlphaProfile(ctx, toX, toY,
                     aisle, binFloor, 1, 1.0, R, centerY, false);
             if (exactCAD) {
-                const doorU = ergoSmooth(phase / 0.10) *
-                    (1 - ergoSmooth((phase - 0.96) / 0.04));
-                window.drawUniReferenceBins(ctx, W, H, 0, 1, doorU);
+                // A abertura terminou na Aba 5: não a repetir durante a estiva.
+                const doorU = 1 - ergoSmooth((phase - 0.96) / 0.04);
+                window.drawUniReferenceBins(ctx, W, H, 1, 1, doorU);
             }
             const fracBack = tBack / (tBack + tFront);
             const inBackPhase = phase < fracBack;
@@ -4553,7 +4581,7 @@ window.drawUniReferenceBins = drawReferenceBins;
         // MÓDULO 8: SIMULAÇÃO INTEGRADA (aba 1 → cabine/piso → bancos/passageiros → estatura)
         // -------------------------------------------------------------------------
         (function () {
-            const FC = 62.84;                                   // centro da fuselagem acima do piso (cm)
+            const FC = APHA_CABIN_GEOMETRY.fuselageCenterYCm;                                   // centro da fuselagem acima do piso (cm)
             // ---- Paleta lilás/roxa só nesta aba: enquanto BIN_SOLID está ativo (só durante o desenho da Simulação Integrada e da sua exportação), cinzas-azulados viram lilás ----
             (function installUniPalette() {
                 if (CanvasRenderingContext2D.prototype.__uniPal) return;
@@ -4657,7 +4685,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             const cubic=x=>{x=cl(x);return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2};
             const cameraAmount=()=>cubic((U.t-TL.zoom)/TL.zoomDur);
             const doorAmount=()=>cubic((U.t-TL.open)/TL.openDur);
-            const cinematicCamera=(W,H)=>{const a=cameraAmount(),k=1+.72*a,cy=m4(W,H).toY(173);return {k,x:W/2,y:H/2+(cy-H/2)*a}};
+            const cinematicCamera=(W,H)=>{const a=cameraAmount(),k=1+(APHA_BRIDGE_CFG.startZoom-1)*a,cy=m4(W,H).toY(APHA_BRIDGE_CFG.binFocusYcm);return {k,x:W/2,y:H/2+(cy-H/2)*a}};
             
             const YMIN = -14;                                   // enquadra apenas do piso para cima (sem porão)
             const m4 = (W, H) => { const sc = Math.min((W - 60) / 380, (H - 50) / (230 - YMIN)), cx = W / 2; return { toX: x => cx + x * sc, toY: y => H - 22 - (y - YMIN) * sc, scale: sc }; };
@@ -4665,10 +4693,10 @@ window.drawUniReferenceBins = drawReferenceBins;
             // A projeção m4 é a mesma usada na planta integrada: y=0 é o piso, em centímetros.
             window.cabinSectionReference = {
                 map: m4,
-                R: 137.16,
-                centerY: FC,
-                wall: 5.5,
-                aisle: 25.4,
+                R: APHA_CABIN_GEOMETRY.fuselageRadiusCm,
+                centerY: APHA_CABIN_GEOMETRY.fuselageCenterYCm,
+                wall: APHA_CABIN_GEOMETRY.shellThicknessCm,
+                aisle: APHA_CABIN_GEOMETRY.aisleHalfWidthCm,
                 binFloorY() {
                     return this.centerY + Math.sqrt(this.R * this.R - this.aisle * this.aisle) - 20.0 * CM_PER_IN;
                 },
@@ -5075,6 +5103,7 @@ window.drawUniReferenceBins = drawReferenceBins;
         }
         function aba6Boot() {
             if (window.__aba6Booted) return;
+            manikinState.phase = aphaInitialManikinPhase();
             updateErgonomics();
             startManikinLoop();
             window.__aba6Booted = true;
