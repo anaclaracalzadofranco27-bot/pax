@@ -16,6 +16,7 @@
             background: '#000223', panel: '#0a1a3a', border: '#2f4a6b',
             cyan: '#6d90b8', mid: '#5b7b9e', neutral: '#9ba9b5',
             muted: '#bababa', text: '#e2e8f0', darkOutline: '#08122a',
+            binOutline: '#273e57', binCavity: '#304054',
             shellFill: '#94a3b8', shellOutline: '#1e293b',
             floorFill: '#cbd5e1', floorOutline: '#64748b'
         });
@@ -2506,7 +2507,8 @@ const ALPHA_UPPER_DETAIL = "M1027.50 7728.56c-16,119.92 -18.41,1194.82 -15.03,12
 const ALPHA_SOURCE_RAIL = "M2882.1 9351.24c1471.11,-22.74 4303.84,34.27 4303.84,34.27 1742.73,656.48 5627.94,3009.22 6802.31,4120.07 175.53,166.05 14.14,240.82 -147.23,79.85 -507.4,-506.07 -3977.45,-3048.69 -6694.76,-4074.36 -59.29,-22.4 -2723.79,-46.73 -4233.04,0.86 -1154.02,36.42 -1896.4,1192.08 -1896.4,1783.58 0,1746.41 -59.63,5060.41 -38.39,6756.2 1.76,141.04 -3.99,215.54 10.42,250.67 0,0 -158.94,-13.4 -158.94,-13.4 -37.94,-1107.33 -8.39,-2118.83 -6.04,-3681.79 0,-8.97 -53.02,-2138.4 27.41,-3461.37 50.33,-827.95 1110.61,-1780.35 2030.82,-1794.58z";
 const clamp = n => Math.max(0, Math.min(1, n));
 const color = { conventional: APHA_CABIN_PALETTE.neutral, alpha: APHA_CABIN_PALETTE.mid,
-                underside: APHA_CABIN_PALETTE.muted, border: '#273e57', cavity: '#304054' };
+                underside: APHA_CABIN_PALETTE.muted, border: APHA_CABIN_PALETTE.binOutline,
+                cavity: APHA_CABIN_PALETTE.binCavity };
 function paintPath(ctx, d, fill, stroke, lw, evenodd) {
     const p = new Path2D(d);
     if (fill) { ctx.fillStyle = fill; ctx.fill(p, evenodd ? 'evenodd' : 'nonzero'); }
