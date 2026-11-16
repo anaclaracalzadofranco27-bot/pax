@@ -7250,13 +7250,8 @@ const CABIN_R = 137.00;
                 y: seatedBagBotRight.y - 0.25
             };
 
-            // Sliding hinge in the upper-side oblong guide (all CAD coordinates in cm).
-            // The historical fixed pin is preserved exclusively as the reference
-            // for the original orange intrusion envelope, never as the moving joint.
-            const legacyPivot = {
-                x: seatedBagTopRight.x - 1.55 * tx + 1.15 * nx,
-                y: seatedBagTopRight.y - 1.55 * ty + 1.15 * ny
-            };
+            // Sliding hinge in the inclined upper-side guide (CAD coordinates in cm).
+            // The pin translates on this existing rail while the blade rotates.
             const pvt = {
                 x: seatedBagTopRight.x - 10.65,
                 y: seatedBagTopRight.y + 5.15
@@ -7345,8 +7340,9 @@ const CABIN_R = 137.00;
                 y: brkJoinBot.y
             };
 
-            // Two concentric curved skins, kept rigid through every sliding-
-            // hinge pose. The control is kept inside the original orange radius.
+            // Gently elliptical / ovalized two-skin door, without a circular-arc
+            // approximation.  The original quadratics supply only the initial
+            // bulge reference; the actual profile is two cubic quarter-ellipses.
             const doorOuterCtrl = {
                 x: doorTipOuter.x + 2.65,
                 y: (bladeTopOuter.y + doorTipOuter.y) * 0.5 + 1.55
@@ -7358,13 +7354,42 @@ const CABIN_R = 137.00;
             mouthCurveCtrl.x = doorInnerCtrl.x;
             mouthCurveCtrl.y = doorInnerCtrl.y;
 
-            // The orange restriction continues to use EXACTLY the previous
-            // fixed-hinge origin and tip radius, regardless of moving-pin travel.
-            const dxTip0 = doorTipOuter.x - legacyPivot.x;
-            const dyTip0 = doorTipOuter.y - legacyPivot.y;
-            const radiusDoor = Math.hypot(dxTip0, dyTip0);
-            const thetaPeakDeg = -Math.atan2(dyTip0, dxTip0) * 180 / Math.PI;
-            const legacySweepOpenDeg = 105.0; // original ceiling-limited 1:10 CAD sweep
+            function makeSemiEllipticProfile(top, tip, formerControl) {
+                const dx = tip.x - top.x, dy = tip.y - top.y;
+                const length = Math.hypot(dx, dy);
+                const nxOval = -dy / length, nyOval = dx / length;
+                const half = { x: dx * 0.5, y: dy * 0.5 };
+                const middle = { x: top.x + half.x, y: top.y + half.y };
+                const formerMid = {
+                    x: 0.25 * top.x + 0.5 * formerControl.x + 0.25 * tip.x,
+                    y: 0.25 * top.y + 0.5 * formerControl.y + 0.25 * tip.y
+                };
+                // Preserve the previous frontal projection while gently
+                // smoothing the curvature into an elliptical half-profile.
+                const projection = (formerMid.x - middle.x) * nxOval
+                                 + (formerMid.y - middle.y) * nyOval;
+                const bulge = Math.max(0.90, projection * 1.035);
+                const kappa = 4 * (Math.SQRT2 - 1) / 3;
+                const crown = {
+                    x: middle.x + nxOval * bulge,
+                    y: middle.y + nyOval * bulge
+                };
+                return [
+                    top,
+                    { x: top.x + kappa * nxOval * bulge,
+                      y: top.y + kappa * nyOval * bulge },
+                    { x: crown.x - kappa * half.x,
+                      y: crown.y - kappa * half.y },
+                    crown,
+                    { x: crown.x + kappa * half.x,
+                      y: crown.y + kappa * half.y },
+                    { x: tip.x + kappa * nxOval * bulge,
+                      y: tip.y + kappa * nyOval * bulge },
+                    tip
+                ];
+            }
+            const ovalOuter = makeSemiEllipticProfile(bladeTopOuter, doorTipOuter, doorOuterCtrl);
+            const ovalInner = makeSemiEllipticProfile(bladeTopInner, doorTipInner, doorInnerCtrl);
 
             const latchTopOuter = {
                 x: doorTipOuter.x + 0.25,
@@ -7380,8 +7405,8 @@ const CABIN_R = 137.00;
             };
 
             function getDoorAtAngle(angDeg) {
-                // Simultaneous rotation and translation of the ENTIRE rigid blade.
-                // At 0% the purple pin is at railStart; at 100% at railEnd.
+                // One single rigid transform drives the whole elliptical blade,
+                // its lower tip, and the sliding pin on the unchanged rail.
                 const slideU = Math.min(1, Math.max(0, angDeg / CONVENTIONAL_DOOR_OPEN_DEG));
                 const pin = {
                     x: railStart.x + (railEnd.x - railStart.x) * slideU,
@@ -7396,40 +7421,67 @@ const CABIN_R = 137.00;
                 const topOut = move(bladeTopOuter), topIn = move(bladeTopInner);
                 const midIn = move(bladeMidInner);
                 const tip = move(doorTipOuter), tipIn = move(doorTipInner);
-                const outC = move(doorOuterCtrl), inC = move(doorInnerCtrl);
+                const outCurve = ovalOuter.map(move), inCurve = ovalInner.map(move);
                 const lTopOut = move(latchTopOuter), lTopIn = move(latchTopInner);
                 const lHook = move(latchHookIn);
 
-                // Include the ENTIRE outer and inner profiles, not only the tip.
                 let rightmostX = Math.max(tip.x, topOut.x, tipIn.x);
                 let highestY = Math.max(tip.y, topOut.y);
-                for (let i = 0; i <= 40; i++) {
-                    const t = i / 40, v = 1 - t;
-                    for (const [a, c, b] of [[topOut, outC, tip], [topIn, inC, tipIn]]) {
-                        const bx = v*v*a.x + 2*v*t*c.x + t*t*b.x;
-                        const by = v*v*a.y + 2*v*t*c.y + t*t*b.y;
-                        rightmostX = Math.max(rightmostX, bx);
-                        highestY = Math.max(highestY, by);
+                // Extremes use the SAME cubic elliptical curves rendered below.
+                for (const curve of [outCurve, inCurve]) {
+                    for (const j of [0, 3]) {
+                        const a = curve[j], c1 = curve[j+1], c2 = curve[j+2], b = curve[j+3];
+                        for (let i = 0; i <= 24; i++) {
+                            const u = i / 24, v = 1 - u;
+                            const bx = v*v*v*a.x + 3*v*v*u*c1.x + 3*v*u*u*c2.x + u*u*u*b.x;
+                            const by = v*v*v*a.y + 3*v*v*u*c1.y + 3*v*u*u*c2.y + u*u*u*b.y;
+                            rightmostX = Math.max(rightmostX, bx);
+                            highestY = Math.max(highestY, by);
+                        }
                     }
                 }
                 return { pin, bHubL, bHubB, bJoinT, bJoinB,
-                    topOut, topIn, midIn, tip, tipIn, outC, inC,
+                    topOut, topIn, midIn, tip, tipIn, outCurve, inCurve,
                     lTopOut, lTopIn, lHook, rightmostX, highestY };
             }
 
-            // Fixed travel chosen to keep the larger blade under the fuselage
-            // throughout the motion. The original 105-degree orange reference
-            // remains unchanged; the actual blade uses the receding hinge.
-            const openLimitDeg = CONVENTIONAL_DOOR_OPEN_DEG;
-            const doorClosed = getDoorAtAngle(0);
-            const doorPeak = getDoorAtAngle(Math.min(thetaPeakDeg, openLimitDeg));
-            const doorOpen = getDoorAtAngle(openLimitDeg);
-            const doorCurr = getDoorAtAngle(state.thetaDeg);
-            const doorTipTrail = [];
-            const trailSteps = 48;
-            for (let i = 0; i <= trailSteps; i++) {
-                doorTipTrail.push(getDoorAtAngle(state.thetaDeg * i / trailSteps).tip);
+            function getDoorAtProgress(progress) {
+                const u = Math.max(0, Math.min(1, Number(progress) || 0));
+                return getDoorAtAngle(u * CONVENTIONAL_DOOR_OPEN_DEG);
             }
+
+            function getDoorTipPosition(progress) {
+                return getDoorAtProgress(progress).tip;
+            }
+
+            // True motion: both the swept fill and the dashed boundary sample
+            // exactly these poses, never a fixed-radius or legacy-pivot sector.
+            const openLimitDeg = CONVENTIONAL_DOOR_OPEN_DEG;
+            const progress = Math.max(0, Math.min(1, state.thetaDeg / openLimitDeg));
+            const doorClosed = getDoorAtProgress(0);
+            const doorCurr = getDoorAtProgress(progress);
+            const doorOpen = getDoorAtProgress(1);
+            const trailSteps = Math.max(1, Math.ceil(progress / 0.02));
+            const doorTipTrail = [];
+            const doorPoseTrail = [];
+            for (let i = 0; i <= trailSteps; i++) {
+                const sampledProgress = progress * i / trailSteps;
+                doorTipTrail.push(getDoorTipPosition(sampledProgress));
+                doorPoseTrail.push(getDoorAtProgress(sampledProgress));
+            }
+            // Derive extrema and peak from the identical translated/rotated
+            // profile, including the oval shell and the lower moving tip.
+            let peakRightX = -Infinity, peakU = 0;
+            for (let i = 0; i <= 100; i++) {
+                const sampleU = i / 100;
+                const candidate = getDoorAtProgress(sampleU).rightmostX;
+                if (candidate > peakRightX) {
+                    peakRightX = candidate;
+                    peakU = sampleU;
+                }
+            }
+            const thetaPeakDeg = peakU * openLimitDeg;
+            const doorPeak = getDoorAtProgress(peakU);
 
             const doorBulgeBeyondTipMm = doorClosed.rightmostX - doorTipOuter.x;
             // The reported peak corresponds to the true translated/rotated door.
@@ -7473,10 +7525,10 @@ const CABIN_R = 137.00;
                 corridorMarginPeakMm, corridorMarginCurrMm,
                 hornPeak, notchValley, notchCtrl, rampTopEnd, fuseTop,
                 bellyCtrl, doorLipBot, mouthStepIn, mouthCurveCtrl,
-                pvt, railStart, railEnd, legacyPivot, legacySweepOpenDeg, doorTipTrail,
+                pvt, railStart, railEnd, doorTipTrail, doorPoseTrail, getDoorTipPosition,
                 lugTopLeft, lugBotRight,
                 shroudStart, shroudStep, shroudEnd, shroudCtrl,
-                radiusDoor, thetaPeakDeg, openLimitDeg,
+                thetaPeakDeg, openLimitDeg,
                 doorClosed, doorPeak, doorOpen, doorCurr,
                 peakRightX, widthClosedMm, widthPeakMm, widthOpenMm, widthCurrMm,
                 binTotalHeightMm, tx, ty, nx, ny
@@ -7581,24 +7633,33 @@ function alphaTransformPoint(fx, fy, thetaDeg) {
         };
 
         function buildStaticLeftBinPath(g) {
+            // Closed fuselage-facing seam shares the oval outer door's exact
+            // geometry, so the upper join never reintroduces a vertical step.
+            const e = g.doorClosed.outCurve, xy = p =>
+                `${p.x.toFixed(2)} ${(-p.y).toFixed(2)}`;
             return [
-                `M ${g.wallFix.x.toFixed(2)} ${(-g.wallFix.y).toFixed(2)}`,
-                `A ${CABIN_R} ${CABIN_R} 0 0 1 ${g.fuseTop.x.toFixed(2)} ${(-g.fuseTop.y).toFixed(2)}`,
-                // Smooth roof-to-door connection (no vertical upper step).
-                `Q ${g.mouthCurveCtrl.x.toFixed(2)} ${(-g.mouthCurveCtrl.y).toFixed(2)} ${g.doorLipBot.x.toFixed(2)} ${(-g.doorLipBot.y).toFixed(2)}`,
-                `Q ${g.bellyCtrl.x.toFixed(2)} ${(-g.bellyCtrl.y).toFixed(2)} ${g.psuBotCorner.x.toFixed(2)} ${(-g.psuBotCorner.y).toFixed(2)}`,
-                `L ${g.wallFix.x.toFixed(2)} ${(-g.wallFix.y).toFixed(2)}`,
-                `Z`
+                `M ${xy(g.wallFix)}`,
+                `A ${CABIN_R} ${CABIN_R} 0 0 1 ${xy(g.fuseTop)}`,
+                `C ${xy(e[1])} ${xy(e[2])} ${xy(e[3])}`,
+                `C ${xy(e[4])} ${xy(e[5])} ${xy(e[6])}`,
+                `L ${xy(g.doorLipBot)}`,
+                `Q ${xy(g.bellyCtrl)} ${xy(g.psuBotCorner)}`,
+                `L ${xy(g.wallFix)}`,
+                'Z'
             ].join(' ');
         }
 
         function buildDoorBladePath(dObj) {
+            const a = dObj.outCurve, b = dObj.inCurve;
+            const xy = p => `${p.x.toFixed(2)} ${(-p.y).toFixed(2)}`;
             return [
-                `M ${dObj.topOut.x.toFixed(2)} ${(-dObj.topOut.y).toFixed(2)}`,
-                `Q ${dObj.outC.x.toFixed(2)} ${(-dObj.outC.y).toFixed(2)} ${dObj.tip.x.toFixed(2)} ${(-dObj.tip.y).toFixed(2)}`,
-                `L ${dObj.tipIn.x.toFixed(2)} ${(-dObj.tipIn.y).toFixed(2)}`,
-                `Q ${dObj.inC.x.toFixed(2)} ${(-dObj.inC.y).toFixed(2)} ${dObj.topIn.x.toFixed(2)} ${(-dObj.topIn.y).toFixed(2)}`,
-                `Z`
+                `M ${xy(a[0])}`,
+                `C ${xy(a[1])} ${xy(a[2])} ${xy(a[3])}`,
+                `C ${xy(a[4])} ${xy(a[5])} ${xy(a[6])}`,
+                `L ${xy(b[6])}`,
+                `C ${xy(b[5])} ${xy(b[4])} ${xy(b[3])}`,
+                `C ${xy(b[2])} ${xy(b[1])} ${xy(b[0])}`,
+                'Z'
             ].join(' ');
         }
 
@@ -7733,36 +7794,48 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
         // Aba 5: somente a silhueta fechada, totalmente sólida e sem cavidade/mala interna.
         // A geometria física usada nos cálculos permanece inalterada.
         paintPath(ctx, buildStaticLeftBinPath(conventional), color.conventional, color.border, 0.56);
-        // Preserve the historical orange circular LIMIT as a fixed reference,
-        // even as the real longer blade retracts along its inclined track.
+        // True swept region: closed oval profile -> actual lower-tip path ->
+        // current oval profile (reverse) -> moving upper-edge path (reverse).
+        // Add every sampled blade silhouette to capture the entire physical
+        // swept union, including possible curvature/intermediate extrema.
         if (overrideDoorU == null && (window.__uniSweepProgress || 0) > 0) {
-            const p = initialConv.legacyPivot, c = initialConv.doorClosed.tip;
-            const a0 = Math.atan2(p.y - c.y, c.x - p.x);
-            const da = -initialConv.legacySweepOpenDeg * Math.PI / 180 * u;
-            const radius = initialConv.radiusDoor;
-            ctx.save(); ctx.beginPath(); ctx.moveTo(p.x, -p.y);
-            for (let i = 0; i <= 80; i++) {
-                const a = a0 + da * i / 80;
-                ctx.lineTo(p.x + radius * Math.cos(a), -p.y + radius * Math.sin(a));
+            const poses = conventional.doorPoseTrail;
+            const tips = conventional.doorTipTrail;
+            if (poses.length > 1) {
+                const first = poses[0], last = poses[poses.length - 1];
+                const swept = new Path2D();
+                const pxy = p => [p.x, -p.y];
+                const traceForward = (path, e) => {
+                    path.bezierCurveTo(...pxy(e[1]), ...pxy(e[2]), ...pxy(e[3]));
+                    path.bezierCurveTo(...pxy(e[4]), ...pxy(e[5]), ...pxy(e[6]));
+                };
+                const traceBackward = (path, e) => {
+                    path.bezierCurveTo(...pxy(e[5]), ...pxy(e[4]), ...pxy(e[3]));
+                    path.bezierCurveTo(...pxy(e[2]), ...pxy(e[1]), ...pxy(e[0]));
+                };
+                swept.moveTo(...pxy(first.topOut));
+                traceForward(swept, first.outCurve);
+                for (let i = 1; i < tips.length; i++) swept.lineTo(...pxy(tips[i]));
+                traceBackward(swept, last.outCurve);
+                for (let i = poses.length - 2; i >= 0; i--)
+                    swept.lineTo(...pxy(poses[i].topOut));
+                swept.closePath();
+                // A single Path2D fill avoids dark alpha accumulation between
+                // overlapping door poses (also used in PNG/canvas export).
+                for (const pose of poses) swept.addPath(new Path2D(buildDoorBladePath(pose)));
+                ctx.save();
+                ctx.fillStyle = 'rgba(255,107,0,0.22)';
+                ctx.fill(swept, 'nonzero');
+                ctx.beginPath();
+                tips.forEach((pt, i) => i
+                    ? ctx.lineTo(pt.x, -pt.y) : ctx.moveTo(pt.x, -pt.y));
+                ctx.strokeStyle = '#FF6B00';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5 / Math.max(.1, map.scale), 5 / Math.max(.1, map.scale)]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
             }
-            ctx.closePath();
-            ctx.fillStyle = 'rgba(255,107,0,0.22)'; ctx.fill();
-            ctx.beginPath();
-            for (let i = 0; i <= 80; i++) {
-                const a = a0 + da * i / 80;
-                const x = p.x + radius * Math.cos(a), y = -p.y + radius * Math.sin(a);
-                i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
-            }
-            ctx.strokeStyle = '#FF6B00'; ctx.lineWidth = 1;
-            ctx.setLineDash([5 / Math.max(.1, map.scale), 5 / Math.max(.1, map.scale)]);
-            ctx.stroke(); ctx.setLineDash([]);
-            // Secondary faint trace: actual moving tip (rotation + translation).
-            ctx.beginPath();
-            conventional.doorTipTrail.forEach((pt, i) =>
-                i ? ctx.lineTo(pt.x, -pt.y) : ctx.moveTo(pt.x, -pt.y));
-            ctx.strokeStyle = 'rgba(255,188,110,0.78)';
-            ctx.lineWidth = 0.58; ctx.stroke();
-            ctx.restore();
         }
         // Restitui a porta curva e a dobradiça externa, sem o contorno
         // retangular da cavidade interna do convencional.
