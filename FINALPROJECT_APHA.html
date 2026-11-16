@@ -7827,100 +7827,134 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
     ctx.translate(map.toX(0), map.toY(0));
     ctx.scale(map.scale, map.scale);
 
+
     if (fadeConv > 0.001) {
-        ctx.save(); ctx.globalAlpha *= clamp(fadeConv);
-        // Aba 5: somente a silhueta fechada, totalmente sólida e sem cavidade/mala interna.
-        // A geometria física usada nos cálculos permanece inalterada.
-        paintPath(ctx, buildStaticLeftBinPath(conventional), color.conventional, color.border, 0.56);
-        // True swept region: closed oval profile -> actual lower-tip path ->
-        // current oval profile (reverse) -> moving upper-edge path (reverse).
-        // Add every sampled blade silhouette to capture the entire physical
-        // swept union, including possible curvature/intermediate extrema.
-        if (overrideDoorU == null && u > 0) {
-            const poses = conventional.doorPoseTrail;
-            const tips = conventional.doorTipTrail;
-            if (poses.length > 1) {
-                const first = poses[0], last = poses[poses.length - 1];
-                const swept = new Path2D();
-                const pxy = p => [p.x, -p.y];
-                const traceForward = (path, e) => {
-                    path.bezierCurveTo(...pxy(e[1]), ...pxy(e[2]), ...pxy(e[3]));
-                    path.bezierCurveTo(...pxy(e[4]), ...pxy(e[5]), ...pxy(e[6]));
-                };
-                const traceBackward = (path, e) => {
-                    path.bezierCurveTo(...pxy(e[5]), ...pxy(e[4]), ...pxy(e[3]));
-                    path.bezierCurveTo(...pxy(e[2]), ...pxy(e[1]), ...pxy(e[0]));
-                };
-                swept.moveTo(...pxy(first.topOut));
-                traceForward(swept, first.outCurve);
-                for (let i = 1; i < tips.length; i++) swept.lineTo(...pxy(tips[i]));
-                traceBackward(swept, last.outCurve);
-                for (let i = poses.length - 2; i >= 0; i--)
-                    swept.lineTo(...pxy(poses[i].topOut));
-                swept.closePath();
-                // A single Path2D fill avoids dark alpha accumulation between
-                // overlapping door poses (also used in PNG/canvas export).
-                for (const pose of poses) swept.addPath(new Path2D(buildDoorBladePath(pose)));
-                ctx.save();
-                ctx.fillStyle = 'rgba(255,107,0,0.22)';
-                ctx.fill(swept, 'nonzero');
-                ctx.beginPath();
-                tips.forEach((pt, i) => i
-                    ? ctx.lineTo(pt.x, -pt.y) : ctx.moveTo(pt.x, -pt.y));
-                ctx.strokeStyle = '#FF6B00';
-                ctx.lineWidth = 1;
-                ctx.setLineDash([5 / Math.max(.1, map.scale), 5 / Math.max(.1, map.scale)]);
-                ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.restore();
-            }
+        // Conventional bin replaced with the geometry and pivoted-door mechanism
+        // from bin_aeronave_simples.html (fixed CAD dimensions in centimetres).
+        ctx.save();
+        ctx.globalAlpha *= clamp(fadeConv);
+        const R = 137, CY = 63, bottomY = 138.50, floorY = 153.04;
+        const wallX = -Math.sqrt(R*R-(bottomY-CY)**2);
+        const src = {x0:8322.484375, y1:21044.689453125,
+                     xr:34924.74609375, yTip:15503};
+        const sx = 89.94/(src.xr-src.x0);
+        const sy = (floorY-bottomY)/(src.y1-src.yTip);
+        const tx0 = wallX-sx*src.x0, ty0 = -bottomY-sy*src.y1;
+        const W = p => ({x:tx0+sx*p[0], y:-(ty0+sy*p[1])});
+        const mix = (a,b,t) => [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+        const bez = (a,b,c,d,t) => {
+            const v=1-t;
+            return {x:v*v*v*a.x+3*v*v*t*b.x+3*v*t*t*c.x+t*t*t*d.x,
+                    y:v*v*v*a.y+3*v*v*t*b.y+3*v*t*t*c.y+t*t*t*d.y};
+        };
+        const toArray = p => [p.x,p.y];
+        const P0=[31351.74,17756.88];
+        const B1=[35439.76,15651.22],B2=[34920.23,14193.14],B3=[34102.58,10805.54];
+        const dt=.713, a01=mix(P0,B1,dt),a12=mix(B1,B2,dt),a23=mix(B2,B3,dt);
+        const a012=mix(a01,a12,dt),a123=mix(a12,a23,dt),dd=mix(a012,a123,dt);
+        const D=W(dd),S={x:-49.5,y:CY+Math.sqrt(R*R-49.5*49.5)};
+        const w1=W(a012),w2=W(a123),vv=Math.hypot(w2.x-w1.x,w2.y-w1.y);
+        const tangent={x:(w2.x-w1.x)/vv,y:(w2.y-w1.y)/vv};
+        const L=Math.hypot(S.x-D.x,S.y-D.y),th=-1.47*Math.PI/180;
+        const c1={x:D.x+tangent.x*.267*L,y:D.y+tangent.y*.267*L};
+        const c2={x:S.x+Math.cos(th)*.487*L,y:S.y-Math.sin(th)*.487*L};
+        const bottom0=W([8325.33,20728.07]);
+        const edge=[];
+        const e0=W(P0),e1=W(a01),e2=W(a012);
+        for(let k=0;k<=90;k++)edge.push(bez(e0,e1,e2,D,k/90));
+        for(let k=1;k<=140;k++)edge.push(bez(D,c1,c2,S,k/140));
+        const cumulative=[0];
+        let outermost=0;
+        for(let i=1;i<edge.length;i++){
+            cumulative.push(cumulative[i-1]+Math.hypot(edge[i].x-edge[i-1].x,edge[i].y-edge[i-1].y));
+            if(edge[i].x>edge[outermost].x)outermost=i;
         }
-        // Curved guide: sampled from the moving lever pin itself. Draw behind
-        // the blade; PNG/SVG export and the interactive canvas use this renderer.
-        ctx.save();
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.beginPath();
-        conventional.railPath.forEach((pt, i) => i
-            ? ctx.lineTo(pt.x, -pt.y) : ctx.moveTo(pt.x, -pt.y));
-        ctx.lineWidth = 2.50;
-        ctx.strokeStyle = '#242b36';
-        ctx.stroke();
-        ctx.lineWidth = 1.65;
-        ctx.strokeStyle = 'rgba(155,172,190,0.60)';
-        ctx.stroke();
+        const sample=dist=>{
+            dist=Math.max(0,Math.min(cumulative[cumulative.length-1],dist));
+            let i=1;while(i<cumulative.length-1&&cumulative[i]<dist)i++;
+            const f=(dist-cumulative[i-1])/Math.max(1e-9,cumulative[i]-cumulative[i-1]);
+            const dx=edge[i].x-edge[i-1].x,dy=edge[i].y-edge[i-1].y;
+            const mag=Math.hypot(dx,dy)||1;
+            return {p:{x:edge[i-1].x+dx*f,y:edge[i-1].y+dy*f},
+                    n:{x:dy/mag,y:-dx/mag}};
+        };
+        const start=Math.max(0,cumulative[outermost]-4);
+        const end=Math.min(cumulative[cumulative.length-1],start+38);
+        const N=Math.max(4,Math.round((end-start)/.4));
+        const ext=[],inner=[],norm=[];
+        const offset=Math.max(0,89.94-(edge[outermost].x-wallX));
+        for(let k=0;k<=N;k++){
+            const a=sample(start+(end-start)*k/N),q=a.n;
+            const o={x:a.p.x+offset*q.x,y:a.p.y+offset*q.y};
+            ext.push(o);norm.push(q);
+            inner.push({x:o.x-1.2*q.x,y:o.y-1.2*q.y});
+        }
+        const pivot={x:ext[N].x-2.4*norm[N].x,y:ext[N].y-2.4*norm[N].y};
+        const turn=(p,angle)=>{
+            const r=angle*Math.PI/180,c=Math.cos(r),si=Math.sin(r),dx=p.x-pivot.x,dy=p.y-pivot.y;
+            return {x:pivot.x+dx*c-dy*si,y:pivot.y+dx*si+dy*c};
+        };
+        const polyPath=pts=>{
+            const p=new Path2D();pts.forEach((v,i)=>i?p.lineTo(v.x,-v.y):p.moveTo(v.x,-v.y));
+            p.closePath();return p;
+        };
+        // Exact reference shell: lower cubic floor, continuous fuselage arc and oval front.
+        const shell=new Path2D();
+        const Ep={x:-Math.sqrt(Math.max(0,R*R-(bottom0.y-CY)**2)),y:bottom0.y};
+        shell.moveTo(Ep.x,-Ep.y);
+        const cB1=W([8570.39,21313.78]),cB2=W([19845.34,20898.17]),bEnd=W([20243.48,20945.80]);
+        const cC1=W([21136.70,21052.74]),cC2=W([30508.64,18191.16]);
+        shell.bezierCurveTo(cB1.x,-cB1.y,cB2.x,-cB2.y,bEnd.x,-bEnd.y);
+        shell.bezierCurveTo(cC1.x,-cC1.y,cC2.x,-cC2.y,e0.x,-e0.y);
+        shell.bezierCurveTo(e1.x,-e1.y,e2.x,-e2.y,D.x,-D.y);
+        shell.bezierCurveTo(c1.x,-c1.y,c2.x,-c2.y,S.x,-S.y);
+        // Return along the aircraft's circular shell.
+        const angS=Math.atan2(-S.y+CY,S.x),angE=Math.atan2(-Ep.y+CY,Ep.x);
+        const sweep=angE-angS;
+        for(let j=1;j<=70;j++){
+            const angle=angS+sweep*j/70;
+            shell.lineTo(R*Math.cos(angle),-(CY-R*Math.sin(angle)));
+        }
+        shell.closePath();
+        const blade=polyPath(ext.concat(inner.slice().reverse()));
+        // Remove closed-door leaf region from shell, making the interior visible as it opens.
+        const cavity=new Path2D();
+        cavity.addPath(shell);cavity.addPath(blade);
+        ctx.fillStyle='#9ba9b5';
+        ctx.fill(cavity,'evenodd');
+        ctx.strokeStyle='#273e57';ctx.lineWidth=.55;ctx.stroke(shell);
+        const max=82;
+        const angle=u*max;
+        const poses=ext.map(p=>turn(p,angle)),ins=inner.map(p=>turn(p,angle));
+        if(overrideDoorU==null&&u>0){
+            const sweepPath=new Path2D();
+            for(let j=0;j<=Math.ceil(angle);j++){
+                const a=angle*j/Math.max(1,Math.ceil(angle));
+                sweepPath.addPath(polyPath(ext.map(p=>turn(p,a)).concat(inner.map(p=>turn(p,a)).reverse())));
+            }
+            ctx.save();ctx.fillStyle='rgba(255,107,0,.16)';ctx.fill(sweepPath);
+            const t0={x:(ext[0].x+inner[0].x)/2,y:(ext[0].y+inner[0].y)/2};
+            ctx.beginPath();
+            for(let j=0;j<=55;j++){const p=turn(t0,angle*j/55);j?ctx.lineTo(p.x,-p.y):ctx.moveTo(p.x,-p.y);}
+            ctx.strokeStyle='#FE6B00';ctx.lineWidth=.7;ctx.setLineDash([.9,1.1]);ctx.stroke();
+            ctx.restore();
+        }
+        // Curved laminate, latch and rigid arm rotate together around the upper pivot.
+        const armEnd=inner[Math.max(0,N-Math.round(7/.4))];
+        ctx.save();ctx.translate(pivot.x,-pivot.y);ctx.rotate(-angle*Math.PI/180);
+        ctx.translate(-pivot.x,pivot.y);
+        const arm=new Path2D();
+        arm.moveTo(pivot.x,-pivot.y);arm.lineTo(armEnd.x,-armEnd.y);
+        ctx.strokeStyle='#373435';ctx.lineWidth=2.3;ctx.lineCap='round';ctx.stroke(arm);
+        ctx.strokeStyle='#7A75B5';ctx.lineWidth=1.8;ctx.stroke(arm);
+        ctx.fillStyle='#aebecb';ctx.strokeStyle='#273e57';ctx.lineWidth=.4;
+        ctx.fill(blade);ctx.stroke(blade);
+        const latch=polyPath(ext.slice(0,7).concat(inner.slice(0,7).reverse()));
+        ctx.fillStyle='#72869e';ctx.fill(latch);ctx.stroke(latch);
         ctx.restore();
-        paintPath(ctx, buildDoorBladePath(conventional.doorCurr),
-            '#aebecb', color.border, 0.36);
-        paintPath(ctx, buildLatchTipPath(conventional.doorCurr),
-            '#72869e', color.border, 0.27);
-        // SVG-inspired moving lever: a constant-length link with a free
-        // revolute joint on the oval door and a sliding circular guide pin.
-        const arm = conventional.doorCurr;
-        ctx.save();
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(arm.pin.x, -arm.pin.y);
-        // Braço arqueado na parte superior, como nas duas poses do SVG.
-        // As extremidades permanecem rigidamente presas aos dois pinos.
-        ctx.quadraticCurveTo((arm.pin.x + arm.leverMount.x)/2 - 0.10,
-            -(arm.pin.y + arm.leverMount.y)/2 - 1.25,
-            arm.leverMount.x, -arm.leverMount.y);
-        ctx.lineWidth = 2.05;
-        ctx.strokeStyle = '#354565';
-        ctx.stroke();
-        ctx.lineWidth = 1.25;
-        ctx.strokeStyle = '#839ac4';
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(arm.leverMount.x, -arm.leverMount.y, 0.83, 0, 2*Math.PI);
-        ctx.fillStyle = '#a6b9d9'; ctx.fill();
-        ctx.lineWidth = 0.44; ctx.strokeStyle = '#384a73'; ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(arm.pin.x, -arm.pin.y, 1.30, 0, 2*Math.PI);
-        ctx.fillStyle = '#b9c9e0'; ctx.fill();
-        ctx.lineWidth = 0.65; ctx.strokeStyle = '#5357b9'; ctx.stroke();
-        ctx.restore();
+        ctx.beginPath();ctx.arc(pivot.x,-pivot.y,1.08,0,2*Math.PI);
+        ctx.fillStyle='#b9c9e0';ctx.fill();ctx.lineWidth=.4;ctx.strokeStyle='#373435';ctx.stroke();
+        ctx.beginPath();ctx.arc(pivot.x,-pivot.y,.38,0,2*Math.PI);ctx.fillStyle='#1e293b';ctx.fill();
         ctx.restore();
     }
 
