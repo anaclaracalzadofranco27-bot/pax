@@ -6333,9 +6333,11 @@ function xrayRun(ms) {
         // Helper para desenhar linhas de cota técnicas (setas duplas + linhas de chamada)
         function drawDimensionLine(ctx, x1, y1, x2, y2, label, color = '#1e293b', fontSize = 13, labelOffset = {x: 0, y: 0}, ext1 = null, ext2 = null, cleanLabel = false) {
             ctx.save();
-            ctx.strokeStyle = color;
-            ctx.fillStyle = color;
-            ctx.lineWidth = 1.6;
+            // Cotas com contraste alto em fundo escuro, mantendo a paleta no modo claro.
+            const dimInk = window.BIN_DARK ? '#eaf4ff' : color;
+            ctx.strokeStyle = dimInk;
+            ctx.fillStyle = dimInk;
+            ctx.lineWidth = 2;
 
             if (ext1) {
                 ctx.lineWidth = 1.2;
@@ -6376,16 +6378,16 @@ function xrayRun(ms) {
 
             const mx = (x1 + x2) * 0.5 + (labelOffset.x || 0);
             const my = (y1 + y2) * 0.5 + (labelOffset.y || 0);
-            ctx.font = `bold ${fontSize}px "JetBrains Mono", monospace`;
+            ctx.font = `bold ${Math.max(14, fontSize)}px "JetBrains Mono", monospace`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.shadowBlur = 0;
             if (!cleanLabel) {
                 ctx.lineWidth = 4.0;
-                ctx.strokeStyle = 'rgba(245, 245, 245, 0.92)';
+                ctx.strokeStyle = window.BIN_DARK ? 'rgba(0, 2, 35, 0.94)' : 'rgba(245, 245, 245, 0.92)';
                 ctx.strokeText(label, mx, my);
             }
-            ctx.fillStyle = color;
+            ctx.fillStyle = dimInk;
             ctx.fillText(label, mx, my);
             ctx.restore();
         }
@@ -7932,6 +7934,7 @@ const color = { conventional: APHA_CABIN_PALETTE.neutral, alpha: APHA_CABIN_PALE
 // Keep the exact SVG paths; do not replace them with generic rectangles.
 const ALPHA_CAD_STYLE = Object.freeze({
     shell: 'rgba(74, 144, 226, 0.45)',
+    shellAt: opacity => `rgba(74, 144, 226, ${Math.max(0, Math.min(1, opacity))})`,
     outline: '#4a90e2',
     inner: '#2a6fc9',
     innerWash: 'rgba(74, 144, 226, 0.16)'
@@ -8158,9 +8161,12 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             alphaWithCutouts.addPath(new Path2D(ALPHA_LOWER_TRIANGLE));
             ctx.save();
             ctx.clip(alphaShell);
-            // Paredes azuis com 45% de opacidade: visíveis sem esconder as malas.
-            // A mesma transparência é usada nas abas 5/6 (desenho compartilhado).
-            ctx.fillStyle = ALPHA_CAD_STYLE.shell;
+            // Aba 5: corpo mais visível (0.75). Aba 6: semitransparente (0.45).
+            // A ponte atualiza a opacidade progressivamente sem modificar o SVG.
+            const bodyOpacity = Number.isFinite(window.__aphaAlphaBodyOpacity)
+                ? window.__aphaAlphaBodyOpacity
+                : (overrideDoorU == null ? 0.75 : 0.45);
+            ctx.fillStyle = ALPHA_CAD_STYLE.shellAt(bodyOpacity);
             ctx.fill(alphaWithCutouts, 'evenodd');
             ctx.restore();
             // Escurecimento progressivo da cavidade quando a persiana recolhe:
@@ -10392,7 +10398,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             const cl = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
             const ph=(t0,d)=>cadEase(cl((U.t-t0)/d));
             const cubic=x=>{x=cl(x);return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2};
-            const cameraAmount=()=>cubic((U.t-TL.zoom)/TL.zoomDur);
+            const cameraAmount=()=>U.exportCabinWideFrame ? 0 : cubic((U.t-TL.zoom)/TL.zoomDur);
             const doorAmount=()=>cubic((U.t-TL.open)/TL.openDur);
             const cinematicCamera=(W,H)=>{const a=cameraAmount(),k=1+(APHA_BRIDGE_CFG.startZoom-1)*a,cy=m4(W,H).toY(APHA_BRIDGE_CFG.binFocusYcm);return {k,x:W/2,y:H/2+(cy-H/2)*a}};
             
@@ -10732,13 +10738,15 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const statCm = isP95 ? window.SEATED_STAT.max : WORLD_MEAN_CM;
                 const statName = isP95 ? 'P95 MALE' : 'WORLD AVERAGE';
                 // Posiciona a simulação exatamente na estatura exportada (Média Mundial 165,0 cm / 65,0" ou P95 Male)
-                const prev = { t: U.t, custom: U.customStature, playing: U.playing,door:window.__uniRefDoorProgress };
-                U.exporting = true; window.EXPORT_EN = true;
+                const prev = { t: U.t, custom: U.customStature, playing: U.playing, door: window.__uniRefDoorProgress, wide: U.exportCabinWideFrame };
+                U.exporting = true; U.exportCabinWideFrame = isP95; window.EXPORT_EN = true;
                 U.playing = false;
                 cancelAnimationFrame(U.raf);
                 const exportFinalDoorState=prev.t>=TOTAL-.01;
-                U.t=exportFinalDoorState?TOTAL:(isP95?TL.pause:T_WORLD_MEAN);
-                U.customStature=exportFinalDoorState?window.SEATED_STAT.max:statCm;
+                // P95: enquadramento aberto com os dois bins abertos e os manequins visíveis.
+                // Evita a câmera de zoom final, que ocultaria assentos e passageiros.
+                U.t=isP95?TOTAL:(exportFinalDoorState?TOTAL:T_WORLD_MEAN);
+                U.customStature=isP95?statCm:(exportFinalDoorState?window.SEATED_STAT.max:statCm);
                 refresh();
 
                 // Cria canvas offscreen em resolução 4K UHD (3840 × 2160 = 1920×1080 com dpr=2 para nitidez proporcional perfeita)
@@ -10785,7 +10793,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                 window.BIN_SOLID = false;
                 U.exporting = false; window.EXPORT_EN = false;
                 // devolve a tela ao estado em que estava antes da exportação
-                U.t = prev.t; U.customStature = prev.custom; window.__uniRefDoorProgress=prev.door; refresh();
+                U.t = prev.t; U.customStature = prev.custom; U.exportCabinWideFrame = prev.wide;
+                window.__uniRefDoorProgress=prev.door; refresh();
                 if (prev.playing) play(U.t);
                 offscreen.toBlob(blob => {
                     if (!blob) return;
@@ -12792,12 +12801,13 @@ window.drawUniReferenceBins = drawReferenceBins;
             const Fg=L?L.Fg:mass*9.81,Fn=L?L.Fn:Fg*Math.cos(ang*Math.PI/180),Ft=L?L.Ft:Fg*Math.sin(ang*Math.PI/180);
             const t=L?L.times[0]:ergoTimes(ERGO_PERCENTILES[0].h,mass,ang);
             const phase=b.mode==='stow'?Math.max(manikinState.phase||0,aphaInitialManikinPhase()):aphaInitialManikinPhase();
-            const old=[window.__aphaOnlyCabin,window.__aphaShowConventional,window.__aphaBridgeDoorU,window.__aphaBridgeMinimalHUD,window.__aphaBridgeManikinAlpha,window.__aphaBridgeSeatsAlpha];
+            const old=[window.__aphaOnlyCabin,window.__aphaShowConventional,window.__aphaBridgeDoorU,window.__aphaBridgeMinimalHUD,window.__aphaBridgeManikinAlpha,window.__aphaBridgeSeatsAlpha,window.__aphaAlphaBodyOpacity];
             try{
                 // Renderiza o cenário inteiro em todos os quadros. O manequim surge
                 // no final do recuo, sem trocar de canvas nem deslocar a fuselagem.
                 window.__aphaOnlyCabin=false;
                 const outU=bridgeEase(elapsed/C.zoomOutMs);
+                window.__aphaAlphaBodyOpacity=b.mode==='stow'?0.45:0.75+(0.45-0.75)*outU;
                 window.__aphaBridgeSeatsAlpha=b.mode==='stow'?1:outU;
                 window.__aphaBridgeManikinAlpha=b.mode==='stow'?1:
                     bridgeEase((outU-.70)/.30);
@@ -12812,7 +12822,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             }catch(err){
                 if(!b.error){b.error=true;console.error('Continuous cabin camera:',err);}
             }finally{
-                [window.__aphaOnlyCabin,window.__aphaShowConventional,window.__aphaBridgeDoorU,window.__aphaBridgeMinimalHUD,window.__aphaBridgeManikinAlpha,window.__aphaBridgeSeatsAlpha]=old;
+                [window.__aphaOnlyCabin,window.__aphaShowConventional,window.__aphaBridgeDoorU,window.__aphaBridgeMinimalHUD,window.__aphaBridgeManikinAlpha,window.__aphaBridgeSeatsAlpha,window.__aphaAlphaBodyOpacity]=old;
             }
             // A geometria não sofre fade: apenas rótulos e cronômetro.
             g.save();g.setTransform(dpr,0,0,dpr,0,0);
