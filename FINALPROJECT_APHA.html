@@ -12565,6 +12565,110 @@ window.drawUniReferenceBins = drawReferenceBins;
             requestAnimationFrame(f);
         });
         const ezo = x => 1 - Math.pow(1 - x, 2);
+
+        // UMA cena m4, UMA matriz de escala+translação e UM canvas contínuo.
+        let bridge=null;
+        const bridgeEase=v=>{v=Math.max(0,Math.min(1,v));return v<.5?4*v*v*v:1-Math.pow(-2*v+2,3)/2;};
+        const bridgeMix=(a,b,u)=>({k:a.k+(b.k-a.k)*u,tx:a.tx+(b.tx-a.tx)*u,ty:a.ty+(b.ty-a.ty)*u});
+        function destroyBridge(fadeMs=0){
+            if(!bridge)return;
+            const b=bridge;bridge=null;
+            cancelAnimationFrame(b.raf);
+            if(fadeMs){
+                b.canvas.style.transition='opacity '+(fadeMs/1000)+'s ease-in-out';
+                b.canvas.style.opacity='0';
+                setTimeout(()=>b.canvas.remove(),fadeMs+40);
+            }else b.canvas.remove();
+        }
+        function paintBridge(now){
+            const b=bridge;if(!b)return;
+            const C=APHA_BRIDGE_CFG,W=stage.clientWidth,H=stage.clientHeight;
+            if(W<1||H<1)return;
+            const dpr=Math.min(2,window.devicePixelRatio||1);
+            const width=Math.round(W*dpr),height=Math.round(H*dpr);
+            if(b.canvas.width!==width||b.canvas.height!==height){b.canvas.width=width;b.canvas.height=height;}
+            const g=b.canvas.getContext('2d'),elapsed=now-b.started;
+            const doorU=b.mode==='stow'
+                ? 1-bridgeEase(((manikinState.phase||0)-.96)/.04)
+                : bridgeEase((elapsed-C.zoomInMs)/C.doorMs);
+            let m=b.end;
+            if(b.mode!=='stow'){
+                if(elapsed<C.zoomInMs)m=bridgeMix(b.start,b.close,bridgeEase(elapsed/C.zoomInMs));
+                else if(elapsed<C.zoomInMs+C.doorMs)m=b.close;
+                else m=bridgeMix(b.close,b.end,bridgeEase((elapsed-C.zoomInMs-C.doorMs)/C.zoomOutMs));
+            }
+            g.setTransform(dpr,0,0,dpr,0,0);
+            g.clearRect(0,0,W,H);
+            g.fillStyle=APHA_CABIN_PALETTE.background;g.fillRect(0,0,W,H);
+            const L=manikinState.last,mass=L?L.mass:10,ang=L?L.angleDeg:17;
+            const Fg=L?L.Fg:mass*9.81,Fn=L?L.Fn:Fg*Math.cos(ang*Math.PI/180),Ft=L?L.Ft:Fg*Math.sin(ang*Math.PI/180);
+            const t=L?L.times[0]:ergoTimes(ERGO_PERCENTILES[0].h,mass,ang);
+            const phase=b.mode==='stow'?(manikinState.phase||0):0;
+            const old=[window.__aphaOnlyCabin,window.__aphaShowConventional,window.__aphaBridgeDoorU,window.__aphaBridgeMinimalHUD];
+            try{
+                window.__aphaOnlyCabin=b.mode!=='stow';
+                window.__aphaShowConventional=true;
+                window.__aphaBridgeDoorU=doorU;
+                window.__aphaBridgeMinimalHUD=true;
+                g.save();
+                g.transform(m.k,0,0,m.k,m.tx,m.ty);
+                drawManikinPanel(g,b.baseW,b.baseH,ERGO_PERCENTILES[0].h,mass,ang,Fg,Fn,Ft,phase,t.tA2,t.tA1,'');
+                g.restore();
+            }catch(err){
+                if(!b.error){b.error=true;console.error('Continuous cabin camera:',err);}
+            }finally{
+                [window.__aphaOnlyCabin,window.__aphaShowConventional,window.__aphaBridgeDoorU,window.__aphaBridgeMinimalHUD]=old;
+            }
+            // A geometria não sofre fade: apenas rótulos e cronômetro.
+            g.save();g.setTransform(dpr,0,0,dpr,0,0);
+            g.globalAlpha=b.mode==='stow'?bridgeEase((now-b.stowStart)/C.uiFadeMs):1-bridgeEase(elapsed/C.uiFadeMs);
+            if(b.mode!=='stow'){
+                g.fillStyle='#d4dce6';g.font='700 16px Montserrat, Inter, sans-serif';
+                g.textAlign='center';g.fillText('CONVENTIONAL  /  ALPHA',W*.48,Math.max(25,H*.085));
+            }else{
+                const sec=Math.min(t.tA1+t.tA2,phase*(t.tA1+t.tA2));
+                g.fillStyle='rgba(0,2,35,.72)';g.fillRect(W-226,18,210,65);
+                g.fillStyle='#9ba9b5';g.font='700 11px JetBrains Mono, monospace';
+                g.textAlign='left';g.fillText('BOARDING TIME',W-210,37);
+                g.fillStyle='#ffffff';g.font='700 27px JetBrains Mono, monospace';
+                g.fillText(sec.toFixed(1)+' s',W-210,69);
+            }
+            g.restore();
+        }
+        async function fxCabinToStow(my){
+            destroyBridge();
+            const src=$('uniCanvas'),C=APHA_BRIDGE_CFG,cabin=window.cabinSectionReference;
+            const parent=src&&src.parentElement;if(!parent||!cabin)return false;
+            const sr=stage.getBoundingClientRect(),r=parent.getBoundingClientRect();
+            const baseW=r.width,baseH=r.height,W=stage.clientWidth,H=stage.clientHeight;
+            if(baseW<1||baseH<1||W<1||H<1)return false;
+            const from=cabin.map(baseW,baseH),to=cabin.map(W,H);
+            const fx=from.toX(0),fy=from.toY(C.binFocusYcm);
+            const k0=C.startZoom,kc=C.closeZoom,k1=to.scale/from.scale;
+            const start={k:k0,tx:r.left-sr.left+baseW/2-k0*baseW/2,
+                                  ty:r.top-sr.top+baseH/2-k0*fy};
+            const close={k:kc,tx:W*.48-kc*fx,ty:H*.50-kc*fy};
+            // Similaridade exata m4 → m4: posição final do bin idêntica à aba 6.
+            const end={k:k1,tx:to.toX(0)-k1*from.toX(0),
+                             ty:to.toY(0)-k1*from.toY(0)};
+            const canvas=document.createElement('canvas');
+            canvas.id='apha-continuous-cabin';
+            canvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:12;pointer-events:none;opacity:1';
+            bridge={canvas,baseW,baseH,start,close,end,started:performance.now(),mode:'transition',stowStart:0,raf:0,error:false};
+            paintBridge(bridge.started);
+            stage.appendChild(canvas);
+            function tick(now){
+                if(!bridge||bridge.canvas!==canvas)return;
+                paintBridge(now);bridge.raf=requestAnimationFrame(tick);
+            }
+            bridge.raf=requestAnimationFrame(tick);
+            const ok=await tween(C.zoomInMs+C.doorMs+C.zoomOutMs,my,()=>{});
+            if(!ok){destroyBridge();return false;}
+            bridge.mode='stow';bridge.stowStart=performance.now();
+            paintBridge(bridge.stowStart);
+            return true;
+        }
+
         function fxClear() {}
         // encaixe no quadro fixo (igual ao fadeIn): módulos mais altos que o quadro são reduzidos a partir do topo
         function fitRec(sec, step) {
@@ -12774,6 +12878,7 @@ window.drawUniReferenceBins = drawReferenceBins;
 
         async function run(from) {
             const my = ++token; live = true;
+            destroyBridge();
             giveBack();
             btn.textContent = '■ Stop'; btn.dataset.mode = 'stop';
             stage.style.transition = 'none'; stage.style.opacity = '1';
@@ -12791,8 +12896,12 @@ window.drawUniReferenceBins = drawReferenceBins;
                 if (st.morphIn && i > from) {                  // entrada cinematográfica (a própria transição revela o módulo e pode iniciar a animação)
                     started = !!(await st.morphIn(my, STEPS[i - 1]));
                     if (my !== token) return;
+                } else if (st.key === 'sim' && bridge) {
+                    // Aba 6 executa física/cinemática oculta; imagem segue no mesmo canvas.
+                    active.sec.style.opacity = '0';
+                    active.sec.style.pointerEvents = 'none';
                 } else {
-                    fadeIn(h0, gap);                           // o quadro (malha) fica fixo; o novo módulo só aparece depois que o anterior sumiu
+                    fadeIn(h0, gap);
                     await sleep(50 + gap);
                     if (my !== token) return;
                 }
@@ -12806,9 +12915,21 @@ window.drawUniReferenceBins = drawReferenceBins;
                 if (my !== token) return;
                 if (window.__tourEdge) window.__tourEdge(i, st, 'fim');   // foto do FINAL (antes de dissolver para a próxima aba)
                 if (i < STEPS.length - 1) {
-                    if (st.morphOut) { await st.morphOut(my, STEPS[i + 1]); if (my !== token) return; }   // saída cinematográfica (ex.: aba 1 → translúcido + desliza)
-                    h0 = startCrossfade(st.overlapMs || 0);
-                }           // todas as transições em crossfade contínuo (sem tela vazia)
+                    if (st.key === 'unified') {
+                        const ok = await fxCabinToStow(my);
+                        if (my !== token) return;
+                        if (!ok) h0 = startCrossfade(0);
+                        else {
+                            h0 = stage.offsetHeight;
+                            const prev = active; active = null;
+                            call(prev.step.leave); release(prev);
+                        }
+                    } else {
+                        if (st.morphOut) { await st.morphOut(my, STEPS[i + 1]); if (my !== token) return; }
+                        h0 = startCrossfade(st.overlapMs || 0);
+                        if (st.key === 'sim') destroyBridge(450);
+                    }
+                }
                 else { await fadeOut(); if (my !== token) return; giveBack(); currentTab = 'tour'; }
             }
             if (my !== token) return;
@@ -12819,7 +12940,7 @@ window.drawUniReferenceBins = drawReferenceBins;
         }
         function abort() {
             if (!live && !active) return;                       // nada rodando: não mexe em nada
-            live = false; token++; giveBack(); currentTab = 'tour'; frameOn(false);
+            live = false; token++; destroyBridge(); giveBack(); currentTab = 'tour'; frameOn(false);
             if (window.__tourEnded) window.__tourEnded();
             btn.textContent = '▶ Run full simulation'; btn.dataset.mode = 'run';
             stage.style.transition = 'none'; stage.style.opacity = '1';
