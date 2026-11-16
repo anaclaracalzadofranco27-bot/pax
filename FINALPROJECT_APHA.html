@@ -6214,7 +6214,7 @@ function xrayRun(ms) {
     &lt;style id=&quot;aba6-kiosk-layout&quot;&gt;
       /* Dedicated biomechanical iframe: no standalone navigation or action toolbar. */
       html, body { margin:0 !important; padding:0 !important; width:100% !important; height:100% !important; min-height:100% !important; overflow:hidden !important; }
-      body &gt; header, #module-ergo &gt; .bg-cad-panel:first-child { display:none !important; }
+      body &gt; header { display:none !important; } /* Keep biomechanical .sim-card visible: it is the only canvas container. */
       body &gt; main { max-width:none !important; width:100% !important; height:100vh !important; min-height:100vh !important; margin:0 !important; padding:0 !important; }
       #module-sim, #module-ergo, #module-ergo &gt; .sim-card { margin:0 !important; padding:0 !important; width:100% !important; height:100% !important; min-height:0 !important; gap:0 !important; }
       #module-ergo &gt; .sim-card { border:0 !important; border-radius:0 !important; }
@@ -13702,8 +13702,14 @@ window.drawUniReferenceBins = drawReferenceBins;
             const frame = document.getElementById('aba6-engine-frame');
             if (!frame) return;
             function syncVisibility() {
+                // Reparenting the iframe into the full-simulation stage may reload it.
+                // A ready/load handshake must preserve the tour's visible/running state.
+                const stage = document.getElementById('tour-stage');
+                const inTour = currentTab === 'tour' && !!(stage && stage.contains(frame));
                 if (frame.contentWindow) frame.contentWindow.postMessage({
-                    type: 'apha-aba6-visibility', visible: currentTab === 'sim'
+                    type: 'apha-aba6-visibility',
+                    visible: currentTab === 'sim' || inTour,
+                    tour: inTour
                 }, '*');
             }
             frame.addEventListener('load', syncVisibility);
