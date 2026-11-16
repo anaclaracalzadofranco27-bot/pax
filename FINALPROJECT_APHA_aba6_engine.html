@@ -3976,7 +3976,9 @@ window.drawUniReferenceBins = drawReferenceBins;
                     x => x, y => y, 23.6, 150.0, 1, 1.0, 135.0, 65.0, true);
             const T = tBack + tFront, fb = tBack / T, N = 360, pts = [];
             let pa = 0, pc = 0;
-            for (let i = 0; i <= N; i++) {                const plan = ergoStowPlan(mode, prof, H), pose = ergoSolvePosture(H, plan, lp), L = ergoLoad(mode, plan, pose, lp, Fg, Ft);
+            for (let i = 0; i <= N; i++) {
+                const p = i / N, inB = p < fb, mode = inB ? 'alpha2' : 'alpha1', lp = inB ? p / fb : (p - fb) / (1 - fb);
+                const plan = ergoStowPlan(mode, prof, H), pose = ergoSolvePosture(H, plan, lp), L = ergoLoad(mode, plan, pose, lp, Fg, Ft);
                 pts.push([p * T, L.MO, L.MOc]); pa = Math.max(pa, L.MO); pc = Math.max(pc, L.MOc);
             }
             return (ergoCurveCache = { key, T, pts, peakA: pa, peakC: pc, reduction: pc > 0 ? 1 - pa / pc : 0 });
@@ -4300,7 +4302,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                     ctx.beginPath();ctx.roundRect(-12*k,-55*k,24*k,12*k,4*k);ctx.stroke();
                     for(const x of [-19,19]){ctx.beginPath();ctx.arc(x*k,46*k,5*k,0,Math.PI*2);ctx.fillStyle='#bababa';ctx.fill();}
                     ctx.restore();
-                    st = {tTotal: tA2 + tA1};
+                    st = {tTotal: t.tA2 + t.tA1};
                 }
                 ctx.restore();
                 return st;
