@@ -7342,7 +7342,7 @@ const CABIN_R = 137.00;
 
             // Gently elliptical / ovalized two-skin door, without a circular-arc
             // approximation.  The original quadratics supply only the initial
-            // bulge reference; the actual profile is two cubic quarter-ellipses.
+            // bulge reference; the actual profile is two cubic segments of a shallow elliptic arc.
             const doorOuterCtrl = {
                 x: doorTipOuter.x + 2.65,
                 y: (bladeTopOuter.y + doorTipOuter.y) * 0.5 + 1.55
@@ -7369,22 +7369,45 @@ const CABIN_R = 137.00;
                 const projection = (formerMid.x - middle.x) * nxOval
                                  + (formerMid.y - middle.y) * nyOval;
                 const bulge = Math.max(0.90, projection * 1.035);
-                const kappa = 4 * (Math.SQRT2 - 1) / 3;
-                const crown = {
-                    x: middle.x + nxOval * bulge,
-                    y: middle.y + nyOval * bulge
+                // A genuine rotated elliptical arc, parameterized from -45° to
+                // +45°. Unlike a 180° half-ellipse, its top tangent points
+                // inward/downward, staying below the cabin fuselage.
+                const alpha = Math.PI / 4;
+                const sa = Math.sin(alpha), ca = Math.cos(alpha);
+                const kappa = (4 / 3) * Math.tan(alpha / 4);
+                const ellipsePoint = angle => {
+                    const s = Math.sin(angle) / sa;
+                    const o = bulge * (Math.cos(angle) - ca) / (1 - ca);
+                    return {
+                        x: middle.x + half.x * s + nxOval * o,
+                        y: middle.y + half.y * s + nyOval * o
+                    };
                 };
+                const ellipseTangent = angle => {
+                    const along = Math.cos(angle) / sa;
+                    const offset = -bulge * Math.sin(angle) / (1 - ca);
+                    return {
+                        x: half.x * along + nxOval * offset,
+                        y: half.y * along + nyOval * offset
+                    };
+                };
+                const crown = ellipsePoint(0);
+                const tStart = ellipseTangent(-alpha);
+                const tCrown = ellipseTangent(0);
+                const tEnd = ellipseTangent(alpha);
+                // Two equal 45° cubic Bézier approximations of the same
+                // elliptic arc, with C1 continuity at the central crown.
                 return [
                     top,
-                    { x: top.x + kappa * nxOval * bulge,
-                      y: top.y + kappa * nyOval * bulge },
-                    { x: crown.x - kappa * half.x,
-                      y: crown.y - kappa * half.y },
+                    { x: top.x + kappa * tStart.x,
+                      y: top.y + kappa * tStart.y },
+                    { x: crown.x - kappa * tCrown.x,
+                      y: crown.y - kappa * tCrown.y },
                     crown,
-                    { x: crown.x + kappa * half.x,
-                      y: crown.y + kappa * half.y },
-                    { x: tip.x + kappa * nxOval * bulge,
-                      y: tip.y + kappa * nyOval * bulge },
+                    { x: crown.x + kappa * tCrown.x,
+                      y: crown.y + kappa * tCrown.y },
+                    { x: tip.x - kappa * tEnd.x,
+                      y: tip.y - kappa * tEnd.y },
                     tip
                 ];
             }
