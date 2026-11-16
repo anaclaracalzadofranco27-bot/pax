@@ -797,7 +797,10 @@
 
         /* cena 1: palco fixo 1920x1080 escalado pelo JS (igual às cenas 2 e 3), centrado no quadro */
         #scene-1 #s1-stage{position:absolute;left:0;top:0;transform-origin:0 0}
-    </style>
+    /* Scene 3: self-contained accessible vector icons; no external asset 404s. */
+#scene-3 .s3-inline-icon{width:52px;height:52px;max-width:52px;max-height:52px;flex-shrink:0;display:block;object-fit:contain}
+#scene-3 .ch{align-items:center;gap:16px}
+</style>
 <style>
 #nova-comparison-header{text-align:center;padding:12px 10px 22px;opacity:0;transform:translateY(9px);transition:opacity .65s ease,transform .65s ease;pointer-events:none}
 #nova-comparison-header.is-visible{opacity:1;transform:translateY(0)}
@@ -6061,7 +6064,7 @@ function xrayRun(ms) {
    <div class="cards">
     <section class="card c fi" style="--t:.4s">
      <div class="ch">
-      <span class="a bn" style="--t:.6s;display:flex"><img class="clip" src="assets/certification-checklist.svg" alt="Certification checklist with approved checks" loading="eager" decoding="async"></span>
+      <span class="a bn" style="--t:.6s;display:flex"><svg class="clip s3-inline-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Certification checklist"><rect x="12" y="10" width="40" height="48" rx="6" fill="#112b4d" stroke="#79bbf5" stroke-width="2.5"/><rect x="24" y="5" width="16" height="10" rx="3" fill="#243e60" stroke="#79bbf5" stroke-width="2"/><path d="M20 29l4 4 7-9M20 44l4 4 7-9" fill="none" stroke="#ff922c" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M35 29h10M35 44h10" stroke="#bad9f7" stroke-width="2.5" stroke-linecap="round"/></svg></span>
       <div class="ct a rx" style="--t:1.6s">FAA (14 CFR Part 25)<br>&amp; EASA (CS-25) ALIGNMENT</div>
      </div>
      <ul>
@@ -6072,7 +6075,7 @@ function xrayRun(ms) {
     </section>
     <section class="card fi" style="--t:2.8s;--d:.5s">
      <div class="ch">
-      <div class="sw"><span class="ring" style="--t:3.2s"></span><span class="a st" style="--t:3s;display:block"><img class="stamp" src="assets/operator-ip-flow.svg" alt="Operator Benefits and IP Connection workflow" loading="eager" decoding="async"></span></div>
+      <div class="sw"><span class="ring" style="--t:3.2s"></span><span class="a st" style="--t:3s;display:block"><svg class="stamp s3-inline-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Intellectual property workflow"><circle cx="32" cy="32" r="24" fill="#122e50" stroke="#6ab3ef" stroke-width="2"/><path d="M32 8a24 24 0 0 1 23 18M56 34a24 24 0 0 1-19 22M28 55A24 24 0 0 1 9 35M9 27A24 24 0 0 1 27 9" fill="none" stroke="#ff922c" stroke-width="3" stroke-linecap="round"/><path d="M32 7l-5 6h10zM57 33l-6-5v10zM31 57l5-6H26zM7 30l6 5V25z" fill="#ff922c"/><path d="M24 39V25l8-5 8 5v14l-8 5z" fill="#1f5483" stroke="#a7d9ff" stroke-width="1.8"/><path d="M27 32l3 3 7-7" fill="none" stroke="#ff9b3d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
       <div>
        <div class="it1 a fu" style="--t:3.15s;--d:.5s">INTELLECTUAL PROPERTY</div>
        <div class="pp a" style="--t:3.4s">PATENT PENDING</div>
