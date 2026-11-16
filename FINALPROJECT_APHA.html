@@ -6215,28 +6215,41 @@ function xrayRun(ms) {
             const rect = canvas.parentElement.getBoundingClientRect();
             if (rect.width < 2 || rect.height < 2) return false;
             if (!aba6Initialized) {
-                startManikinLoop();
                 aba6Initialized = true;
                 window.aba6Initialized = true;
             }
             window.__aba6TourMode = !!options.tour;
             if (options.reset || !manikinState.last) showManikin();
             manikinState.animating = true;
+            startManikinLoop(); // one cancellable RAF per active simulation
             setAnimLabel();
             updateErgonomics();
             window.dispatchEvent(new Event('resize'));
             return true;
         }
+        let aba6LaunchToken = 0;
         function scheduleAba6Engine(options = {}) {
+            const token = ++aba6LaunchToken;
+            const stillActive = () => {
+                if (token !== aba6LaunchToken) return false;
+                const host = document.getElementById('aba6-module-ergo');
+                if (!host) return false;
+                return options.tour ? !!host.closest('#tour-stage')
+                    : currentTab === 'sim' && !host.closest('#tour-stage');
+            };
             requestAnimationFrame(() => requestAnimationFrame(() => {
+                if (!stillActive()) return;
                 if (!initAba6Engine(options)) {
-                    // Uma única tentativa adicional depois do reflow; não cria loops ocultos.
-                    requestAnimationFrame(() => initAba6Engine(options));
+                    requestAnimationFrame(() => {
+                        if (stillActive()) initAba6Engine(options);
+                    });
                 }
             }));
         }
         function pauseAba6Engine() {
+            ++aba6LaunchToken; // invalidate any pending double-RAF initialization
             manikinState.animating = false;
+            stopManikinLoop();
             window.__aba6TourMode = false;
             setAnimLabel();
         }
@@ -8162,9 +8175,14 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             ctx.moveTo(2882.10, 9351.24);
             ctx.bezierCurveTo(4353.21, 9328.50, 7185.94, 9385.51, 7185.94, 9385.51);
             ctx.lineWidth = 78; ctx.strokeStyle = '#8298b2'; ctx.stroke();
-            // Restaura SOMENTE o trilho da porta tambour (teto e curva
-            // frontal), sem voltar a desenhar o contorno das malas.
-            paintPath(ctx, ALPHA_SOURCE_RAIL, '#8298b2', null, 0);
+            // A parede interna escalonada vem do contorno SVG real. Primeiro
+            // a cor translúcida, DEPOIS o traço interno (não um bin oco).
+            // O recorte impede que suas guias ultrapassem a casca do Alpha.
+            ctx.save();
+            ctx.clip(alphaShell);
+            paintPath(ctx, ALPHA_SOURCE_RAIL,
+                APHA_CABIN_PALETTE.rgba('mid', 0.16), '#315c83', 105);
+            ctx.restore();
             ctx.beginPath();
             ALPHA_TRACK.forEach((pt, i) => i ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]));
             ctx.lineWidth = 155; ctx.strokeStyle = '#8DD7FF'; ctx.stroke();
@@ -9246,34 +9264,51 @@ window.drawUniReferenceBins = drawReferenceBins;
             manikinState.seqTimers.push(t);
         }
 
+        // A única fonte do relógio da Aba 6: RAF cancelável, sem setInterval oculto.
+        let manikinFrameId = 0;
+        let manikinFrameTime = 0;
+        function stopManikinLoop() {
+            if (manikinFrameId) cancelAnimationFrame(manikinFrameId);
+            manikinFrameId = 0;
+            manikinFrameTime = 0;
+        }
         function startManikinLoop() {
-            // Ciclo contínuo (pega → eleva → insere → solta → próximo passageiro), em tempo real:
-            // a duração de cada ciclo é o "Tempo por Mala" calculado para o modo selecionado.
-            let last = performance.now();
-            setInterval(() => {
-                const now = performance.now();
-                const dt = Math.min(0.1, (now - last) / 1000);
-                last = now;
-                if ((currentTab !== 'sim' && !window.__aba6TourMode) || !manikinState.animating) return;
-                const tCycle = Math.max(6, manikinState.cycleT || 20) * 0.55;   // percentil mais lento define o ciclo
-                manikinState.phase = Math.min(1.0, manikinState.phase + (dt * 1.45) / tCycle); // playback 1.45x; timer usa a mesma phase
-                const finished = manikinState.phase >= 1.0;
-                // Keep animating across cycle boundaries; phase resets below.
-                updateErgonomics();
-                if (finished) {
-                    if (window.__aba6TourMode) {
-                        // The full presentation holds on the finished pose, then continues to Closing.
-                        manikinState.animating = false;
-                        setAnimLabel();
-                        window.ergoDone = true;
-                    } else {
-                        // Tab 6 itself plays continuously, without requiring a click.
-                        manikinState.phase = aphaInitialManikinPhase();
-                        hideCards();
-                        updateErgonomics();
+            if (manikinFrameId || !manikinState.animating) return;
+            manikinFrameTime = performance.now();
+            const tick = now => {
+                manikinFrameId = 0;
+                const active = manikinState.animating &&
+                    (currentTab === 'sim' || window.__aba6TourMode);
+                if (!active) { manikinFrameTime = 0; return; }
+                const elapsed = now - manikinFrameTime;
+                // A animação biomecânica só precisa de ~25 fps, mesmo em monitores 120 Hz.
+                if (elapsed >= 40) {
+                    const dt = Math.min(0.1, elapsed / 1000);
+                    manikinFrameTime = now;
+                    const tCycle = Math.max(6, manikinState.cycleT || 20) * 0.55;
+                    manikinState.phase = Math.min(1,
+                        manikinState.phase + (dt * 1.45) / tCycle);
+                    const finished = manikinState.phase >= 1;
+                    updateErgonomics();
+                    if (finished) {
+                        if (window.__aba6TourMode) {
+                            // O roteiro mantém a pose final e avança ao encerramento.
+                            manikinState.animating = false;
+                            setAnimLabel();
+                            window.ergoDone = true;
+                        } else {
+                            // A Aba 6 autônoma reinicia sem acumular timers.
+                            manikinState.phase = aphaInitialManikinPhase();
+                            hideCards();
+                            updateErgonomics();
+                        }
                     }
                 }
-            }, 40);
+                if (manikinState.animating &&
+                    (currentTab === 'sim' || window.__aba6TourMode))
+                    manikinFrameId = requestAnimationFrame(tick);
+            };
+            manikinFrameId = requestAnimationFrame(tick);
         }
 
         // Estatura original do manequim restaurada: 59,8" (referência P5 feminino).
@@ -9913,6 +9948,9 @@ window.drawUniReferenceBins = drawReferenceBins;
         function drawManikinViewport(mass, angleDeg, Fg, Fn, Ft, phase, times) {
             const canvas = document.getElementById('aba6-manikinCanvas');
             if (!canvas) return;
+            // Durante a ponte da Simulação Completa, só o canvas contínuo pinta.
+            // Os cálculos continuam, mas não redesenhamos o viewport oculto.
+            if (window.__aphaTourBridgeActive && canvas.closest('#tour-stage')) return;
             const rect = canvas.parentElement.getBoundingClientRect();
             if (rect.width === 0 || rect.height === 0) return;
             const dpr = window.devicePixelRatio || 1;
@@ -9922,9 +9960,13 @@ window.drawUniReferenceBins = drawReferenceBins;
                 canvas.height = ph;
             }
             const ctx = canvas.getContext('2d');
+            // Limpa pixels físicos sem câmera, clip ou DPR herdado da cena anterior.
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.restore();
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             const W = rect.width, H = rect.height;
-            ctx.clearRect(0, 0, W, H);
             drawUnifiedCabinBackground(ctx, W, H, {
                 tour: !!canvas.closest('#tour-stage')
             });
@@ -12703,6 +12745,7 @@ window.drawUniReferenceBins = drawReferenceBins;
         function destroyBridge(fadeMs=0){
             if(!bridge)return;
             const b=bridge;bridge=null;
+            window.__aphaTourBridgeActive = false;
             cancelAnimationFrame(b.raf);
             if(fadeMs){
                 b.canvas.style.transition='opacity '+(fadeMs/1000)+'s ease-in-out';
@@ -12726,8 +12769,12 @@ window.drawUniReferenceBins = drawReferenceBins;
             if(b.mode!=='stow')m=bridgeMix(b.start,b.end,bridgeEase(elapsed/C.zoomOutMs));
             // Uma única transformação para shell, assentos, piso, bins e manikin.
             b.lastRendered={...m};
+            // A limpeza ocorre em pixels físicos antes de aplicar a câmera m4.
+            g.save();
+            g.setTransform(1,0,0,1,0,0);
+            g.clearRect(0,0,b.canvas.width,b.canvas.height);
+            g.restore();
             g.setTransform(dpr,0,0,dpr,0,0);
-            g.clearRect(0,0,W,H);
             // O #tour-stage mantém a malha e a cor por trás do canvas móvel.
             drawUnifiedCabinBackground(g, W, H, { tour: true });
             const L=manikinState.last,mass=L?L.mass:10,ang=L?L.angleDeg:17;
@@ -12816,8 +12863,15 @@ window.drawUniReferenceBins = drawReferenceBins;
             canvas.id='apha-continuous-cabin';
             canvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:12;pointer-events:none;opacity:1';
             bridge={canvas,baseW,baseH,start,close,end,started:performance.now(),mode:'transition',stowStart:0,raf:0,error:false};
+            window.__aphaTourBridgeActive = true;
             paintBridge(bridge.started);
             stage.appendChild(canvas);
+            // Não deixar as guias e tampas do módulo anterior vazarem pelo
+            // fundo transparente da ponte. O grid permanece no #tour-stage.
+            if (active && active.sec) {
+                active.sec.style.opacity='0';
+                active.sec.style.pointerEvents='none';
+            }
             function tick(now){
                 if(!bridge||bridge.canvas!==canvas)return;
                 paintBridge(now);bridge.raf=requestAnimationFrame(tick);
