@@ -9532,7 +9532,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                             // Preserve o contraste da porta tambour na tela e nas exportações,
                             // inclusive na variante de fundo escuro.
                             const accent = typeof val === 'string' && window.BIN_SOLID &&
-                                ['#4fc1ff', '#569cd6', '#8dd7ff', '#143550'].includes(val.toLowerCase());
+                                ['#4fc1ff', '#569cd6', '#8dd7ff', '#143550', '#ff6b00', 'rgba(255,107,0,0.22)'].includes(val.toLowerCase());
                             d.set.call(this, typeof val !== 'string' || accent ? val : window.BIN_DARK ? dark(val, k === 'strokeStyle' ? 'stroke' : 'fill') : window.BIN_SOLID ? lilac(val) : val);
                         }
                     });
@@ -9874,7 +9874,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             window.uniRefresh = refresh;
             window.uniEnter = () => { if (!U.started) { U.started = true; play(0); } else refresh(); };
             // roteiro (aba 8): zera sem autoplay e inicia uma única vez (evita começar, parar e reiniciar)
-            window.uniTourReset = () => { U.started = true; U.customStature = null; U.playing = false; cancelAnimationFrame(U.raf); U.t = 0; U.fx = null; U.focus = 0; refresh(); };
+            window.uniTourReset = () => { U.started = true; U.customStature = null; U.playing = false; cancelAnimationFrame(U.raf); U.t = 0; U.fx = null; U.focus = 0; window.__uniRefDoorProgress=0; window.__uniSweepProgress=0; refresh(); };
             window.uniTourStart = () => { U.started = true; if (!U.playing) play(0); };
             window.uniTourSet = t => { U.started = true; U.customStature = null; U.playing = false; cancelAnimationFrame(U.raf); U.t = t; U.fx = null; U.focus = 0; refresh(); };
             window.uniSetFx = (f, focus) => { U.fx = f ? Object.assign({}, f) : null; U.focus = focus || 0; refresh(); };
