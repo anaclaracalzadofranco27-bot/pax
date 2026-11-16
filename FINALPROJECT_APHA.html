@@ -6331,18 +6331,20 @@ function xrayRun(ms) {
         const cadEase = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 
         // Cotas técnicas compartilhadas pela Aba 5, simulação integrada e exportações.
-        // Preserva o branco e o ciano também no modo de exportação BIN_DARK.
-        function drawDimensionLine(ctx, x1, y1, x2, y2, label, color = '#00ffff', fontSize = 15, labelOffset = {x: 0, y: 0}, ext1 = null, ext2 = null, cleanLabel = false) {
+        // Cor técnica única, inclusive no modo de exportação BIN_DARK.
+        const DIMENSION_COLOR = '#b0c4de';
+        function drawDimensionLine(ctx, x1, y1, x2, y2, label, color = DIMENSION_COLOR, fontSize = 15, labelOffset = {x: 0, y: 0}, ext1 = null, ext2 = null, cleanLabel = false) {
             ctx.save();
             const previousBinDark = window.BIN_DARK;
             try {
                 window.BIN_DARK = false;
-                const lineInk = '#00ffff';
-                const textInk = '#ffffff';
+                // Unifica as cotas: cores antigas dos modelos não sobrescrevem o padrão técnico.
+                const lineInk = DIMENSION_COLOR;
+                const textInk = DIMENSION_COLOR;
                 ctx.setLineDash([]);
                 ctx.strokeStyle = lineInk;
                 ctx.fillStyle = lineInk;
-                ctx.lineWidth = 1.5;
+                ctx.lineWidth = 1;
                 // As linhas auxiliares terminam nas superfícies geométricas reais.
                 for (const ext of [ext1, ext2]) {
                     if (!ext) continue;
@@ -6375,16 +6377,16 @@ function xrayRun(ms) {
                 }
                 const mx = (x1 + x2) * 0.5 + (labelOffset.x || 0);
                 const my = (y1 + y2) * 0.5 + (labelOffset.y || 0);
-                ctx.font = `bold ${Math.max(15, fontSize)}px "JetBrains Mono", monospace`;
+                ctx.font = `${Math.max(12, fontSize)}px "JetBrains Mono", monospace`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-                ctx.shadowBlur = 6;
+                ctx.shadowBlur = 3;
                 ctx.shadowOffsetX = 1;
                 ctx.shadowOffsetY = 1;
                 if (!cleanLabel) {
-                    ctx.lineWidth = 4;
-                    ctx.strokeStyle = 'rgba(0, 2, 35, 0.96)';
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = 'rgba(0, 2, 35, 0.92)';
                     ctx.strokeText(label, mx, my);
                 }
                 ctx.fillStyle = textInk;
@@ -7970,35 +7972,46 @@ function lowerBinSurfaceAtX(points, x) {
 // a cota coincida com o CAD, sem erro de discretização dos 100 segmentos.
 let referenceConventionalBelly = null;
 function exactConventionalUndersideY(x) {
-    if (!referenceConventionalBelly || !Number.isFinite(x)) return null;
-    const { wallFix, psuBotCorner: p0, bellyCtrl: p1, doorLipBot: p2, doorTip } = referenceConventionalBelly;
+    if (!Number.isFinite(x) || !referenceConventionalBelly) return null;
+    // Intersecta a vertical da cabeça com as curvas cúbicas efetivamente
+    // desenhadas no casco convencional (inclusive a barriga inferior).
+    const cubics = referenceConventionalBelly.cubics;
+    if (!cubics || !cubics.length) return null;
     const candidates = [];
-    const addSegment = (a, b) => {
-        if (x < Math.min(a.x, b.x) - 1e-7 || x > Math.max(a.x, b.x) + 1e-7) return;
-        if (Math.abs(b.x - a.x) < 1e-9) {
-            candidates.push(a.y, b.y);
-        } else {
-            const t = Math.max(0, Math.min(1, (x - a.x) / (b.x - a.x)));
-            candidates.push(a.y + t * (b.y - a.y));
-        }
+    const bez = (a, b, c, d, t, axis) => {
+        const u = 1-t;
+        return u*u*u*a[axis] + 3*u*u*t*b[axis] + 3*u*t*t*c[axis] + t*t*t*d[axis];
     };
-    addSegment(wallFix, p0);
-    const a = p0.x - 2 * p1.x + p2.x;
-    const b = 2 * (p1.x - p0.x);
-    const c = p0.x - x;
-    const roots = Math.abs(a) < 1e-12
-        ? (Math.abs(b) < 1e-12 ? [] : [-c / b])
-        : (() => {
-            const d = b*b - 4*a*c;
-            return d < 0 ? [] : [(-b + Math.sqrt(d))/(2*a), (-b - Math.sqrt(d))/(2*a)];
-        })();
-    for (const t of roots) {
-        if (t < -1e-8 || t > 1 + 1e-8) continue;
-        const u = 1 - Math.max(0, Math.min(1, t));
-        const v = Math.max(0, Math.min(1, t));
-        candidates.push(u*u*p0.y + 2*u*v*p1.y + v*v*p2.y);
+    for (const [p0, p1, p2, p3] of cubics) {
+        const A = -p0.x + 3*p1.x - 3*p2.x + p3.x;
+        const B = 3*p0.x - 6*p1.x + 3*p2.x;
+        const C = 3*(p1.x - p0.x);
+        // Dividir por extremos em X garante intervalos monotônicos da Bézier.
+        const stops = [0, 1];
+        const qa = 3*A, qb = 2*B, qc = C;
+        if (Math.abs(qa) < 1e-12) {
+            if (Math.abs(qb) > 1e-12) stops.push(-qc/qb);
+        } else {
+            const disc = qb*qb - 4*qa*qc;
+            if (disc >= 0) {
+                stops.push((-qb-Math.sqrt(disc))/(2*qa));
+                stops.push((-qb+Math.sqrt(disc))/(2*qa));
+            }
+        }
+        const ts = [...new Set(stops.filter(t => t >= 0 && t <= 1))].sort((a,b) => a-b);
+        for (let i=1; i<ts.length; i++) {
+            let lo=ts[i-1], hi=ts[i];
+            const xl=bez(p0,p1,p2,p3,lo,'x'), xh=bez(p0,p1,p2,p3,hi,'x');
+            if (x < Math.min(xl,xh)-1e-7 || x > Math.max(xl,xh)+1e-7) continue;
+            const ascending = xh >= xl;
+            for (let j=0; j<48; j++) {
+                const mid=(lo+hi)/2;
+                if ((bez(p0,p1,p2,p3,mid,'x') < x) === ascending) lo=mid;
+                else hi=mid;
+            }
+            candidates.push(bez(p0,p1,p2,p3,(lo+hi)/2,'y'));
+        }
     }
-    addSegment(p2, doorTip);
     return candidates.length ? Math.min(...candidates) : null;
 }
 window.getUniBinUndersideY = (x, isAlpha) =>
@@ -8017,11 +8030,8 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
     state.bagInsertPct = 100;
     state.thetaDeg = 0;
     const initialConv = computeLeftBinAtY(state.leftBaseY);
-    referenceConventionalBelly = {
-        wallFix: initialConv.wallFix, psuBotCorner: initialConv.psuBotCorner,
-        bellyCtrl: initialConv.bellyCtrl, doorLipBot: initialConv.doorLipBot,
-        doorTip: initialConv.doorClosed.tip
-    };
+    // O intradorso de medição será capturado do Path2D cúbico realmente desenhado.
+    referenceConventionalBelly = null;
     state.thetaDeg = u * initialConv.openLimitDeg;
     const conventional = computeLeftBinAtY(state.leftBaseY);
     const alpha = computeRightAlphaLocked();
@@ -8133,6 +8143,12 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
         shell.bezierCurveTo(cC1.x,-cC1.y,cC2.x,-cC2.y,e0.x,-e0.y);
         shell.bezierCurveTo(e1.x,-e1.y,e2.x,-e2.y,D.x,-D.y);
         shell.bezierCurveTo(c1.x,-c1.y,c2.x,-c2.y,S.x,-S.y);
+        // A cota de headroom usa exatamente estas quatro curvas cúbicas do
+        // intradorso desenhado, não a curva quadrática do bin legado.
+        referenceConventionalBelly = { cubics: [
+            [Ep,cB1,cB2,bEnd], [bEnd,cC1,cC2,e0],
+            [e0,e1,e2,D], [D,c1,c2,S]
+        ] };
         // Return along the aircraft's circular shell.
         const angS=Math.atan2(-S.y+CY,S.x),angE=Math.atan2(-Ep.y+CY,Ep.x);
         const sweep=angE-angS;
@@ -10300,7 +10316,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                         ctx,
                         toX(px), toY(currentHeadTopY),
                         toX(px), toY(ceilingY),
-                        cotaTxt, '#00ffff', 15, {x: 25, y: 0},
+                        cotaTxt, DIMENSION_COLOR, 12, {x: 20, y: 0},
                         {x1: toX(px - 4), y1: toY(currentHeadTopY), x2: toX(px + 4), y2: toY(currentHeadTopY)},
                         // Marca curta centrada na interseção exata com a curva CAD.
                         {x1: toX(px - 2), y1: toY(ceilingY), x2: toX(px + 2), y2: toY(ceilingY)}
@@ -10562,50 +10578,39 @@ window.drawUniReferenceBins = drawReferenceBins;
                 }
             }
 
-            // Anotação de primeiro plano ligada ao encosto da janela.
-            // Duas linhas mantêm a frase completa entre a cota 78.7" e
-            // a curva externa, sem cruzar a linha vertical de altura.
+            // Chamada técnica ancorada na aresta real do encosto da janela.
+            // A linha aponta para a inclinação desenhada; o texto fica horizontal.
             function drawSeatbackLeader(ctx,W,H,alpha) {
                 if (alpha <= 0) return;
                 const {toX,toY} = m4(W,H);
-                // A mesma aresta do encosto usada em drawEmbraerSeatAndDummy3D:
-                // banco de janela esquerdo, face esquerda, topo e base reais.
                 const centerX = -99.5, seatW = 46;
-                const bottom = {x:toX(centerX - seatW/2 + 1), y:toY(16*CM_PER_IN)};
-                const top = {x:toX(centerX - seatW/2 + 4.5), y:toY(40*CM_PER_IN - 12)};
-                const dx = top.x - bottom.x, dy = top.y - bottom.y;
-                const len = Math.hypot(dx, dy);
-                if (len < 1) return;
-                const ux = dx / len, uy = dy / len;
-                // Linha de chamada colinear com o encosto, sem ângulo fixo
-                // independente do desenho. Label girado no sentido legível.
-                const anchor = {x:bottom.x + dx*0.76, y:bottom.y + dy*0.76};
-                const label = 'Seatback reclines 20°';
-                const angle = Math.atan2(-uy, -ux);
+                const bottom = {x:toX(centerX-seatW/2+1), y:toY(16*CM_PER_IN)};
+                const top = {x:toX(centerX-seatW/2+4.5), y:toY(40*CM_PER_IN-12)};
+                const dx=top.x-bottom.x, dy=top.y-bottom.y;
+                if (Math.hypot(dx,dy) < 1) return;
+                const anchor={x:bottom.x+dx*0.82, y:bottom.y+dy*0.82};
+                // Patamar acima da cota de 40", para não cruzar sua linha vertical.
+                const elbow={x:anchor.x-42, y:toY(40*CM_PER_IN+12)};
+                const endX=elbow.x-66;
                 ctx.save();
                 ctx.globalAlpha *= alpha;
-                ctx.strokeStyle = '#00ffff';
-                ctx.fillStyle = '#ffffff';
-                ctx.lineWidth = 1.5;
-                ctx.shadowColor = 'rgba(0,0,0,0.9)';
-                ctx.shadowBlur = 4;
+                ctx.strokeStyle = DIMENSION_COLOR;
+                ctx.fillStyle = DIMENSION_COLOR;
+                ctx.lineWidth = 1;
                 ctx.beginPath();
-                ctx.moveTo(anchor.x, anchor.y);
-                ctx.lineTo(anchor.x - ux*24, anchor.y - uy*24);
+                ctx.moveTo(anchor.x,anchor.y);
+                ctx.lineTo(elbow.x,elbow.y);
+                ctx.lineTo(endX,elbow.y);
                 ctx.stroke();
                 ctx.beginPath();
-                ctx.arc(anchor.x, anchor.y, 2.1, 0, 2*Math.PI);
+                ctx.arc(anchor.x,anchor.y,2,0,2*Math.PI);
                 ctx.fill();
-                ctx.translate(anchor.x - ux*28, anchor.y - uy*28);
-                // Normaliza a orientação para evitar texto de cabeça para baixo.
-                let textAngle = angle;
-                if (textAngle > Math.PI/2) textAngle -= Math.PI;
-                if (textAngle < -Math.PI/2) textAngle += Math.PI;
-                ctx.rotate(textAngle);
-                ctx.font = 'bold 12px "JetBrains Mono", monospace';
+                ctx.font = '11px "JetBrains Mono", monospace';
                 ctx.textAlign = 'right';
                 ctx.textBaseline = 'bottom';
-                ctx.fillText(label, -5, -5);
+                ctx.shadowColor = 'rgba(0,2,35,0.9)';
+                ctx.shadowBlur = 3;
+                ctx.fillText('Seatback reclines 20°',elbow.x-6,elbow.y-5);
                 ctx.restore();
             }
             // Cotas da seção transversal compartilhadas com a exportação (PNG).
@@ -10625,7 +10630,7 @@ window.drawUniReferenceBins = drawReferenceBins;
 
                 drawDimensionLine(ctx,
                     toX(-25.4), toY(212), toX(25.4), toY(212),
-                    '20"', '#00ffff', 15, {x:0, y:-12});
+                    '20"', DIMENSION_COLOR, 15, {x:0, y:-12});
 
                 ctx.globalAlpha *= lowerFade;
                 const seatDimY = 16.8 * CM_PER_IN;
@@ -10633,7 +10638,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const seatDimX = seatWallX + outsideGapCm;
                 drawDimensionLine(ctx,
                     toX(seatDimX), toY(0), toX(seatDimX), toY(seatDimY),
-                    '16.8"', '#00ffff', 15, {x:22, y:0},
+                    '16.8"', DIMENSION_COLOR, 15, {x:22, y:0},
                     {x1:toX(floorHalf), y1:toY(0), x2:toX(seatDimX), y2:toY(0)},
                     {x1:toX(seatWallX), y1:toY(seatDimY), x2:toX(seatDimX), y2:toY(seatDimY)});
 
@@ -10642,7 +10647,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const backDimX = backWallX - outsideGapCm;
                 drawDimensionLine(ctx,
                     toX(backDimX), toY(0), toX(backDimX), toY(backDimY),
-                    '40.0"', '#00ffff', 15, {x:-21, y:0},
+                    '40.0"', DIMENSION_COLOR, 15, {x:-21, y:0},
                     {x1:toX(-floorHalf), y1:toY(0), x2:toX(backDimX), y2:toY(0)},
                     {x1:toX(backWallX), y1:toY(backDimY), x2:toX(backDimX), y2:toY(backDimY)});
                 ctx.restore();
