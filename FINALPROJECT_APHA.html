@@ -9695,6 +9695,8 @@ window.drawUniReferenceBins = drawReferenceBins;
             ctx.translate(-APHA_CINE_TIMELINE.enter.travelPx * scale * (1-arrival), 0);
             ctx.globalAlpha *= APHA_CINE_TIMELINE.enter.minAlpha +
                 (1-APHA_CINE_TIMELINE.enter.minAlpha)*arrival;
+            if (window.__aphaBridgeManikinAlpha != null)
+                ctx.globalAlpha *= window.__aphaBridgeManikinAlpha;
 
             // braço distante (atrás do corpo, tom mais escuro)
             pdfArm(ctx, { sh: Pp(shoulderX - 1.0, shoulderY - 0.6), el: Pp(armFar.ex, armFar.ey), hand: Pp(armFar.hx, armFar.hy),
@@ -9956,7 +9958,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                     ctx.restore();
 
                     // Card: tempo do bin convencional para 2 malas (mesma linguagem visual do cronômetro)
-                    const tc2 = manikinState.calcT_Emb * 2;
+                    const rawConventional = Number(manikinState.calcT_Emb);
+                    const tc2 = Number.isFinite(rawConventional) && rawConventional>0 ? rawConventional*2 : 21.7;
                     if (tc2 > 0) {
                         const cy = y + h + 10, ch = 80, pad = 14;
                         ctx.save();
@@ -11488,7 +11491,10 @@ window.drawUniReferenceBins = drawReferenceBins;
 
 
 
-            // Altura única em coordenadas locais dos dois canvases sobrepostos na mesma linha.\n            // Não depende do perfil, da altura projetada nem da câmera de cada bin.\n            const TOP_BIN_DIMENSION_Y = 32;\n            // Cotas comuns aos dois bins: branco puro, setas externas e etiqueta escura.
+            // Uma só altura local para os dois canvases, independente das geometrias 3D.
+            // Mantém a etiqueta e as setas inteiras dentro da área útil do canvas.
+            const TOP_BIN_DIMENSION_Y = 44;
+            // Cotas comuns aos dois bins: branco puro, setas externas e etiqueta escura.
             // Compartilhar o mesmo desenhador garante que 44" e 56" mantenham a mesma linguagem visual.
             function drawTopDimension(ctx, x1, x2, yDim, yExt, label) {
                 ctx.save();
@@ -12645,7 +12651,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                 else if(elapsed<C.zoomInMs+C.doorMs)m=b.close;
                 else m=bridgeMix(b.close,b.end,bridgeEase((elapsed-C.zoomInMs-C.doorMs)/C.zoomOutMs));
             }
-            // Uma única transformação para shell, assentos, piso, bins e manikin.\n            b.lastRendered={...m};
+            // Uma única transformação para shell, assentos, piso, bins e manikin.
+            b.lastRendered={...m};
             g.setTransform(dpr,0,0,dpr,0,0);
             g.clearRect(0,0,W,H);
             g.fillStyle=APHA_CABIN_PALETTE.background;g.fillRect(0,0,W,H);
@@ -12653,9 +12660,14 @@ window.drawUniReferenceBins = drawReferenceBins;
             const Fg=L?L.Fg:mass*9.81,Fn=L?L.Fn:Fg*Math.cos(ang*Math.PI/180),Ft=L?L.Ft:Fg*Math.sin(ang*Math.PI/180);
             const t=L?L.times[0]:ergoTimes(ERGO_PERCENTILES[0].h,mass,ang);
             const phase=b.mode==='stow'?(manikinState.phase||0):0;
-            const old=[window.__aphaOnlyCabin,window.__aphaShowConventional,window.__aphaBridgeDoorU,window.__aphaBridgeMinimalHUD];
+            const old=[window.__aphaOnlyCabin,window.__aphaShowConventional,window.__aphaBridgeDoorU,window.__aphaBridgeMinimalHUD,window.__aphaBridgeManikinAlpha];
             try{
-                window.__aphaOnlyCabin=b.mode!=='stow';
+                // Renderiza o cenário inteiro em todos os quadros. O manequim surge
+                // no final do recuo, sem trocar de canvas nem deslocar a fuselagem.
+                window.__aphaOnlyCabin=false;
+                const outU=bridgeEase((elapsed-C.zoomInMs-C.doorMs)/C.zoomOutMs);
+                window.__aphaBridgeManikinAlpha=b.mode==='stow'?1:
+                    bridgeEase((outU-.70)/.30);
                 window.__aphaShowConventional=true;
                 window.__aphaBridgeDoorU=doorU;
                 window.__aphaBridgeMinimalHUD=true;
@@ -12667,7 +12679,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             }catch(err){
                 if(!b.error){b.error=true;console.error('Continuous cabin camera:',err);}
             }finally{
-                [window.__aphaOnlyCabin,window.__aphaShowConventional,window.__aphaBridgeDoorU,window.__aphaBridgeMinimalHUD]=old;
+                [window.__aphaOnlyCabin,window.__aphaShowConventional,window.__aphaBridgeDoorU,window.__aphaBridgeMinimalHUD,window.__aphaBridgeManikinAlpha]=old;
             }
             // A geometria não sofre fade: apenas rótulos e cronômetro.
             g.save();g.setTransform(dpr,0,0,dpr,0,0);
@@ -12681,7 +12693,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                 // a estimativa convencional é fixa durante toda a estiva.
                 const cardW=Math.min(210,Math.max(156,W*.30));
                 const cardX=W-cardW-16,cardY=18,cardH=68,gap=10;
-                const convSec=Math.max(0,manikinState.calcT_Emb*2);
+                const convBase=Number(manikinState.calcT_Emb);
+                const convSec=Number.isFinite(convBase) && convBase>0?convBase*2:21.7;
                 const card=(y,label,value,color)=>{
                     g.fillStyle='rgba(0,2,35,.76)';
                     g.strokeStyle=color;g.lineWidth=1.2;
@@ -12730,7 +12743,8 @@ window.drawUniReferenceBins = drawReferenceBins;
             bridge.raf=requestAnimationFrame(tick);
             const ok=await tween(C.zoomInMs+C.doorMs+C.zoomOutMs,my,()=>{});
             if(!ok){destroyBridge();return false;}
-            // Mantém o mesmo canvas e a mesma projeção m4 no frame de junção.\n            // Renderiza explicitamente o frame terminal da câmera antes de
+            // Mantém o mesmo canvas e a mesma projeção m4 no frame de junção.
+            // Renderiza explicitamente o frame terminal da câmera antes de
             // mudar somente a camada de personagem (sem mudar a matriz).
             paintBridge(bridge.started+C.zoomInMs+C.doorMs+C.zoomOutMs);
             verifyBridgeSeam(bridge);
@@ -12764,12 +12778,11 @@ window.drawUniReferenceBins = drawReferenceBins;
             call(window.novaShowHeader,false);
             fitRec(sec, active.step);
             call(window.novaEnter);
-            // bin convencional: desenho sem cota no canvas e, por cima, uma cópia com a cota (entra em fade junto com os nomes)
+            // As duas cotas permanecem nos canvases originais: não criar cópias
+            // temporárias que possam deixar o Conventional sem sua cota.
             window.__convNoDim = false; call(window.__convDraw);
-            const ov = document.createElement('canvas'); ov.width = cvc.width; ov.height = cvc.height; ov.getContext('2d').drawImage(cvc, 0, 0);
-            ov.className = 'fx-convdim'; ov.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:0';
-            cvc.parentElement.appendChild(ov);
-            window.__convNoDim = true; call(window.__convDraw);
+            if (dim) { dim.style.transition='none'; dim.style.opacity='0'; }
+            if (cvc) { cvc.style.transition='none'; cvc.style.opacity='0'; }
             const hide = (els, v) => els.forEach(el => { el.style.transition = 'none'; el.style.opacity = v; });
             hide([dim, lab0, lab1, c1], '0'); hide([c0], '0'); sec.style.opacity = '1'; void sec.offsetHeight;
             const show = (els, ms) => els.forEach(el => { el.style.transition = `opacity ${ms / 1000}s ease-in-out`; el.style.opacity = '1'; });
@@ -12777,7 +12790,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             if (!(await tween(450 + 350, my, () => {}))) return true;
             show([c1], 650);                                     // bin convencional ao lado
             if (!(await tween(650 + 200, my, () => {}))) return true;
-            show([dim, ov, lab0, lab1], 550);                    // cotas 44" / 56" junto com os nomes ALPHA / CONVENTIONAL
+            show([dim, cvc, lab0, lab1], 550);                    // cotas 44" / 56" junto com os nomes ALPHA / CONVENTIONAL
             await tween(550, my, () => {});
             call(window.novaShowHeader,true);
             return true;
@@ -12785,7 +12798,9 @@ window.drawUniReferenceBins = drawReferenceBins;
         function fxNovaClean() {
             const sec = $('module-nova'), grid = sec && sec.querySelector('.sim-card .grid');
             if (grid) [...grid.children].forEach(c => { [c, c.lastElementChild].forEach(el => { el.style.opacity = ''; el.style.transition = ''; }); });
-            const dim = $('novaDimCanvas'); if (dim) { dim.style.opacity = ''; dim.style.transition = ''; }
+            for (const id of ['novaDimCanvas','convDimCanvas']) {
+                const canvas=$(id); if(canvas){canvas.style.opacity='';canvas.style.transition='';}
+            }
             document.querySelectorAll('.fx-convdim').forEach(e => e.remove());
             window.__convNoDim = false; call(window.__convDraw);
         }
