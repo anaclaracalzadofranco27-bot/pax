@@ -7980,7 +7980,18 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             ctx.fillStyle = color.alpha;
             ctx.fill(alphaWithCutouts, 'evenodd');
             ctx.restore();
-            ctx.lineWidth = 105; ctx.strokeStyle = color.border; ctx.stroke(alphaShell);
+            // Escurecimento progressivo da cavidade quando a persiana recolhe:
+            // preserva os recortes reais e reforça apenas a borda estrutural.
+            if (u > 0.001) {
+                ctx.save();
+                ctx.clip(alphaShell);
+                ctx.fillStyle = 'rgba(0, 4, 19,' + (0.88 * u).toFixed(3) + ')';
+                ctx.fill(alphaWithCutouts, 'evenodd');
+                ctx.restore();
+            }
+            ctx.lineWidth = 105 + 250 * u;
+            ctx.strokeStyle = u > 0.001 ? '#6c91b1' : color.border;
+            ctx.stroke(alphaShell);
             // Somente bordas finas dos vazados; nenhum preenchimento opaco.
             paintPath(ctx, ALPHA_UPPER_DETAIL, null, 'rgba(39,62,87,0.75)', 70);
             ctx.beginPath();
@@ -8028,8 +8039,8 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             }
             ctx.lineCap = 'round'; ctx.lineJoin = 'round';
             // The pale opened region exposes structure without painting an opaque face.
-            ctx.strokeStyle = 'rgba(189,220,242,' + (0.045 + 0.13 * u).toFixed(3) + ')';
-            ctx.lineWidth = 530;
+            ctx.strokeStyle = 'rgba(5, 14, 32,' + (0.42 + 0.5 * u).toFixed(3) + ')';
+            ctx.lineWidth = 1100;
             ctx.stroke();
             ctx.restore();
         }
@@ -8039,9 +8050,9 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             const smooth = reveal * reveal * (3 - 2 * reveal);
             ctx.save();
             ctx.clip(alphaShell);
-            ctx.globalAlpha *= 0.72 * smooth;
-            ctx.setLineDash([190, 135]);
-            ctx.strokeStyle = '#9bd8fa'; ctx.lineWidth = 105;
+            ctx.globalAlpha *= smooth;
+            ctx.setLineDash([220, 110]);
+            ctx.strokeStyle = '#d6f6ff'; ctx.lineWidth = 185;
             // Translucent carry-on silhouette inside the Alpha shell.
             const bx = 3900, by = 11400, bw = 5200, bh = 2550, rad = 370;
             ctx.beginPath();
@@ -8055,7 +8066,7 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             ctx.lineTo(bx, by + rad);
             ctx.quadraticCurveTo(bx, by, bx + rad, by);
             ctx.closePath();
-            ctx.fillStyle = 'rgba(103,177,227,0.12)';
+            ctx.fillStyle = 'rgba(55, 180, 235, 0.23)';
             ctx.fill(); ctx.stroke();
             ctx.setLineDash([]);
             ctx.beginPath();
@@ -8063,7 +8074,7 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             ctx.lineTo(bx + bw * .35, by - 360);
             ctx.lineTo(bx + bw * .65, by - 360);
             ctx.lineTo(bx + bw * .65, by);
-            ctx.strokeStyle = '#9bd8fa'; ctx.lineWidth = 95; ctx.stroke();
+            ctx.strokeStyle = '#dcf8ff'; ctx.lineWidth = 155; ctx.stroke();
             ctx.restore();
         }
         ctx.beginPath();
@@ -8075,7 +8086,7 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             ctx.lineWidth = 610; ctx.strokeStyle = '#143550'; ctx.stroke();
             ctx.lineWidth = 505; ctx.strokeStyle = '#4FC1FF'; ctx.stroke();
             ctx.lineWidth = 380; ctx.strokeStyle = '#569CD6'; ctx.stroke();
-            for (let d = start + 350; d < end - 300; d += 540) {
+            for (let d = start + 260; d < end - 240; d += 420) {
                 const pt = alphaTrackPointAt(d);
                 const prev = alphaTrackPointAt(Math.max(start, d - 50));
                 const next = alphaTrackPointAt(Math.min(end, d + 50));
@@ -8084,10 +8095,10 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
                 if (length < 0.001) continue;
                 const nx = -dy / length, ny = dx / length;
                 ctx.beginPath();
-                ctx.moveTo(pt[0] - nx * 216, pt[1] - ny * 216);
-                ctx.lineTo(pt[0] + nx * 216, pt[1] + ny * 216);
-                ctx.lineWidth = 46;
-                ctx.strokeStyle = 'rgba(20,53,80,0.78)';
+                ctx.moveTo(pt[0] - nx * 242, pt[1] - ny * 242);
+                ctx.lineTo(pt[0] + nx * 242, pt[1] + ny * 242);
+                ctx.lineWidth = 75;
+                ctx.strokeStyle = 'rgba(6, 30, 56, 0.95)';
                 ctx.stroke();
             }
         } else {
@@ -8099,10 +8110,10 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             // High-contrast leading grip sits on the actual moving door endpoint.
             const grip = alphaTrackPointAt(start);
             ctx.save();
-            ctx.beginPath(); ctx.arc(grip[0], grip[1], 235, 0, Math.PI * 2);
+            ctx.beginPath(); ctx.arc(grip[0], grip[1], 295, 0, Math.PI * 2);
             ctx.fillStyle = '#e4f6ff'; ctx.fill();
-            ctx.lineWidth = 85; ctx.strokeStyle = '#143550'; ctx.stroke();
-            ctx.beginPath(); ctx.arc(grip[0], grip[1], 92, 0, Math.PI * 2);
+            ctx.lineWidth = 115; ctx.strokeStyle = '#0a2b46'; ctx.stroke();
+            ctx.beginPath(); ctx.arc(grip[0], grip[1], 115, 0, Math.PI * 2);
             ctx.fillStyle = '#2185c0'; ctx.fill();
             ctx.restore();
 
@@ -8117,9 +8128,9 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
                     i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]);
                 }
                 ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-                ctx.strokeStyle = 'rgba(255,107,0,0.15)'; ctx.lineWidth = 330; ctx.stroke();
-                ctx.strokeStyle = '#ff8c42'; ctx.lineWidth = 105;
-                ctx.setLineDash([310, 270]); ctx.stroke();
+                ctx.strokeStyle = 'rgba(255,107,0,0.25)'; ctx.lineWidth = 430; ctx.stroke();
+                ctx.strokeStyle = '#ffae63'; ctx.lineWidth = 185;
+                ctx.setLineDash([360, 230]); ctx.stroke();
                 ctx.restore();
             }
             // Curved direction arrow uses the real upper guide tangent during motion.
