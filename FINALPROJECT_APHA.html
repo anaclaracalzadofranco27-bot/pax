@@ -54,12 +54,17 @@
                      zoom: 1.17, panX: -.057, panY: .072 },
             lowAngle: { start: 3.12, end: 4.30, reverseStart: 6.45, reverseEnd: 7.70,
                         zoom: 1.30, panX: -.122, panY: .127, shearX: -.021, shearY: .019 },
-            binGlow: { start: .35, end: 1.45, reverseStart: 8.55, reverseEnd: 9.75,
-                       opacity: .32, color: '255,190,108' },
-            vignetteMax: .30, rimMax: 9, rimColor: 'rgba(159,211,252,.72)',
             settle: { startPhase: .82, durationPhase: .14, amplitudePx: 2.8 }
         });
         window.APHA_CINE_TIMELINE = APHA_CINE_TIMELINE;
+        // Parâmetros de câmera única m4 (abas 5/6) e figura isolada.
+        const APHA_BRIDGE_CFG = Object.freeze({
+            zoomInMs: 760, doorMs: 1220, zoomOutMs: 1580,
+            startZoom: 1.72, closeZoom: 2.04, binFocusYcm: 173,
+            uiFadeMs: 280, figurePhase: .52, figureScale: 3,
+            figureW: 1060, figureH: 760, figureMargin: 22
+        });
+        window.APHA_BRIDGE_CFG = APHA_BRIDGE_CFG;
         tailwind.config = {
             darkMode: 'class',
             theme: {
@@ -313,6 +318,8 @@
         #aba6-module-ergo .aba6-sim-card {border:0;box-shadow:none;background:transparent;}
         #aba6-module-ergo .aba6-viewport {position:relative;width:100%;height:calc(100vh - 58px);min-height:480px;overflow:hidden;}
         #aba6-manikinCanvas {display:block;width:100%;height:100%;}
+        #tour-stage #aba6-figure-export{display:none !important;}
+        #aba6-figure-export:hover,#aba6-figure-export:focus-visible{background:#2f4a6b !important;}
         body.apha-simulation-view #aba6-module-ergo .aba6-viewport {height:100vh !important;min-height:100vh !important;}
         #tour-stage #aba6-module-ergo .aba6-viewport {height:100% !important;min-height:0 !important;}
         #tour-stage #aba6-module-ergo .sim-card {height:100% !important;}
@@ -5610,6 +5617,7 @@ function xrayRun(ms) {
                 <div class="aba6-sim-card sim-card">
                     <div class="aba6-viewport sim-bg">
                         <canvas id="aba6-manikinCanvas" aria-label="Manikin placing luggage in the Alpha overhead bin"></canvas>
+                        <button type="button" id="aba6-figure-export" title="Download a transparent high-resolution figure" style="position:absolute;right:16px;bottom:16px;z-index:5;padding:9px 14px;background:#0a1a3a;color:#d4dce6;border:1px solid #5b7b9e;border-radius:8px;font:600 11px JetBrains Mono,monospace;cursor:pointer">📷 Export figure (PNG)</button>
                     </div>
                 </div>
             </section>
@@ -5838,7 +5846,7 @@ function xrayRun(ms) {
                     </aside>
                 </div>
                 
-                <div id="uni-bin-height-compare" class="grid grid-cols-1 md:grid-cols-2 gap-3 px-4 py-3 border-t border-cad-border bg-cad-bg text-[11px] font-mono">
+                <div id="uni-bin-height-compare" hidden aria-hidden="true" style="display:none !important" class="grid grid-cols-1 md:grid-cols-2 gap-3 px-4 py-3 border-t border-cad-border bg-cad-bg text-[11px] font-mono">
                     <div><strong class="text-slate-800">HIGH FLOOR POINT · ABOVE CABIN FLOOR</strong>
                         <div class="flex gap-4 flex-wrap mt-1 text-slate-600">Conventional <b id="uni-height-conv-high">—</b> Alpha <b id="uni-height-alpha-high">—</b> <span>Δ Alpha − Conventional <b id="uni-height-delta-high">—</b></span></div>
                     </div>
@@ -6000,7 +6008,7 @@ function xrayRun(ms) {
         </section>
 
         <section id="module-tour" class="space-y-4 hidden">
-            <div id="tour-ctl-bar" class="flex justify-center items-center gap-3 flex-wrap"><button type="button" id="tour-btn" data-mode="run">▶ Run full simulation</button><button type="button" id="tour-rec">⏺ Export video (MP4)</button><button type="button" id="tour-snap" title="Runs the full simulation and saves 2 PNGs (1920×1080) per tab — one at the start and one at the end — delivered as a single ZIP">📷 Export start/end PNGs</button></div>
+            <div id="tour-ctl-bar" class="flex justify-center items-center gap-3 flex-wrap"><button type="button" id="tour-btn" data-mode="run">▶ Run full simulation</button><button type="button" id="tour-rec">⏺ Export video (MP4)</button><button type="button" id="tour-snap" title="Runs the full simulation and saves 2 PNGs (1920×1080) per tab — one at the start and one at the end — delivered as a single ZIP">📷 Export start/end PNGs</button><button type="button" id="tour-figure-export" title="Export isolated manikin, suitcase and open Alpha bin">📷 Export figure (PNG)</button></div>
             <div id="tour-stage" class="tour-frame"><i class="tw-corner c1"></i><i class="tw-corner c2"></i><i class="tw-corner c3"></i><i class="tw-corner c4"></i></div>
         </section>
     </main>
@@ -9033,6 +9041,68 @@ window.drawUniReferenceBins = drawReferenceBins;
 
         // Exporta os 3 momentos (Step 1 / 2 / 3) lado a lado em PNG com fundo transparente, como na figura de referência.
         // Se noDownload = true, apenas devolve o canvas (usado para gerar o arquivo fora da página).
+
+        // Camada vetorial separada: somente boneco, uma mala e o bin Alpha aberto.
+        // A fase escolhida é a de entrada da primeira mala, sem tocar no playback.
+        function exportAphaFigure() {
+            if (!manikinState.last) updateErgonomics();
+            const L=manikinState.last;
+            if (!L || !L.times || !L.times.length) return;
+            const C=APHA_BRIDGE_CFG,W=C.figureW,H=C.figureH,S=C.figureScale;
+            const ref=L.times[0],firstCycle=ref.tA2/(ref.tA2+ref.tA1);
+            const output=document.createElement('canvas');
+            output.width=Math.round(W*S);output.height=Math.round(H*S);
+            const g=output.getContext('2d',{alpha:true,willReadFrequently:true});
+            const prev=[window.__mkExport,window.__aphaBridgeDoorU,
+                        window.__aphaOnlyCabin,window.__aphaShowConventional,
+                        window.__aphaBridgeMinimalHUD];
+            try {
+                window.__mkExport=true;
+                window.__aphaBridgeDoorU=1;
+                window.__aphaOnlyCabin=false;
+                window.__aphaShowConventional=false;
+                window.__aphaBridgeMinimalHUD=true;
+                g.clearRect(0,0,output.width,output.height);
+                g.setTransform(S,0,0,S,0,0);
+                drawManikinPanel(g,W,H,ERGO_PERCENTILES[0].h,L.mass,L.angleDeg,
+                    L.Fg,L.Fn,L.Ft,C.figurePhase*firstCycle,ref.tA2,ref.tA1,'');
+            } catch(err) {
+                console.error('Export figure PNG:',err);
+                alert('Could not render the transparent figure.');
+                return;
+            } finally {
+                [window.__mkExport,window.__aphaBridgeDoorU,window.__aphaOnlyCabin,
+                 window.__aphaShowConventional,window.__aphaBridgeMinimalHUD]=prev;
+            }
+            const pixels=g.getImageData(0,0,output.width,output.height).data;
+            let x0=output.width,y0=output.height,x1=-1,y1=-1;
+            for(let y=0;y<output.height;y++)for(let x=0;x<output.width;x++){
+                if(pixels[(y*output.width+x)*4+3]>8){
+                    if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;
+                }
+            }
+            if(x1<0){alert('The figure was empty.');return;}
+            const margin=Math.round(C.figureMargin*S);
+            x0=Math.max(0,x0-margin);y0=Math.max(0,y0-margin);
+            x1=Math.min(output.width-1,x1+margin);y1=Math.min(output.height-1,y1+margin);
+            const crop=document.createElement('canvas');
+            crop.width=x1-x0+1;crop.height=y1-y0+1;
+            crop.getContext('2d',{alpha:true}).drawImage(
+                output,x0,y0,crop.width,crop.height,0,0,crop.width,crop.height);
+            crop.toBlob(blob=>{
+                if(!blob){alert('PNG export failed.');return;}
+                const url=URL.createObjectURL(blob),a=document.createElement('a');
+                a.href=url;a.download='boneco-mala-bin.png';
+                document.body.appendChild(a);a.click();a.remove();
+                setTimeout(()=>URL.revokeObjectURL(url),5000);
+            },'image/png');
+        }
+        window.exportAphaFigure=exportAphaFigure;
+        ['aba6-figure-export','tour-figure-export'].forEach(id=>{
+            const el=document.getElementById(id);
+            if(el)el.addEventListener('click',exportAphaFigure);
+        });
+
         function exportManikinSteps(noDownload) {
             const L = manikinState.last;
             if (!L) return null;
@@ -9480,15 +9550,13 @@ window.drawUniReferenceBins = drawReferenceBins;
                 (1 - cineWindow(t, tl.dolly.reverseStart, tl.dolly.reverseEnd));
             const low = cineWindow(t, tl.lowAngle.start, tl.lowAngle.end) *
                 (1 - cineWindow(t, tl.lowAngle.reverseStart, tl.lowAngle.reverseEnd));
-            const warm = cineWindow(t, tl.binGlow.start, tl.binGlow.end) *
-                (1 - cineWindow(t, tl.binGlow.reverseStart, tl.binGlow.reverseEnd));
             return {
                 zoom: 1 + (tl.dolly.zoom-1)*dolly +
                     (tl.lowAngle.zoom-tl.dolly.zoom)*low,
                 panX: tl.dolly.panX*dolly + (tl.lowAngle.panX-tl.dolly.panX)*low,
                 panY: tl.dolly.panY*dolly + (tl.lowAngle.panY-tl.dolly.panY)*low,
                 shearX: tl.lowAngle.shearX*low, shearY: tl.lowAngle.shearY*low,
-                focus: cineClamp(dolly+low*.15), warm
+                focus: cineClamp(dolly+low*.15)
             };
         }
         function drawManikinPanel(ctx, W, H, stature, mass, angleDeg, Fg, Fn, Ft, phase, tBack, tFront, title) {
@@ -9569,29 +9637,16 @@ window.drawUniReferenceBins = drawReferenceBins;
                     aisle, binFloor, 1, 1.0, R, centerY, false);
             if (exactCAD) {
                 const timeline = APHA_CINE_TIMELINE;
-                const doorU = ergoSmooth(phase / (timeline.doorOpen.end / timeline.duration)) *
+                const doorU = window.__aphaBridgeDoorU != null ? window.__aphaBridgeDoorU :
+                    ergoSmooth(phase / (timeline.doorOpen.end / timeline.duration)) *
                     (1 - ergoSmooth((phase - timeline.doorClose.start / timeline.duration) /
                         ((timeline.doorClose.end - timeline.doorClose.start) / timeline.duration)));
-                withAba5CabinColors(() => window.drawUniReferenceBins(ctx, W, H, 0, 1, doorU));
+                withAba5CabinColors(() => window.drawUniReferenceBins(ctx, W, H,
+                    window.__aphaShowConventional ? 1 : 0, 1, doorU));
             }
 
-            // Luz interna quente dentro do Alpha, ativada DURANTE a abertura.
-            // 100% visual: não move porta, mala, geometria ou equações de força.
-            if (!window.__mkExport) {
-                const light = cinematicFrame(phase).warm;
-                if (light > .005) rawCanvasColors(() => {
-                    ctx.save();
-                    const cx = toX(72), cy = toY(binFloor + 16);
-                    const rad = Math.max(28, 53 * scale);
-                    const gl = ctx.createRadialGradient(cx, cy, 1, cx, cy, rad);
-                    gl.addColorStop(0, 'rgba(' + APHA_CINE_TIMELINE.binGlow.color + ',' + (.32*light) + ')');
-                    gl.addColorStop(.48, 'rgba(' + APHA_CINE_TIMELINE.binGlow.color + ',' + (.13*light) + ')');
-                    gl.addColorStop(1, 'rgba(' + APHA_CINE_TIMELINE.binGlow.color + ',0)');
-                    ctx.globalCompositeOperation = 'screen';
-                    ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI*2); ctx.fill();
-                    ctx.restore();
-                });
-            }
+            // Renderiza somente a cabine durante o movimento contínuo da câmera.
+            if (window.__aphaOnlyCabin) return {tTotal: tBack + tFront, rest: true};
             const fracBack = tBack / (tBack + tFront);
             const inBackPhase = phase < fracBack;
             const mode = inBackPhase ? 'alpha2' : 'alpha1';
@@ -9626,8 +9681,6 @@ window.drawUniReferenceBins = drawReferenceBins;
             ctx.translate(-APHA_CINE_TIMELINE.enter.travelPx * scale * (1-arrival), 0);
             ctx.globalAlpha *= APHA_CINE_TIMELINE.enter.minAlpha +
                 (1-APHA_CINE_TIMELINE.enter.minAlpha)*arrival;
-            ctx.shadowColor = APHA_CINE_TIMELINE.rimColor;
-            ctx.shadowBlur = APHA_CINE_TIMELINE.rimMax * cinematicFrame(phase).focus;
 
             // braço distante (atrás do corpo, tom mais escuro)
             pdfArm(ctx, { sh: Pp(shoulderX - 1.0, shoulderY - 0.6), el: Pp(armFar.ex, armFar.ey), hand: Pp(armFar.hx, armFar.hy),
@@ -9722,12 +9775,12 @@ window.drawUniReferenceBins = drawReferenceBins;
                 ctx, shP[0], shP[1],
                 Math.max(3.5, stature * 0.052 * 0.74 * scale)
             );
-            ctx.restore(); // manikin entrance + rim; fuselage and aisle remain fixed
+            ctx.restore(); // manikin entrance; fuselage and aisle remain fixed
 
             // Mantém os cálculos para os cartões externos/exports sem desenhar telemetria.
             const ld = ergoLoad(mode, plan, pose, localPhase, Fg, Ft);
             const finished = phase >= 0.999, atRest = ld.rest || finished;
-            if (!window.__mkExport) {
+            if (!window.__mkExport && !window.__aphaBridgeMinimalHUD) {
                 // Feedback de tensão (emissão): ombro (elevação ≥ 95° âmbar / ≥ 135° vermelho) e lombar (compressão L5/S1 vs NIOSH 3400 N)
                 const trunkW = 0.4 * 78 * Math.pow(stature / 175, 2) * 9.81;
                 const FcL5 = ld.rest ? trunkW : ld.MO / 0.05 + ld.F + trunkW;
@@ -9755,7 +9808,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 }
                 ctx.restore();
             }
-            if (!window.__mkExport) {
+            if (!window.__mkExport && !window.__aphaBridgeMinimalHUD) {
                 ctx.save();
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'alphabetic';
@@ -9861,16 +9914,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             ctx.restore();
 
 
-            // Vinheta é desenhada no MESMO canvas que o vídeo grava. O HUD entra depois,
-            // sem zoom nem escurecimento, preservando legibilidade das medidas.
-            if (camera.focus > .001) rawCanvasColors(() => {
-                ctx.save();
-                const v = ctx.createRadialGradient(W*.52, H*.43, H*.14, W*.52, H*.43, Math.max(W,H)*.78);
-                v.addColorStop(0, 'rgba(0,2,35,0)');
-                v.addColorStop(1, 'rgba(0,2,35,'+(camera.focus*APHA_CINE_TIMELINE.vignetteMax)+')');
-                ctx.fillStyle=v; ctx.fillRect(0,0,W,H);
-                ctx.restore();
-            });
+            // A cena mantém a iluminação original, sem vinheta.
             // HUD minimalista: contador usa a mesma fase que governa os keyframes do manequim.
             stats.forEach((s, i) => {
                 ctx.save();
@@ -10522,6 +10566,8 @@ window.drawUniReferenceBins = drawReferenceBins;
             // roteiro (aba 8): zera sem autoplay e inicia uma única vez (evita começar, parar e reiniciar)
             window.uniTourReset = () => { U.started = true; U.customStature = null; U.playing = false; cancelAnimationFrame(U.raf); U.t = 0; U.fx = null; U.focus = 0; window.__uniRefDoorProgress=0; window.__uniSweepProgress=0; refresh(); };
             window.uniTourStart = () => { U.started = true; if (!U.playing) play(0); };
+            // Entregar ao plano único após zoom, antes da abertura das portas.
+            window.uniTourBridgeReady = () => U.t >= TL.open - .015;
             window.uniTourSet = t => { U.started = true; U.customStature = null; U.playing = false; cancelAnimationFrame(U.raf); U.t = t; U.fx = null; U.focus = 0; refresh(); };
             window.uniSetFx = (f, focus) => { U.fx = f ? Object.assign({}, f) : null; U.focus = focus || 0; refresh(); };
             window.uniTourStartAt = t => { U.started = true; U.customStature = null; play(t); };
@@ -12488,13 +12534,13 @@ window.drawUniReferenceBins = drawReferenceBins;
               enter: () => call(window.topTourReset),
               start: () => call(window.topTourStart),
               done: () => !!call(window.topTourDone) || /Restart/.test($('top-play').textContent) },
-            { key: 'unified', sec: 'module-unified', title: '5. Integrated Simulation (2D Section)', hold: 500, timeout: 90000, noFit: true,
+            { key: 'unified', sec: 'module-unified', title: '5. Integrated Simulation (2D Section)', hold: 60, timeout: 90000, noFit: true,
               morphIn: my => fxUniIn(my, 960),                   // espera a planta chegar a opacity 0 (900 ms + margem); só então a seção 2D surge e começa a se construir
               overlapMs: 700,                                    // tudo (passageiros, cotas, contorno) some junto, sem foco em um passageiro só
               after: () => { const m = $('module-unified'); if (m) m.querySelectorAll('aside, .uni-titles').forEach(el => { el.style.opacity = ''; el.style.transition = ''; el.style.animation = ''; }); call(window.uniSetFx, null, 0); },
               enter: () => call(window.uniTourReset),
               start: () => call(window.uniTourStart),
-              done: () => { const s = $('uni-scrub'); return parseFloat(s.value) >= parseFloat(s.max) - 0.05; },
+              done: () => !!call(window.uniTourBridgeReady),
               leave: () => call(window.uniPause) },
             { key: 'sim', sec: 'module-sim', title: '6. Biomechanical Validation & Boarding Time (Turnaround)', hold: 2500, timeout: 300000,
               enter: () => { window.ergoDone = false; },
