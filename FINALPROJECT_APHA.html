@@ -8085,7 +8085,9 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
         const alphaShell = new Path2D();
         ALPHA_OUTLINE.forEach((p, i) => i ? alphaShell.lineTo(p[0], p[1]) : alphaShell.moveTo(p[0], p[1]));
         alphaShell.closePath();
-        if (overrideDoorU == null) {
+        // Mesmo corpo, recortes, preenchimento e borda nas Abas 5 e 6.
+        // A diferença entre as abas é somente o tempo da porta e a telemetria.
+        {
             // Os triângulos são subpaths de recorte reais: a malha azul-escura
             // da cabine aparece através deles, sem apagar a fuselagem de fundo.
             const alphaWithCutouts = new Path2D(alphaShell);
@@ -8119,17 +8121,9 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             paintPath(ctx, ALPHA_SOURCE_RAIL, '#8298b2', null, 0);
             ctx.beginPath();
             ALPHA_TRACK.forEach((pt, i) => i ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]));
-            ctx.lineWidth = overrideDoorU == null ? 155 : 110; ctx.strokeStyle = overrideDoorU == null ? '#8DD7FF' : '#334b68'; ctx.stroke();
+            ctx.lineWidth = 155; ctx.strokeStyle = '#8DD7FF'; ctx.stroke();
             // Triângulo inferior direito também realmente vazado.
             paintPath(ctx, ALPHA_LOWER_TRIANGLE, null, 'rgba(39,62,87,0.75)', 85);
-        } else {
-            // Aba 6: mantém a silhueta sólida, o trilho e a porta cinemática originais.
-            ctx.fillStyle = color.alpha; ctx.fill(alphaShell);
-        paintPath(ctx, ALPHA_SOURCE_BODY, color.alpha, color.border, 105, true);
-        paintPath(ctx, ALPHA_SOURCE_RAIL, '#8298b2', null, 0);
-        ctx.beginPath();
-        ALPHA_TRACK.forEach((pt, i) => i ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]));
-        ctx.lineWidth = overrideDoorU == null ? 155 : 110; ctx.strokeStyle = overrideDoorU == null ? '#8DD7FF' : '#334b68'; ctx.stroke();
         }
         // Porta rolante compartilhada pelas abas 5 e 6, acompanhando
         // o trilho curvo existente sem alterar os vazados estruturais.
@@ -8163,8 +8157,8 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
         ctx.beginPath();
         pts.forEach((p, i) => i ? ctx.lineTo(p[0],p[1]) : ctx.moveTo(p[0],p[1]));
         ctx.lineCap = 'butt'; ctx.lineJoin = 'round';
-        if (overrideDoorU == null) {
-            // Aba 5: tambour destacado em ambos os estados (frente fechada
+        {
+            // Porta tambour com as MESMAS três camadas, cores e ripas das abas 5 e 6.
             // e esteira recolhida no trilho superior), com lâminas discretas.
             ctx.lineWidth = 610; ctx.strokeStyle = '#143550'; ctx.stroke();
             ctx.lineWidth = 505; ctx.strokeStyle = '#4FC1FF'; ctx.stroke();
@@ -8184,10 +8178,6 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
                 ctx.strokeStyle = 'rgba(6, 30, 56, 0.95)';
                 ctx.stroke();
             }
-        } else {
-            // A cinemática e as cores da porta na aba 6 permanecem originais.
-            ctx.lineWidth = 560; ctx.strokeStyle = '#273e57'; ctx.stroke();
-            ctx.lineWidth = 400; ctx.strokeStyle = '#9cb3ca'; ctx.stroke();
         }
         if (overrideDoorU == null) {
             // High-contrast leading grip sits on the actual moving door endpoint.
