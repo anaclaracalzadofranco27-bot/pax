@@ -4264,7 +4264,44 @@ window.drawUniReferenceBins = drawReferenceBins;
                 ctx.save();
                 ctx.beginPath(); ctx.rect(i * panelW, 0, panelW, H); ctx.clip();
                 ctx.translate(i * panelW, 0);
-                const st = drawManikinPanel(ctx, panelW, H, p.h, mass, angleDeg, Fg, Fn, Ft, localPhase, t.tA2, t.tA1, '5th Percentile Female');
+                let st;
+                try {
+                    st = drawManikinPanel(ctx, panelW, H, p.h, mass, angleDeg, Fg, Fn, Ft, localPhase, t.tA2, t.tA1, '5th Percentile Female');
+                } catch (err) {
+                    // Preserve a visible passenger and moving carry-on even if a CAD
+                    // geometry/path fails. Do not allow one failed frame to freeze the tour.
+                    if (!window.__aphaErgoRenderWarning) {
+                        console.error('Biomechanical passenger render:', err);
+                        window.__aphaErgoRenderWarning = true;
+                    }
+                    const floor = H * .86, k = Math.min(panelW / 420, H / 560);
+                    const sx = panelW * .46, sy = floor;
+                    const t = Math.max(0, Math.min(1, localPhase));
+                    const lift = Math.max(0, Math.min(1, (t - .12) / .52));
+                    const smooth = lift * lift * (3 - 2 * lift);
+                    const bagX = sx + (38 + 120 * smooth) * k;
+                    const bagY = sy - (95 + 245 * smooth) * k;
+                    ctx.save();
+                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                    ctx.strokeStyle = '#d6d9e1'; ctx.lineWidth = Math.max(5, 13*k);
+                    const seg = (x1,y1,x2,y2) => { ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); };
+                    const hipY = sy-165*k, shY = sy-280*k;
+                    seg(sx,hipY,sx-26*k,sy-75*k); seg(sx-26*k,sy-75*k,sx-41*k,sy);
+                    seg(sx,hipY,sx+25*k,sy-78*k); seg(sx+25*k,sy-78*k,sx+34*k,sy);
+                    seg(sx,hipY,sx,shY);
+                    const handX=bagX-13*k, handY=bagY+4*k;
+                    seg(sx,shY,sx+28*k,shY+45*k); seg(sx+28*k,shY+45*k,handX,handY);
+                    seg(sx,shY,sx-28*k,shY+45*k); seg(sx-28*k,shY+45*k,handX-7*k,handY+5*k);
+                    ctx.beginPath(); ctx.arc(sx,shY-35*k,26*k,0,Math.PI*2);
+                    ctx.fillStyle='#d6d9e1';ctx.fill();
+                    ctx.translate(bagX,bagY);
+                    ctx.fillStyle='#536e90';ctx.strokeStyle='#d6d9e1';ctx.lineWidth=Math.max(2,3*k);
+                    ctx.beginPath();ctx.roundRect(-31*k,-43*k,62*k,86*k,6*k);ctx.fill();ctx.stroke();
+                    ctx.beginPath();ctx.roundRect(-12*k,-55*k,24*k,12*k,4*k);ctx.stroke();
+                    for(const x of [-19,19]){ctx.beginPath();ctx.arc(x*k,46*k,5*k,0,Math.PI*2);ctx.fillStyle='#bababa';ctx.fill();}
+                    ctx.restore();
+                    st = {tTotal: tA2 + tA1};
+                }
                 ctx.restore();
                 return st;
             });
