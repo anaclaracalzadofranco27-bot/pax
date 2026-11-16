@@ -681,6 +681,17 @@
         </div>
     </header>
 
+    <style id="aba6-kiosk-layout">
+      /* Dedicated biomechanical iframe: no standalone navigation or action toolbar. */
+      html, body { margin:0 !important; padding:0 !important; width:100% !important; min-height:100vh !important; }
+      body > header, #module-ergo > .bg-cad-panel:first-child { display:none !important; }
+      body > main { max-width:none !important; width:100% !important; height:100vh !important; min-height:100vh !important; margin:0 !important; padding:0 !important; }
+      #module-sim, #module-ergo, #module-ergo > .sim-card { margin:0 !important; padding:0 !important; width:100% !important; height:100% !important; min-height:0 !important; gap:0 !important; }
+      #module-ergo > .sim-card { border:0 !important; border-radius:0 !important; }
+      #module-ergo > .sim-card > .sim-bg { height:100% !important; min-height:100% !important; }
+      #manikinCanvas { display:block !important; width:100% !important; height:100% !important; }
+    </style>
+
     <!-- MAIN WORKSPACE -->
     <main class="flex-1 max-w-[1600px] w-full mx-auto p-4 lg:p-6">
 
@@ -819,7 +830,7 @@
                 manikinState.phase = 0;
                 manikinState.animating = false;
                 hideCards();
-                setAnimLabel();
+                toggleManikinAnimation();
             }
             if (tab !== 'unified' && window.uniPause) window.uniPause();
             if (tab !== 'nova' && window.novaShowHeader) window.novaShowHeader(false);
@@ -3679,7 +3690,12 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const finished = manikinState.phase >= 1.0;
                 if (finished) manikinState.animating = false;
                 updateErgonomics();
-                if (finished) { setAnimLabel(); runResultsSequence(); }
+                if (finished) {
+                    // Continuous unattended playback: begin the next boarding cycle at 0.0 s.
+                    manikinState.phase = 0;
+                    hideCards();
+                    updateErgonomics();
+                }
             }, 40);
         }
 
@@ -5042,7 +5058,20 @@ window.drawUniReferenceBins = drawReferenceBins;
             startManikinLoop();
             if (window.resizeCAD3D) window.resizeCAD3D();
             switchTab('sim');
+            window.__aba6Booted = true;
         };
+        // The parent SPA can activate this iframe after its own DOM/load event.
+        window.addEventListener('message', event => {
+            if (event.source !== window.parent || !event.data || event.data.type !== 'apha-aba6-visibility') return;
+            if (event.data.visible) {
+                if (!window.__aba6Booted) return;
+                switchTab('sim');
+                requestAnimationFrame(() => updateErgonomics());
+            } else {
+                manikinState.animating = false;
+                setAnimLabel();
+            }
+        });
 
         // -------------------------------------------------------------------------
         // MÓDULO 6: SIMULAÇÃO CAD 3D (THREE.JS — PORTA ROLANTE 5MM & 4 MALAS IATA)
