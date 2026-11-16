@@ -253,6 +253,12 @@
         #tour-stage.rec #module-pax{position:absolute !important;inset:0 !important;margin:0 !important}
         #tour-stage.rec #module-pax .sim-card,#tour-stage.rec #pax-host{height:100%;aspect-ratio:auto}
 
+        /* Oculta somente os cabeçalhos de ações, preservando telemetria interna. */
+        #module-tour #tour-ctl-bar { display:none !important; }
+        #module-tour { row-gap:0 !important; }
+        #module-ergo > .bg-cad-panel:first-child,
+        #module-unified > .bg-cad-panel:first-of-type { display:none !important; }
+        #module-ergo, #module-unified { row-gap:0 !important; }
         /* ===== Aba 6: Full Simulation ===== */
         #module-tour #tour-btn{padding:10px 22px;font:700 12px 'JetBrains Mono',monospace;color:#000223;background:#5b7b9e;border:1px solid #5b7b9e;border-radius:8px;cursor:pointer;transition:background .2s}
         #module-tour #tour-btn:hover{background:#6d90b8}
@@ -6053,7 +6059,7 @@ function xrayRun(ms) {
             // Entrar na Aba 6 sempre parte da pega baixa da primeira mala.
             if (tab === 'sim' && previousTab !== 'sim') {
                 manikinState.phase = 0;
-                manikinState.animating = false;
+                manikinState.animating = true;
                 hideCards();
                 setAnimLabel();
             }
@@ -6081,6 +6087,7 @@ function xrayRun(ms) {
                 if (tab === 'pax' && window.paxEnter) window.paxEnter();
                 if (tab === 'nova' && window.novaEnter) { window.novaEnter(); if(window.novaShowHeader)window.novaShowHeader(true); }
                 if (tab === 'unified' && window.uniEnter) window.uniEnter();
+                if (tab === 'tour' && window.tourStart) window.tourStart();
                 
                 if (tab === 'cad3d' && window.resizeCAD3D) window.resizeCAD3D();
                 if (tab === 'closing' && window.closingEnter) window.closingEnter();   // encerramento: recalcula a escala e toca do início
@@ -10149,7 +10156,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             window.uniScrub = v => { U.customStature = null; U.playing = false; U.t = parseFloat(v); if(U.t<TL.open)window.__uniRefDoorProgress=0; refresh(); };
             window.uniPause = () => { if (U.playing) { U.playing = false; cancelAnimationFrame(U.raf); } };
             window.uniRefresh = refresh;
-            window.uniEnter = () => { if (!U.started) { U.started = true; play(0); } else refresh(); };
+            window.uniEnter = () => { U.started = true; if (!U.playing) play(U.t >= TL.total - 0.05 ? 0 : U.t); else refresh(); };
             // roteiro (aba 8): zera sem autoplay e inicia uma única vez (evita começar, parar e reiniciar)
             window.uniTourReset = () => { U.started = true; U.customStature = null; U.playing = false; cancelAnimationFrame(U.raf); U.t = 0; U.fx = null; U.focus = 0; window.__uniRefDoorProgress=0; window.__uniSweepProgress=0; refresh(); };
             window.uniTourStart = () => { U.started = true; if (!U.playing) play(0); };
@@ -10240,7 +10247,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             };
         })();
 
-        document.addEventListener('visibilitychange', () => { if (document.hidden && window.uniPause) window.uniPause(); });
+        document.addEventListener('visibilitychange', () => { if (!document.hidden && currentTab === 'unified' && window.uniEnter) window.uniEnter(); });
 
         window.addEventListener('resize', () => {
             if (currentTab === 'sim') {
@@ -10255,7 +10262,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             updateErgonomics();
             startManikinLoop();
             if (window.resizeCAD3D) window.resizeCAD3D();
-            switchTab('pax');
+            switchTab('tour');
         };
 
         // -------------------------------------------------------------------------
@@ -12405,6 +12412,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             if (window.__tourEnded) await window.__tourEnded();
             frameOn(false);
             btn.textContent = '↻ Run full simulation again'; btn.dataset.mode = 'run'; live = false;
+            if (currentTab === 'tour' && !rec && !snap) setTimeout(() => { if (currentTab === 'tour' && !live) run(0); }, 0);
         }
         function abort() {
             if (!live && !active) return;                       // nada rodando: não mexe em nada
@@ -12752,7 +12760,7 @@ window.drawUniReferenceBins = drawReferenceBins;
         };
         window.__stopTourRec = () => { if (snap) { snapFinish().then(() => abort()); return; } prevStopRec(); };
 
-        window.tourStart = () => run(0);        // chamado ao clicar na aba 8
+        window.tourStart = () => { if (!live) run(0); }; // autoplay ao abrir/retornar à aba
         window.tourAbort = abort;               // chamado ao sair da aba 8
     })();
 
