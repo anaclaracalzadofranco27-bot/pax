@@ -7394,14 +7394,15 @@ const CABIN_R = 137.00;
                 return { x: v*v*v*a.x + 3*v*v*t*b.x + 3*v*t*t*c.x + t*t*t*d.x,
                          y: v*v*v*a.y + 3*v*v*t*b.y + 3*v*t*t*c.y + t*t*t*d.y };
             };
-            // Mount the link on the *front half* of the inner door skin,
-            // rather than behind its upper shoulder. Its guide pin sits
-            // almost directly below the mount: nearly vertical at rest.
+            // Fix the moving linkage farther toward the FRONT END of the door,
+            // on its last curved section, matching the supplied red outline.
+            // The upper guide pin is raised inside the bin; the rod remains
+            // freely hinged and its guide follows the solved door motion.
             const leverMountLocal = cubicPoint(
-                ovalInner[3], ovalInner[4], ovalInner[5], ovalInner[6], 0.24);
+                ovalInner[3], ovalInner[4], ovalInner[5], ovalInner[6], 0.50);
             const leverPinClosed = {
-                x: leverMountLocal.x - 0.70,
-                y: leverMountLocal.y - 11.00
+                x: leverMountLocal.x - 3.00,
+                y: leverMountLocal.y + 12.00
             };
             const leverDx = leverMountLocal.x - leverPinClosed.x;
             const leverDy = leverMountLocal.y - leverPinClosed.y;
@@ -7438,9 +7439,11 @@ const CABIN_R = 137.00;
                 };
                 // Both spherical/revolute joints are evaluated every frame;
                 // the pin trajectory is solved from the arm's exact length.
+                // The pin follows the raised upper guide while the door tip
+                // keeps precisely the original open-stop coordinates.
                 const leverMount = move(leverMountLocal);
                 const leverAngle = leverStartAngle
-                    + (angDeg * Math.PI / 180) * 0.15;
+                    + (angDeg * Math.PI / 180) * 0.50;
                 const pin = {
                     x: leverMount.x - leverLength * Math.cos(leverAngle),
                     y: leverMount.y - leverLength * Math.sin(leverAngle)
