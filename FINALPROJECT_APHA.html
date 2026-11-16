@@ -5530,6 +5530,9 @@ function xrayRun(ms) {
         <!-- ABA 4: SIMULADOR DE EMBARQUE (manikin → embarque → Monte Carlo)          -->
         <!-- ========================================================================= -->
         <div id="module-sim" class="space-y-4 hidden">
+        <!-- Embedded replacement: standalone Tab 6 biomechanical simulator -->
+        <iframe id="aba6-engine-frame" title="Biomechanical Validation & Boarding Time" src="./FINALPROJECT_APHA_aba6_engine.html" loading="eager" style="display:block;width:100%;height:900px;min-height:75vh;border:0;border-radius:12px;background:#000223"></iframe>
+        <style>#module-sim > :not(#aba6-engine-frame):not(style){display:none!important}</style>
         <!-- ========================================================================= -->
         <section id="module-ergo" class="space-y-6">
             <div class="bg-cad-panel border border-cad-border rounded-xl p-4 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
