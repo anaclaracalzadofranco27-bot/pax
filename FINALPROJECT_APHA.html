@@ -7731,6 +7731,19 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
         // Aba 5: somente a silhueta fechada, totalmente sólida e sem cavidade/mala interna.
         // A geometria física usada nos cálculos permanece inalterada.
         paintPath(ctx, buildStaticLeftBinPath(conventional), color.conventional, color.border, 0.56);
+        // Swept sector is calculated from the actual door hinge and moving tip.
+        if(overrideDoorU==null && (window.__uniSweepProgress||0)>0){
+            const p=conventional.pvt,c=initialConv.doorClosed.tip,d=conventional.doorCurr.tip;
+            const a0=Math.atan2(p.y-c.y,c.x-p.x),a1=Math.atan2(p.y-d.y,d.x-p.x);
+            let da=a1-a0;while(da>Math.PI)da-=2*Math.PI;while(da< -Math.PI)da+=2*Math.PI;
+            const r=Math.hypot(c.x-p.x,c.y-p.y);
+            ctx.save();ctx.beginPath();ctx.moveTo(p.x,-p.y);
+            for(let i=0;i<=64;i++){const a=a0+da*i/64;ctx.lineTo(p.x+r*Math.cos(a),-p.y+r*Math.sin(a))}
+            ctx.closePath();ctx.fillStyle='rgba(255,107,0,0.22)';ctx.fill();
+            ctx.beginPath();
+            for(let i=0;i<=64;i++){const a=a0+da*i/64,x=p.x+r*Math.cos(a),y=-p.y+r*Math.sin(a);i?ctx.lineTo(x,y):ctx.moveTo(x,y)}
+            ctx.strokeStyle='#FF6B00';ctx.lineWidth=1;ctx.setLineDash([5/Math.max(.1,map.scale),5/Math.max(.1,map.scale)]);ctx.stroke();ctx.restore();
+        }
         // Restitui a porta curva e a dobradiça externa, sem o contorno
         // retangular da cavidade interna do convencional.
         paintPath(ctx, buildDoorBladePath(conventional.doorCurr), '#aebecb', color.border, 0.36);
@@ -7828,6 +7841,16 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             ctx.lineWidth = 560; ctx.strokeStyle = '#273e57'; ctx.stroke();
             ctx.lineWidth = 400; ctx.strokeStyle = '#9cb3ca'; ctx.stroke();
         }
+        // Alpha swept volume remains entirely along its internal tambour track.
+        if(overrideDoorU==null && (window.__uniSweepProgress||0)>0){
+            const first=ALPHA_TRACK_LEN*ALPHA_DOOR_FRACTION,last=first+u*(ALPHA_TRACK_LEN-first);
+            if(last>first+.001){ctx.save();ctx.beginPath();
+                const N=Math.max(8,Math.ceil((last-first)/145));
+                for(let i=0;i<=N;i++){const q=alphaTrackPointAt(first+(last-first)*i/N);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1])}
+                ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='rgba(255,107,0,0.22)';ctx.lineWidth=520;ctx.stroke();
+                ctx.strokeStyle='#FF6B00';ctx.lineWidth=115;ctx.setLineDash([380,380]);ctx.stroke();ctx.restore();
+            }
+        }
         ctx.restore();
     }
     ctx.restore();
@@ -7912,6 +7935,8 @@ window.drawUniReferenceBins = drawReferenceBins;
             let toX = (x) => padL + (x - xMin) * scale;
             let toY = (y) => H - padB - (y - yMin) * scale;
             if (opts.map) ({ toX, toY, scale } = opts.map(W, H));
+            ctx.save();
+            if(opts.camera){const c=opts.camera(W,H);if(c){ctx.translate(W/2,H/2);ctx.scale(c.k,c.k);ctx.translate(-c.x,-c.y);}}
             if (opts.before) opts.before(ctx, { W, H, toX, toY, scale });
 
             if (!opts.noGrid) {
@@ -8138,6 +8163,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             }
 
             if (opts.after) opts.after(ctx, { W, H, toX, toY, scale, g, yTopApex });
+            ctx.restore();
         }
 
         // -------------------------------------------------------------------------
@@ -9531,12 +9557,18 @@ window.drawUniReferenceBins = drawReferenceBins;
             const UNI_CAD_SEC = 0.4;                            // velocidade da construção da seção do bin nesta aba (a aba CAD 2D segue com CAD_STAGE_SEC)
             const P1 = UNI_CAD_SEC * 4;                         // 1,6 s: contorno CAD 2D (bins surgem junto com a cota Ø 108")
             const TL = { ring: P1, floor: P1 + 0.6, seats: P1 + 1.1, pax: P1 + 1.6, stat: P1 + 2.3, dur: 3.4 };
-            const TOTAL = TL.stat + TL.dur;                     // ≈ 10 s (fase de estatura em 3,4 s)
+            TL.pause=TL.stat+TL.dur; TL.zoom=TL.pause+0.5; TL.zoomDur=1.15; TL.open=TL.zoom+TL.zoomDur; TL.openDur=1.2;
+            const TOTAL=TL.open+TL.openDur;
             document.getElementById('uni-scrub').max = TOTAL;
-            const PH = [['CAD 2D Outline', 0], ['Fuselage + floor', TL.ring], ['Seats + passengers', TL.seats], ['Stature variation', TL.stat]];
+            const PH = [['CAD 2D Outline', 0], ['Fuselage + floor', TL.ring], ['Seats + passengers', TL.seats], ['Stature variation', TL.stat], ['Door envelopes', TL.zoom]];
             const U = { t: 0, playing: false, last: 0, raf: 0, started: false, g: null };
             const cl = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
-            const ph = (t0, d) => cadEase(cl((U.t - t0) / d));
+            const ph=(t0,d)=>cadEase(cl((U.t-t0)/d));
+            const cubic=x=>{x=cl(x);return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2};
+            const cameraAmount=()=>cubic((U.t-TL.zoom)/TL.zoomDur);
+            const doorAmount=()=>cubic((U.t-TL.open)/TL.openDur);
+            const cinematicCamera=(W,H)=>{const a=cameraAmount(),k=1+.72*a,cy=m4(W,H).toY(173);return {k,x:W/2,y:H/2+(cy-H/2)*a}};
+            
             const YMIN = -14;                                   // enquadra apenas do piso para cima (sem porão)
             const m4 = (W, H) => { const sc = Math.min((W - 60) / 380, (H - 50) / (230 - YMIN)), cx = W / 2; return { toX: x => cx + x * sc, toY: y => H - 22 - (y - YMIN) * sc, scale: sc }; };
             // Referência geométrica compartilhada entre a Aba 5 e a cena biomecânica da Aba 6.
@@ -9677,7 +9709,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             // Cotas da seção transversal compartilhadas com a exportação (PNG).
             // A altura geral 78.7" e a largura inferior 108" foram removidas.
             // As cotas dos bins e as folgas individuais permanecem em suas rotinas.
-            function drawInteractiveStructureDims(ctx, W, H, alpha) {
+            function drawInteractiveStructureDims(ctx, W, H, alpha, lowerFade=1) {
                 if (alpha <= 0) return;
                 const { toX, toY } = m4(W, H);
                 const C = '#7c8b9e';
@@ -9691,6 +9723,7 @@ window.drawUniReferenceBins = drawReferenceBins;
 
                 // Altura nominal do assento conforme a cota solicitada.
                 // O modelo da cadeira e a antropometria permanecem intactos.
+                ctx.globalAlpha *= lowerFade;
                 const seatDimY = 16.8 * CM_PER_IN;
                 drawDimensionLine(ctx,
                     toX(138), toY(0), toX(138), toY(seatDimY),
@@ -9712,21 +9745,26 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const seats = ph(TL.seats, 0.6), pax = ph(TL.pax, 0.6), st = stature();
                 window.drawSeatedScene(ctx, m.W, m.H, {
                     hAisle: st, hWin: st, backAng: window.SEATED_STAT.backAng, map: m4,
-                    layers: { seats, pax, dims: seats }
+                    layers: { seats:seats*(1-cameraAmount()), pax:pax*(1-cameraAmount()), dims:seats*(1-cameraAmount()) }
                 });
                 // Cotas idênticas na visualização e no canvas de exportação.
-                drawInteractiveStructureDims(ctx,m.W,m.H,seats);
+                drawInteractiveStructureDims(ctx,m.W,m.H,seats,1-cameraAmount());
                 const i = phaseIdx();
                 ctx.save(); ctx.font = 'bold 13px "JetBrains Mono", monospace'; ctx.textAlign = 'left'; ctx.fillStyle = '#434697';
-                if (!U.exporting && !inTourView()) ctx.fillText(`PHASE ${i + 1}/4 — ${PH[i][0].toUpperCase()}`, 16, m.H - 14); ctx.restore();
+                if (!U.exporting && !inTourView()) ctx.fillText(`PHASE ${i + 1}/${PH.length} — ${PH[i][0].toUpperCase()}`, 16, m.H - 14); ctx.restore();
             }
 
             function refresh() {
                 U.g = U.g || computeAllGeometries();
-                const T1 = Math.min(4, U.t / UNI_CAD_SEC);
+                const T1=Math.min(4,U.t/UNI_CAD_SEC);
+                if(U.playing && U.t<TL.open)window.__uniRefDoorProgress=0;
+                if(U.t>=TL.open)window.__uniRefDoorProgress=doorAmount();
+                window.__uniSweepProgress=U.t>=TL.open?doorAmount():0;
+                const slider=document.getElementById('uni-bin-door-slider'),pct=document.getElementById('uni-bin-door-pct');
+                if(U.t>=TL.open){if(slider)slider.value=Math.round(100*window.__uniRefDoorProgress);if(pct)pct.textContent=Math.round(100*window.__uniRefDoorProgress)+'%'}
                 window.BIN_SOLID = true; window.BIN_DARK = true;   // paleta escura (#5b7b9e · #9ba9b5 · #bababa, poltronas #2f4a6b) também na tela
                 try {
-                    drawCADCanvas(U.g, { canvasId: 'uniCanvas', referenceBins: true, noBags: true, noLegend: inTourView(), finalDims: true, minimalDims: true, T: T1, map: m1, noGrid: true, dimFade: 1 - ph(TL.ring, 0.5), fade: U.fx || null, before, after });
+                    drawCADCanvas(U.g, { canvasId: 'uniCanvas', referenceBins: true, noBags: true, noLegend: inTourView(), finalDims: true, minimalDims: true, T: T1, map: m1, camera:cinematicCamera, noGrid: true, dimFade: 1 - ph(TL.ring, 0.5), fade: U.fx || null, before, after });
                     if (U.focus > 0) {   // foco no passageiro da janela (ponta esquerda): o resto do desenho cai para ~18% de opacidade (a malha do quadro não muda)
                         const cvs = document.getElementById('uniCanvas'), box = cvs.parentElement, W = box.offsetWidth, H = box.offsetHeight;
                         const m = m4(W, H), g2 = cvs.getContext('2d'), dpr = cvs.width / Math.max(1, W);
@@ -9751,7 +9789,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                             ctx.save();
                             ctx.setTransform(cv.width/rect.width,0,0,
                                 cv.height/rect.height,0,0);
-                            drawSeatbackLeader(ctx,rect.width,rect.height,ph(TL.seats,0.6));
+                            drawSeatbackLeader(ctx,rect.width,rect.height,ph(TL.seats,0.6)*(1-cameraAmount()));
                             ctx.restore();
                         }
                     }
@@ -9821,6 +9859,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             }
             function play(from) {
                 if (from != null) U.t = from;
+                if(U.t<TL.open){window.__uniRefDoorProgress=0;window.__uniSweepProgress=0;}
                 U.playing = true; U.last = performance.now();
                 cancelAnimationFrame(U.raf); U.raf = requestAnimationFrame(tick); refresh();
             }
@@ -9828,9 +9867,9 @@ window.drawUniReferenceBins = drawReferenceBins;
             // Tempo exato na fase 4 em que a curva de estatura passa por WORLD_MEAN_CM (165,0 cm)
             const T_WORLD_MEAN = TL.stat + TL.dur * Math.acos(1 - 2 * (WORLD_MEAN_CM - window.SEATED_STAT.min) / (window.SEATED_STAT.max - window.SEATED_STAT.min)) / Math.PI;
 
-            window.uniGo = i => { U.customStature = null; play(PH[i][1]); };
+            window.uniGo = i => { U.customStature = null; if(i===0)window.__uniRefDoorProgress=0; play(PH[i][1]); };
             window.uniTogglePlay = () => { U.customStature = null; if (U.playing) { U.playing = false; refresh(); } else play(U.t >= TOTAL - 0.01 ? 0 : U.t); };
-            window.uniScrub = v => { U.customStature = null; U.playing = false; U.t = parseFloat(v); refresh(); };
+            window.uniScrub = v => { U.customStature = null; U.playing = false; U.t = parseFloat(v); if(U.t<TL.open)window.__uniRefDoorProgress=0; refresh(); };
             window.uniPause = () => { if (U.playing) { U.playing = false; cancelAnimationFrame(U.raf); } };
             window.uniRefresh = refresh;
             window.uniEnter = () => { if (!U.started) { U.started = true; play(0); } else refresh(); };
@@ -9855,18 +9894,24 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const statCm = isP95 ? window.SEATED_STAT.max : WORLD_MEAN_CM;
                 const statName = isP95 ? 'P95 MALE' : 'WORLD AVERAGE';
                 // Posiciona a simulação exatamente na estatura exportada (Média Mundial 165,0 cm / 65,0" ou P95 Male)
-                const prev = { t: U.t, custom: U.customStature, playing: U.playing };
+                const prev = { t: U.t, custom: U.customStature, playing: U.playing,door:window.__uniRefDoorProgress };
                 U.exporting = true; window.EXPORT_EN = true;
                 U.playing = false;
                 cancelAnimationFrame(U.raf);
-                U.t = isP95 ? TOTAL : T_WORLD_MEAN;
-                U.customStature = statCm;
+                const exportFinalDoorState=prev.t>=TOTAL-.01;
+                U.t=exportFinalDoorState?TOTAL:(isP95?TL.pause:T_WORLD_MEAN);
+                U.customStature=exportFinalDoorState?window.SEATED_STAT.max:statCm;
                 refresh();
 
                 // Cria canvas offscreen em resolução 4K UHD (3840 × 2160 = 1920×1080 com dpr=2 para nitidez proporcional perfeita)
                 const offscreen = document.createElement('canvas');
                 U.g = U.g || computeAllGeometries();
-                const T1 = Math.min(4, U.t / UNI_CAD_SEC);
+                const T1=Math.min(4,U.t/UNI_CAD_SEC);
+                if(U.playing && U.t<TL.open)window.__uniRefDoorProgress=0;
+                if(U.t>=TL.open)window.__uniRefDoorProgress=doorAmount();
+                window.__uniSweepProgress=U.t>=TL.open?doorAmount():0;
+                const slider=document.getElementById('uni-bin-door-slider'),pct=document.getElementById('uni-bin-door-pct');
+                if(U.t>=TL.open){if(slider)slider.value=Math.round(100*window.__uniRefDoorProgress);if(pct)pct.textContent=Math.round(100*window.__uniRefDoorProgress)+'%'}
                 window.BIN_SOLID = true; window.BIN_DARK = o.palette === 'dark';
                 try {
                 drawCADCanvas(U.g, {
@@ -9879,6 +9924,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                     bgFill: o.transparent ? null : '#f5f5f5',   // null → PNG com fundo transparente
                     T: T1,
                     map: m1,
+                    camera:cinematicCamera,
                     noGrid: true,
                     finalDims: true,
                     minimalDims: true,
@@ -9891,9 +9937,9 @@ window.drawUniReferenceBins = drawReferenceBins;
                         ctx.font = 'bold 13px "JetBrains Mono", monospace';
                         ctx.textAlign = 'right';
                         ctx.fillStyle = '#0e7490';
-                        ctx.fillText(`STATURE: ${statName} (${fmtIn(statCm, 1)})`, m.W - 20, m.H - 14);
+                        if(!exportFinalDoorState)ctx.fillText(`STATURE: ${statName} (${fmtIn(statCm, 1)})`, m.W - 20, m.H - 14);
                         ctx.restore();
-                        drawSeatbackLeader(ctx,m.W,m.H,ph(TL.seats,0.6));
+                        drawSeatbackLeader(ctx,m.W,m.H,ph(TL.seats,0.6)*(1-cameraAmount()));
                     }
                 });
 
@@ -9901,7 +9947,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 window.BIN_SOLID = false;
                 U.exporting = false; window.EXPORT_EN = false;
                 // devolve a tela ao estado em que estava antes da exportação
-                U.t = prev.t; U.customStature = prev.custom; refresh();
+                U.t = prev.t; U.customStature = prev.custom; window.__uniRefDoorProgress=prev.door; refresh();
                 if (prev.playing) play(U.t);
                 offscreen.toBlob(blob => {
                     if (!blob) return;
