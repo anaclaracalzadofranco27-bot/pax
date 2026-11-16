@@ -7928,6 +7928,14 @@ const clamp = n => Math.max(0, Math.min(1, n));
 const color = { conventional: APHA_CABIN_PALETTE.neutral, alpha: APHA_CABIN_PALETTE.mid,
                 underside: APHA_CABIN_PALETTE.muted, border: APHA_CABIN_PALETTE.binOutline,
                 cavity: APHA_CABIN_PALETTE.binCavity };
+// Single CAD styling source for the Alpha body in tabs 5 and 6.
+// Keep the exact SVG paths; do not replace them with generic rectangles.
+const ALPHA_CAD_STYLE = Object.freeze({
+    shell: 'rgba(74, 144, 226, 0.45)',
+    outline: '#4a90e2',
+    inner: '#2a6fc9',
+    innerWash: 'rgba(74, 144, 226, 0.16)'
+});
 function paintPath(ctx, d, fill, stroke, lw, evenodd) {
     const p = new Path2D(d);
     if (fill) { ctx.fillStyle = fill; ctx.fill(p, evenodd ? 'evenodd' : 'nonzero'); }
@@ -8150,9 +8158,9 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             alphaWithCutouts.addPath(new Path2D(ALPHA_LOWER_TRIANGLE));
             ctx.save();
             ctx.clip(alphaShell);
-            // Paredes a 50%: Alpha claramente visível, sem ocultar as malas.
-            // Geometria e transparência idênticas nas Abas 5 e 6.
-            ctx.fillStyle = APHA_CABIN_PALETTE.rgba('mid', 0.50);
+            // Paredes azuis com 45% de opacidade: visíveis sem esconder as malas.
+            // A mesma transparência é usada nas abas 5/6 (desenho compartilhado).
+            ctx.fillStyle = ALPHA_CAD_STYLE.shell;
             ctx.fill(alphaWithCutouts, 'evenodd');
             ctx.restore();
             // Escurecimento progressivo da cavidade quando a persiana recolhe:
@@ -8167,7 +8175,7 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
                 ctx.restore();
             }
             ctx.lineWidth = 105 + 250 * u;
-            ctx.strokeStyle = u > 0.001 ? '#6c91b1' : color.border;
+            ctx.strokeStyle = ALPHA_CAD_STYLE.outline;
             ctx.stroke(alphaShell);
             // Somente bordas finas dos vazados; nenhum preenchimento opaco.
             paintPath(ctx, ALPHA_UPPER_DETAIL, null, 'rgba(39,62,87,0.75)', 70);
@@ -8175,13 +8183,16 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             ctx.moveTo(2882.10, 9351.24);
             ctx.bezierCurveTo(4353.21, 9328.50, 7185.94, 9385.51, 7185.94, 9385.51);
             ctx.lineWidth = 78; ctx.strokeStyle = '#8298b2'; ctx.stroke();
-            // A parede interna escalonada vem do contorno SVG real. Primeiro
-            // a cor translúcida, DEPOIS o traço interno (não um bin oco).
-            // O recorte impede que suas guias ultrapassem a casca do Alpha.
+            // Interior escalonado: reutiliza os paths SVG originais, não linhas
+            // aproximadas. Primeiro o preenchimento translúcido da parede,
+            // depois o perfil em escada em azul mais escuro, sempre recortado
+            // dentro do contorno externo para não criar resíduos visuais.
             ctx.save();
             ctx.clip(alphaShell);
             paintPath(ctx, ALPHA_SOURCE_RAIL,
-                APHA_CABIN_PALETTE.rgba('mid', 0.16), '#315c83', 105);
+                ALPHA_CAD_STYLE.innerWash, ALPHA_CAD_STYLE.inner, 120);
+            paintPath(ctx, ALPHA_SOURCE_INNER,
+                null, ALPHA_CAD_STYLE.inner, 95);
             ctx.restore();
             ctx.beginPath();
             ALPHA_TRACK.forEach((pt, i) => i ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]));
