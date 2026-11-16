@@ -259,6 +259,9 @@
         body.apha-simulation-view > main { max-width:none !important; width:100% !important; min-height:100vh !important; padding:0 !important; margin:0 !important; }
         body.apha-simulation-view #module-sim { margin:0 !important; padding:0 !important; min-height:100vh !important; gap:0 !important; }
         body.apha-simulation-view #module-sim > #aba6-engine-frame { height:100vh !important; min-height:100vh !important; border:0 !important; border-radius:0 !important; }
+        /* When the full presentation borrows Tab 6, fit its embedded canvas into the 16:9 frame. */
+        #tour-stage.rec #module-sim { position:absolute !important; inset:2.2% !important; margin:0 !important; padding:0 !important; width:auto !important; height:auto !important; }
+        #tour-stage.rec #module-sim > #aba6-engine-frame { display:block !important; width:100% !important; height:100% !important; min-height:0 !important; max-height:100% !important; border:0 !important; }
         /* An unobtrusive exit is needed when the global navigation header is hidden. */
         #apha-return-tabs {display:none;position:fixed;left:14px;bottom:14px;z-index:70;padding:7px 12px;background:rgba(10,26,58,.9);color:#d4dce6;border:1px solid #5b7b9e;border-radius:8px;font:600 11px 'JetBrains Mono',monospace;cursor:pointer}
         body.apha-simulation-view #apha-return-tabs {display:block !important}
@@ -6117,8 +6120,12 @@ function xrayRun(ms) {
             }
             frame.addEventListener('load', syncVisibility);
             window.addEventListener('message', event => {
-                if (event.source === frame.contentWindow && event.data && event.data.type === 'apha-aba6-ready') {
+                if (event.source !== frame.contentWindow || !event.data) return;
+                if (event.data.type === 'apha-aba6-ready') {
                     syncVisibility();
+                } else if (event.data.type === 'apha-aba6-cycle-complete') {
+                    const stage = document.getElementById('tour-stage');
+                    if (stage && stage.contains(document.getElementById('module-sim'))) window.ergoDone = true;
                 }
             });
         })();
@@ -12165,14 +12172,11 @@ window.drawUniReferenceBins = drawReferenceBins;
               start: () => call(window.uniTourStart),
               done: () => { const s = $('uni-scrub'); return parseFloat(s.value) >= parseFloat(s.max) - 0.05; },
               leave: () => call(window.uniPause) },
-            { key: 'sim', sec: 'module-sim', title: '6. Biomechanical Validation & Boarding Time (Turnaround)', hold: 0, timeout: 300000,
-              enter: () => { window.ergoDone = false; call(() => { showManikin(); updateErgonomics(); }); },
-              start: () => call(toggleManikinAnimation),
+            { key: 'sim', sec: 'module-sim', title: '6. Biomechanical Validation & Boarding Time (Turnaround)', hold: 2500, timeout: 300000,
+              enter: () => { window.ergoDone = false; },
+              start: () => { const f = $('aba6-engine-frame'); if (f && f.contentWindow) f.contentWindow.postMessage({type:'apha-aba6-visibility', visible:true, tour:true}, '*'); },
               done: () => window.ergoDone === true,
-              leave: () => call(() => {
-                  cancelResultsSequence(); manikinState.animating = false;
-                  showManikin();
-              }) },
+              leave: () => { const f = $('aba6-engine-frame'); if (f && f.contentWindow) f.contentWindow.postMessage({type:'apha-aba6-visibility', visible:false, tour:false}, '*'); } },
             // ato de encerramento (30 s): começa logo depois da biomecânica (fade sem sobreposição: a biomecânica some por inteiro,
             // depois o encerramento surge sobre a mesma malha do quadro). Só termina depois da revelação da logo (30 s).
             { key: 'closing', sec: 'module-closing', title: '7. Closing – Benefits, Feasibility & Compliance (30 s)', hold: 400, timeout: 40000, noFit: true,
