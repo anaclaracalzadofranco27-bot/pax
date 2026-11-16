@@ -34,6 +34,32 @@
             });
         })();
         window.APHA_CABIN_PALETTE = APHA_CABIN_PALETTE;
+        // Blueprint físico único. A grade acompanha o referencial da cabine
+        // em vez de ser redesenhada com passo/cor distintos na Aba 5 e Aba 6.
+        const APHA_BLUEPRINT = Object.freeze({
+            background: APHA_CABIN_PALETTE.background,
+            grid: APHA_CABIN_PALETTE.rgba('mid', 0.12),
+            gridStepCm: 10 * 2.54
+        });
+        window.APHA_BLUEPRINT = APHA_BLUEPRINT;
+        function drawAphaCabinGrid(ctx, toX, toY) {
+            const step = APHA_BLUEPRINT.gridStepCm;
+            ctx.save();
+            ctx.strokeStyle = APHA_BLUEPRINT.grid;
+            ctx.lineWidth = 1;
+            for (let i = -7; i <= 7; i++) {
+                const x = toX(i * step);
+                ctx.beginPath(); ctx.moveTo(x, toY(-8));
+                ctx.lineTo(x, toY(225)); ctx.stroke();
+            }
+            for (let i = 0; i <= 8; i++) {
+                const y = toY(i * step);
+                ctx.beginPath(); ctx.moveTo(toX(-180), y);
+                ctx.lineTo(toX(180), y); ctx.stroke();
+            }
+            ctx.restore();
+        }
+        window.drawAphaCabinGrid = drawAphaCabinGrid;
         // Dimensões físicas compartilhadas pela projeção m4 (centímetros).
         const APHA_CABIN_GEOMETRY = Object.freeze({
             fuselageRadiusCm: 137.16, fuselageCenterYCm: 62.84,
@@ -42,7 +68,8 @@
         });
         window.APHA_CABIN_GEOMETRY = APHA_CABIN_GEOMETRY;
         Object.entries({
-            '--apha-bg': APHA_CABIN_PALETTE.background,
+            '--apha-bg': APHA_BLUEPRINT.background,
+            '--apha-grid': APHA_BLUEPRINT.grid,
             '--apha-border': APHA_CABIN_PALETTE.border,
             '--apha-mid': APHA_CABIN_PALETTE.mid,
             '--apha-muted': APHA_CABIN_PALETTE.muted,
@@ -70,7 +97,7 @@
             zoomInMs: 0, doorMs: 0, zoomOutMs: 1580,
             startZoom: 1.72, closeZoom: 2.04, binFocusYcm: 173,
             startOffsetSeconds: 0.5,
-            uiFadeMs: 280, figurePhase: .52, figureScale: 3,
+            uiFadeMs: 280, figurePhase: .83, figureScale: 3,
             figureW: 1060, figureH: 760, figureMargin: 22
         });
         window.APHA_BRIDGE_CFG = APHA_BRIDGE_CFG;
@@ -153,7 +180,7 @@
             transform: scale(1.2);
         }
         /* Fundo único das simulações = plano quadriculado */
-        .sim-bg{background-color:var(--apha-bg);background-image:linear-gradient(to right,var(--apha-mid-10) 1px,transparent 1px),linear-gradient(to bottom,var(--apha-mid-10) 1px,transparent 1px);background-size:48px 48px}
+        .sim-bg{background-color:var(--apha-bg);background-image:linear-gradient(to right,var(--apha-grid) 1px,transparent 1px),linear-gradient(to bottom,var(--apha-grid) 1px,transparent 1px);background-size:48px 48px}
         #aba6-module-ergo .sim-bg{background:var(--apha-bg)}   /* viewport biomecânico: fundo escuro (mesma paleta da simulação integrada) */
         #aba6-module-ergo .sim-card > div:first-child{background:var(--apha-bg);border-color:var(--apha-mid-45)}
         #aba6-module-ergo .sim-card > div:first-child span, #aba6-module-ergo .sim-card > div:first-child div{color:var(--apha-muted)}
@@ -223,7 +250,7 @@
         .tour-frame .c1{top:8px;left:8px;border-right:0;border-bottom:0}.tour-frame .c2{top:8px;right:8px;border-left:0;border-bottom:0}
         .tour-frame .c3{bottom:8px;left:8px;border-right:0;border-top:0}.tour-frame .c4{bottom:8px;right:8px;border-left:0;border-top:0}
         .tour-frame{--cy:91,123,158;position:relative;overflow:hidden;border:1px solid rgba(91,123,158,0.35);border-radius:16px;padding:32px 30px 34px;
-            background-color:#000223;background-image:linear-gradient(to right,rgba(91,123,158,0.09) 1px,transparent 1px),linear-gradient(to bottom,rgba(91,123,158,0.09) 1px,transparent 1px),radial-gradient(ellipse at 50% 35%,#0a1a3a 0%,#000223 100%);background-size:48px 48px,48px 48px,100% 100%}
+            background-color:var(--apha-bg);background-image:linear-gradient(to right,var(--apha-grid) 1px,transparent 1px),linear-gradient(to bottom,var(--apha-grid) 1px,transparent 1px);background-size:48px 48px}
         #tour-stage.tour-frame{display:none}
         #tour-stage.tour-frame.on{display:block}
         #tour-stage .sim-bg{background:none}            /* a malha única do quadro aparece atrás de todas as simulações */
@@ -410,7 +437,7 @@
            (position:absolute; inset:0), sem fundo sólido. O fundo é a malha blueprint do projeto.
            =================================================================================================== */
         #closing-host{position:relative;width:min(100%,calc(85vh*16/9));aspect-ratio:16/9;margin:0 auto;overflow:hidden;border:1px solid rgba(91,123,158,0.35);border-radius:16px;
-            background-color:#000223;background-image:linear-gradient(to right,rgba(91,123,158,0.09) 1px,transparent 1px),linear-gradient(to bottom,rgba(91,123,158,0.09) 1px,transparent 1px),radial-gradient(ellipse at 50% 35%,#0a1a3a 0%,#000223 100%);background-size:48px 48px,48px 48px,100% 100%}
+            background-color:var(--apha-bg);background-image:linear-gradient(to right,var(--apha-grid) 1px,transparent 1px),linear-gradient(to bottom,var(--apha-grid) 1px,transparent 1px);background-size:48px 48px}
         #closing-root{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;background:transparent;color-scheme:dark}
         #module-closing #closing-ctl button{padding:8px 18px;font:700 12px 'JetBrains Mono',monospace;color:#000223;background:#5b7b9e;border:1px solid #5b7b9e;border-radius:8px;cursor:pointer}
         #module-closing #closing-ctl button:hover{background:#6d90b8}
@@ -8095,7 +8122,9 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             alphaWithCutouts.addPath(new Path2D(ALPHA_LOWER_TRIANGLE));
             ctx.save();
             ctx.clip(alphaShell);
-            ctx.fillStyle = color.alpha;
+            // Paredes ghost a 12%: a carga e o passageiro continuam legíveis
+            // durante a inserção; o contorno CAD e a porta conservam as cores.
+            ctx.fillStyle = APHA_CABIN_PALETTE.rgba('mid', 0.12);
             ctx.fill(alphaWithCutouts, 'evenodd');
             ctx.restore();
             // Escurecimento progressivo da cavidade quando a persiana recolhe:
@@ -8103,7 +8132,9 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             if (u > 0.001) {
                 ctx.save();
                 ctx.clip(alphaShell);
-                ctx.fillStyle = 'rgba(0, 4, 19,' + (0.88 * u).toFixed(3) + ')';
+                // A cavidade aberta é sombreada levemente, não coberta por uma
+                // máscara opaca que esconderia o conteúdo atrás da parede.
+                ctx.fillStyle = APHA_CABIN_PALETTE.rgba('darkOutline', 0.18 * u);
                 ctx.fill(alphaWithCutouts, 'evenodd');
                 ctx.restore();
             }
@@ -8315,7 +8346,7 @@ window.drawUniReferenceBins = drawReferenceBins;
 
             if (!opts.noGrid) {
             // Grid técnico CAD (a cada 10")
-            ctx.strokeStyle = 'rgba(67, 70, 151, 0.18)';
+            ctx.strokeStyle = APHA_BLUEPRINT.grid;
             ctx.lineWidth = 1;
             ctx.fillStyle = '#64748b';
             ctx.font = '9.5px "JetBrains Mono", monospace';
@@ -9063,6 +9094,8 @@ window.drawUniReferenceBins = drawReferenceBins;
             const L=manikinState.last;
             if (!L || !L.times || !L.times.length) return;
             const C=APHA_BRIDGE_CFG,W=C.figureW,H=C.figureH,S=C.figureScale;
+            // 83% da trajetória da primeira mala (alpha2), não 83% do ciclo
+            // global de duas malas. Não altera autoplay, cronômetro nem pose ao vivo.
             const ref=L.times[0],firstCycle=ref.tA2/(ref.tA2+ref.tA1);
             const output=document.createElement('canvas');
             output.width=Math.round(W*S);output.height=Math.round(H*S);
@@ -9072,6 +9105,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                         window.__aphaBridgeMinimalHUD];
             try {
                 window.__mkExport=true;
+                // Nesta fase (antes da soltura), a porta ainda está aberta.
                 window.__aphaBridgeDoorU=1;
                 window.__aphaOnlyCabin=false;
                 window.__aphaShowConventional=false;
@@ -9598,20 +9632,10 @@ window.drawUniReferenceBins = drawReferenceBins;
             const binFloor = cabin ? cabin.binFloorY()
                 : centerY + Math.sqrt(R * R - aisle * aisle) - 20.0 * CM_PER_IN;
 
-            // Blueprint de fundo, sem régua de altura, marcas ou cotas.
+            // O mesmo grid físico da Aba 5 acompanha a câmera, sem salto de passo/cor.
+            // Figure Export permanece em PNG transparente, sem fundo nem grid.
             if (!window.__mkExport) {
-                ctx.save();
-                ctx.strokeStyle = 'rgba(67, 70, 151, 0.12)';
-                ctx.lineWidth = 1;
-                for (let x = -175; x <= 175; x += 25) {
-                    ctx.beginPath(); ctx.moveTo(toX(x), toY(-8));
-                    ctx.lineTo(toX(x), toY(225)); ctx.stroke();
-                }
-                for (let y = 0; y <= 225; y += 25) {
-                    ctx.beginPath(); ctx.moveTo(toX(-180), toY(y));
-                    ctx.lineTo(toX(180), toY(y)); ctx.stroke();
-                }
-                ctx.restore();
+                drawAphaCabinGrid(ctx, toX, toY);
                 if (cabin) withAba5CabinColors(() => cabin.drawShell(ctx, toX, toY, scale));
             }
 
@@ -9878,6 +9902,8 @@ window.drawUniReferenceBins = drawReferenceBins;
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             const W = rect.width, H = rect.height;
             ctx.clearRect(0, 0, W, H);
+            ctx.fillStyle = APHA_BLUEPRINT.background;
+            ctx.fillRect(0, 0, W, H);
 
             // O relógio é único: a fase global é a fração do ciclo do percentil mais lento.
             // Cada manikin termina no seu próprio tempo e aguarda os demais.
@@ -10361,10 +10387,9 @@ window.drawUniReferenceBins = drawReferenceBins;
             const inTourView = () => !!document.querySelector('#tour-stage #uniCanvas');
             function before(ctx, m) {
                 const { toX, toY, scale } = m4(m.W, m.H);   // eixo com y=0 no piso
-                ctx.strokeStyle = 'rgba(67, 70, 151, 0.12)'; ctx.lineWidth = 1;
-                if (!U.exporting && !inTourView()) {   // a imagem exportada (e o vídeo) saem sem o fundo quadriculado interno
-                for (let x = -175; x <= 175; x += 25) { ctx.beginPath(); ctx.moveTo(toX(x), toY(-8)); ctx.lineTo(toX(x), toY(225)); ctx.stroke(); }
-                for (let y = 0; y <= 225; y += 25) { ctx.beginPath(); ctx.moveTo(toX(-180), toY(y)); ctx.lineTo(toX(180), toY(y)); ctx.stroke(); }
+                if (!U.exporting && !inTourView()) {
+                    // Referencial idêntico ao do manikin e à ponte da câmera.
+                    drawAphaCabinGrid(ctx, toX, toY);
                 }
                 const p = cl((U.t - TL.ring) / 0.8);          // trechos laterais da fuselagem até o piso (y=0), sem porão
                 if (p > 0) {
