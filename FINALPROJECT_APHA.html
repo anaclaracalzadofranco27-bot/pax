@@ -7798,7 +7798,7 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
         // current oval profile (reverse) -> moving upper-edge path (reverse).
         // Add every sampled blade silhouette to capture the entire physical
         // swept union, including possible curvature/intermediate extrema.
-        if (overrideDoorU == null && (window.__uniSweepProgress || 0) > 0) {
+        if (overrideDoorU == null && u > 0) {
             const poses = conventional.doorPoseTrail;
             const tips = conventional.doorTipTrail;
             if (poses.length > 1) {
