@@ -7256,9 +7256,10 @@ const CABIN_R = 137.00;
                 x: seatedBagTopRight.x - 10.65,
                 y: seatedBagTopRight.y + 5.15
             };
-            const railStart = { x: pvt.x, y: pvt.y };
-            // Backward (negative X), modestly downward (negative Y) during opening.
-            const railEnd = { x: pvt.x - 8.50, y: pvt.y - 5.20 };
+            // Virtual centre governs the door's rotation/translation, NOT the
+            // visible lever pivot. The latter is a freely articulating pin.
+            const carriageTravel = { x: -8.50, y: -5.20 };
+            const leverPinClosed = { x: pvt.x - 8.00, y: pvt.y - 10.50 };
             const CONVENTIONAL_DOOR_OPEN_DEG = 88.0;
 
             // No vertical lip/step: the front door meets the continuous
@@ -7414,6 +7415,22 @@ const CABIN_R = 137.00;
             const ovalOuter = makeSemiEllipticProfile(bladeTopOuter, doorTipOuter, doorOuterCtrl);
             const ovalInner = makeSemiEllipticProfile(bladeTopInner, doorTipInner, doorInnerCtrl);
 
+            // Two revolute joints: a pin on the curved guide and a mounting
+            // pin rigidly attached to the *actual oval door*, SVG-style.
+            // The rod length stays constant; its angle is independent of
+            // the door's angle so it can articulate freely while following it.
+            const cubicPoint = (a, b, c, d, t) => {
+                const v = 1 - t;
+                return { x: v*v*v*a.x + 3*v*v*t*b.x + 3*v*t*t*c.x + t*t*t*d.x,
+                         y: v*v*v*a.y + 3*v*v*t*b.y + 3*v*t*t*c.y + t*t*t*d.y };
+            };
+            const leverMountLocal = cubicPoint(
+                ovalInner[0], ovalInner[1], ovalInner[2], ovalInner[3], 0.55);
+            const leverDx = leverMountLocal.x - leverPinClosed.x;
+            const leverDy = leverMountLocal.y - leverPinClosed.y;
+            const leverLength = Math.hypot(leverDx, leverDy);
+            const leverStartAngle = Math.atan2(leverDy, leverDx);
+
             const latchTopOuter = {
                 x: doorTipOuter.x + 0.25,
                 y: doorTipOuter.y + 2.65
@@ -7428,16 +7445,28 @@ const CABIN_R = 137.00;
             };
 
             function getDoorAtAngle(angDeg) {
-                // One single rigid transform drives the whole elliptical blade,
-                // its lower tip, and the sliding pin on the unchanged rail.
-                const slideU = Math.min(1, Math.max(0, angDeg / CONVENTIONAL_DOOR_OPEN_DEG));
-                const pin = {
-                    x: railStart.x + (railEnd.x - railStart.x) * slideU,
-                    y: railStart.y + (railEnd.y - railStart.y) * slideU
+                // The door retains one rigid oval blade. Its carriage travels
+                // smoothly while a distinct hinged rod drives the visible pin
+                // along a curved locus (rather than welding it to the blade).
+                const u = Math.min(1, Math.max(0, angDeg / CONVENTIONAL_DOOR_OPEN_DEG));
+                const slideU = u*u*(3 - 2*u);
+                const carrier = {
+                    x: pvt.x + carriageTravel.x * slideU,
+                    y: pvt.y + carriageTravel.y * slideU
                 };
                 const move = (pt) => {
                     const rotated = rotatePointAroundPivot(pt, pvt, angDeg);
-                    return { x: rotated.x + pin.x - pvt.x, y: rotated.y + pin.y - pvt.y };
+                    return { x: rotated.x + carrier.x - pvt.x,
+                             y: rotated.y + carrier.y - pvt.y };
+                };
+                // Both spherical/revolute joints are evaluated every frame;
+                // the pin trajectory is solved from the arm's exact length.
+                const leverMount = move(leverMountLocal);
+                const leverAngle = leverStartAngle
+                    + (angDeg * Math.PI / 180) * 0.32;
+                const pin = {
+                    x: leverMount.x - leverLength * Math.cos(leverAngle),
+                    y: leverMount.y - leverLength * Math.sin(leverAngle)
                 };
                 const bHubL = move(brkHubLeft), bHubB = move(brkHubBot);
                 const bJoinT = move(brkJoinTop), bJoinB = move(brkJoinBot);
@@ -7463,7 +7492,8 @@ const CABIN_R = 137.00;
                         }
                     }
                 }
-                return { pin, bHubL, bHubB, bJoinT, bJoinB,
+                return { pin, leverMount, leverAngle, leverLength,
+                    bHubL, bHubB, bJoinT, bJoinB,
                     topOut, topIn, midIn, tip, tipIn, outCurve, inCurve,
                     lTopOut, lTopIn, lHook, rightmostX, highestY };
             }
@@ -7476,6 +7506,12 @@ const CABIN_R = 137.00;
             function getDoorTipPosition(progress) {
                 return getDoorAtProgress(progress).tip;
             }
+            // Construct the physical guide FROM the joint's actual locus.
+            // No separate fixed/circular track can desynchronise from it.
+            const railPath = [];
+            for (let i = 0; i <= 48; i++)
+                railPath.push(getDoorAtProgress(i / 48).pin);
+            const railStart = railPath[0], railEnd = railPath[railPath.length - 1];
 
             // True motion: both the swept fill and the dashed boundary sample
             // exactly these poses, never a fixed-radius or legacy-pivot sector.
@@ -7542,7 +7578,7 @@ const CABIN_R = 137.00;
                 corridorMarginPeakMm, corridorMarginCurrMm,
                 hornPeak, notchValley, notchCtrl, rampTopEnd, fuseTop,
                 bellyCtrl, doorLipBot, mouthStepIn, mouthCurveCtrl,
-                pvt, railStart, railEnd, doorTipTrail, doorPoseTrail, getDoorTipPosition,
+                pvt, railStart, railEnd, railPath, doorTipTrail, doorPoseTrail, getDoorTipPosition,
                 lugTopLeft, lugBotRight,
                 shroudStart, shroudStep, shroudEnd, shroudCtrl,
                 thetaPeakDeg, openLimitDeg,
@@ -7854,31 +7890,48 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
                 ctx.restore();
             }
         }
-        // Restitui a porta curva e a dobradiça externa, sem o contorno
-        // retangular da cavidade interna do convencional.
-        // Inclined capsule/slot behind the articulated shell; keep it fixed.
+        // Curved guide: sampled from the moving lever pin itself. Draw behind
+        // the blade; PNG/SVG export and the interactive canvas use this renderer.
         ctx.save();
         ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
         ctx.beginPath();
-        ctx.moveTo(conventional.railEnd.x, -conventional.railEnd.y);
-        ctx.lineTo(conventional.railStart.x, -conventional.railStart.y);
+        conventional.railPath.forEach((pt, i) => i
+            ? ctx.lineTo(pt.x, -pt.y) : ctx.moveTo(pt.x, -pt.y));
         ctx.lineWidth = 2.50;
         ctx.strokeStyle = '#242b36';
         ctx.stroke();
         ctx.lineWidth = 1.65;
-        ctx.strokeStyle = 'rgba(155,172,190,0.52)';
+        ctx.strokeStyle = 'rgba(155,172,190,0.60)';
         ctx.stroke();
         ctx.restore();
         paintPath(ctx, buildDoorBladePath(conventional.doorCurr),
             '#aebecb', color.border, 0.36);
         paintPath(ctx, buildLatchTipPath(conventional.doorCurr),
             '#72869e', color.border, 0.27);
-        // The moving pin tracks the slot, including while PNG/SVG frames export.
+        // SVG-inspired moving lever: a constant-length link with a free
+        // revolute joint on the oval door and a sliding circular guide pin.
+        const arm = conventional.doorCurr;
+        ctx.save();
+        ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.arc(conventional.doorCurr.pin.x, -conventional.doorCurr.pin.y,
-            1.30, 0, 2 * Math.PI);
+        ctx.moveTo(arm.pin.x, -arm.pin.y);
+        ctx.lineTo(arm.leverMount.x, -arm.leverMount.y);
+        ctx.lineWidth = 2.05;
+        ctx.strokeStyle = '#354565';
+        ctx.stroke();
+        ctx.lineWidth = 1.25;
+        ctx.strokeStyle = '#839ac4';
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(arm.leverMount.x, -arm.leverMount.y, 0.83, 0, 2*Math.PI);
+        ctx.fillStyle = '#a6b9d9'; ctx.fill();
+        ctx.lineWidth = 0.44; ctx.strokeStyle = '#384a73'; ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(arm.pin.x, -arm.pin.y, 1.30, 0, 2*Math.PI);
         ctx.fillStyle = '#b9c9e0'; ctx.fill();
         ctx.lineWidth = 0.65; ctx.strokeStyle = '#5357b9'; ctx.stroke();
+        ctx.restore();
         ctx.restore();
     }
 
