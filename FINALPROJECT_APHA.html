@@ -6330,69 +6330,72 @@ function xrayRun(ms) {
         const cadAnim = { t: 4 };
         const cadEase = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 
-        // Helper para desenhar linhas de cota técnicas (setas duplas + linhas de chamada)
-        function drawDimensionLine(ctx, x1, y1, x2, y2, label, color = '#1e293b', fontSize = 13, labelOffset = {x: 0, y: 0}, ext1 = null, ext2 = null, cleanLabel = false) {
+        // Cotas técnicas compartilhadas pela Aba 5, simulação integrada e exportações.
+        // Preserva o branco e o ciano também no modo de exportação BIN_DARK.
+        function drawDimensionLine(ctx, x1, y1, x2, y2, label, color = '#00ffff', fontSize = 15, labelOffset = {x: 0, y: 0}, ext1 = null, ext2 = null, cleanLabel = false) {
             ctx.save();
-            // Cotas com contraste alto em fundo escuro, mantendo a paleta no modo claro.
-            const dimInk = window.BIN_DARK ? '#eaf4ff' : color;
-            ctx.strokeStyle = dimInk;
-            ctx.fillStyle = dimInk;
-            ctx.lineWidth = 2;
-
-            if (ext1) {
-                ctx.lineWidth = 1.2;
+            const previousBinDark = window.BIN_DARK;
+            try {
+                window.BIN_DARK = false;
+                const lineInk = '#00ffff';
+                const textInk = '#ffffff';
+                ctx.setLineDash([]);
+                ctx.strokeStyle = lineInk;
+                ctx.fillStyle = lineInk;
+                ctx.lineWidth = 1.5;
+                // As linhas auxiliares terminam nas superfícies geométricas reais.
+                for (const ext of [ext1, ext2]) {
+                    if (!ext) continue;
+                    ctx.beginPath();
+                    ctx.moveTo(ext.x1, ext.y1);
+                    ctx.lineTo(ext.x2, ext.y2);
+                    ctx.stroke();
+                }
+                // Setas terminam exatamente nos pontos medidos.
                 ctx.beginPath();
-                ctx.moveTo(ext1.x1, ext1.y1);
-                ctx.lineTo(ext1.x2, ext1.y2);
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
                 ctx.stroke();
+                const length = Math.hypot(x2 - x1, y2 - y1);
+                if (length > 1) {
+                    const angle = Math.atan2(y2 - y1, x2 - x1);
+                    // Setas menores nas folgas estreitas para não se cruzarem.
+                    const headLen = Math.min(9, Math.max(3, length * 0.28));
+                    const headAng = Math.PI / 6.5;
+                    const arrow = (px, py, dirAngle) => {
+                        ctx.beginPath();
+                        ctx.moveTo(px, py);
+                        ctx.lineTo(px - headLen * Math.cos(dirAngle - headAng), py - headLen * Math.sin(dirAngle - headAng));
+                        ctx.lineTo(px - headLen * Math.cos(dirAngle + headAng), py - headLen * Math.sin(dirAngle + headAng));
+                        ctx.closePath();
+                        ctx.fill();
+                    };
+                    arrow(x2, y2, angle);
+                    arrow(x1, y1, angle + Math.PI);
+                }
+                const mx = (x1 + x2) * 0.5 + (labelOffset.x || 0);
+                const my = (y1 + y2) * 0.5 + (labelOffset.y || 0);
+                ctx.font = `bold ${Math.max(15, fontSize)}px "JetBrains Mono", monospace`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+                ctx.shadowBlur = 6;
+                ctx.shadowOffsetX = 1;
+                ctx.shadowOffsetY = 1;
+                if (!cleanLabel) {
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = 'rgba(0, 2, 35, 0.96)';
+                    ctx.strokeText(label, mx, my);
+                }
+                ctx.fillStyle = textInk;
+                ctx.fillText(label, mx, my);
+            } finally {
+                window.BIN_DARK = previousBinDark;
+                ctx.restore();
             }
-            if (ext2) {
-                ctx.lineWidth = 1.2;
-                ctx.beginPath();
-                ctx.moveTo(ext2.x1, ext2.y1);
-                ctx.lineTo(ext2.x2, ext2.y2);
-                ctx.stroke();
-            }
-
-            ctx.lineWidth = 1.6;
-            ctx.beginPath();
-            ctx.moveTo(x1, y1);
-            ctx.lineTo(x2, y2);
-            ctx.stroke();
-
-            const angle = Math.atan2(y2 - y1, x2 - x1);
-            const headLen = 8.5;
-            const headAng = Math.PI / 6.5;
-
-            const drawArrowHead = (px, py, dirAngle) => {
-                ctx.beginPath();
-                ctx.moveTo(px, py);
-                ctx.lineTo(px - headLen * Math.cos(dirAngle - headAng), py - headLen * Math.sin(dirAngle - headAng));
-                ctx.lineTo(px - headLen * Math.cos(dirAngle + headAng), py - headLen * Math.sin(dirAngle + headAng));
-                ctx.closePath();
-                ctx.fill();
-            };
-
-            drawArrowHead(x2, y2, angle);
-            drawArrowHead(x1, y1, angle + Math.PI);
-
-            const mx = (x1 + x2) * 0.5 + (labelOffset.x || 0);
-            const my = (y1 + y2) * 0.5 + (labelOffset.y || 0);
-            ctx.font = `bold ${Math.max(14, fontSize)}px "JetBrains Mono", monospace`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.shadowBlur = 0;
-            if (!cleanLabel) {
-                ctx.lineWidth = 4.0;
-                ctx.strokeStyle = window.BIN_DARK ? 'rgba(0, 2, 35, 0.94)' : 'rgba(245, 245, 245, 0.92)';
-                ctx.strokeText(label, mx, my);
-            }
-            ctx.fillStyle = dimInk;
-            ctx.fillText(label, mx, my);
-            ctx.restore();
         }
 
-        // Polígono fechado com cantos levemente arredondados (só nos vértices vivos; curvas amostradas ficam intactas)
+                // Polígono fechado com cantos levemente arredondados (só nos vértices vivos; curvas amostradas ficam intactas)
         function roundedPoly(ctx, pts, r) {
             const n = pts.length, out = [];
             const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
@@ -10247,25 +10250,24 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const ceilingY = ceilingAtX(centerX, isRightSide);
                 const clearance = Number.isFinite(ceilingY) ? ceilingY - currentHeadTopY : NaN;
 
-                // Folgas verticais individuais até a face inferior do bin,
-                // com o mesmo posicionamento e estilo das cotas anteriores.
-                const cotaCor = isRightSide ? '#5952b2' : '#494e75';
+                // A cota vai do topo real da cabeça ao intradorso real do bin CAD.
+                // Sem offsets fixos de 0.6 cm nas extremidades.
                 const cotaTxt = `${clearance >= 0 ? '+' : ''}${fmtIn(clearance, 1)}`;
                 if (Number.isFinite(clearance) && L.dims > 0 && L.pax > 0) {
                     ctx.save();
                     ctx.globalAlpha *= L.dims;
                     drawDimensionLine(
                         ctx,
-                        toX(px), toY(currentHeadTopY + 0.6),
-                        toX(px), toY(ceilingY - 0.6),
-                        cotaTxt, cotaCor, 11, {x: 24, y: 0},
+                        toX(px), toY(currentHeadTopY),
+                        toX(px), toY(ceilingY),
+                        cotaTxt, '#00ffff', 15, {x: 25, y: 0},
                         {x1: toX(px - 4), y1: toY(currentHeadTopY), x2: toX(px + 4), y2: toY(currentHeadTopY)},
                         {x1: toX(px - 4), y1: toY(ceilingY), x2: toX(px + 4), y2: toY(ceilingY)}
                     );
                     ctx.restore();
                 }
 
-                ctx.restore();
+                                ctx.restore();
                 return clearance;
             };
 
@@ -10552,36 +10554,40 @@ window.drawUniReferenceBins = drawReferenceBins;
             function drawInteractiveStructureDims(ctx, W, H, alpha, lowerFade=1) {
                 if (alpha <= 0) return;
                 const { toX, toY } = m4(W, H);
-                const C = '#7c8b9e';
+                const R = APHA_CABIN_GEOMETRY.fuselageRadiusCm;
+                const centerY = APHA_CABIN_GEOMETRY.fuselageCenterYCm;
+                const floorHalf = APHA_CABIN_GEOMETRY.floorWidthCm / 2;
+                // X da face INTERNA do arco na altura exata da medida.
+                const innerWallX = yCm => Math.sqrt(Math.max(0, R * R - (yCm - centerY) ** 2));
+                const outsideGapCm = 8;
                 ctx.save();
                 ctx.globalAlpha *= alpha;
 
-                // Largura do corredor: acima do arco, junto à fuselagem.
                 drawDimensionLine(ctx,
                     toX(-25.4), toY(212), toX(25.4), toY(212),
-                    '20"', C, 11, {x:0, y:-11});
+                    '20"', '#00ffff', 15, {x:0, y:-12});
 
-                // Altura nominal do assento conforme a cota solicitada.
-                // O modelo da cadeira e a antropometria permanecem intactos.
                 ctx.globalAlpha *= lowerFade;
                 const seatDimY = 16.8 * CM_PER_IN;
+                const seatWallX = innerWallX(seatDimY);
+                const seatDimX = seatWallX + outsideGapCm;
                 drawDimensionLine(ctx,
-                    toX(138), toY(0), toX(138), toY(seatDimY),
-                    '16.8"', C, 11, {x:21, y:0},
-                    {x1:toX(125), y1:toY(0), x2:toX(142), y2:toY(0)},
-                    {x1:toX(125), y1:toY(seatDimY), x2:toX(142), y2:toY(seatDimY)});
+                    toX(seatDimX), toY(0), toX(seatDimX), toY(seatDimY),
+                    '16.8"', '#00ffff', 15, {x:22, y:0},
+                    {x1:toX(floorHalf), y1:toY(0), x2:toX(seatDimX), y2:toY(0)},
+                    {x1:toX(seatWallX), y1:toY(seatDimY), x2:toX(seatDimX), y2:toY(seatDimY)});
 
-                // Altura do encosto na lateral esquerda, sem conflitar com o
-                // líder "Seatback reclines 20°" situado acima da cadeira.
                 const backDimY = 40.0 * CM_PER_IN;
+                const backWallX = -innerWallX(backDimY);
+                const backDimX = backWallX - outsideGapCm;
                 drawDimensionLine(ctx,
-                    toX(-141), toY(0), toX(-141), toY(backDimY),
-                    '40.0"', C, 11, {x:-19, y:0},
-                    {x1:toX(-125), y1:toY(0), x2:toX(-145), y2:toY(0)},
-                    {x1:toX(-125), y1:toY(backDimY), x2:toX(-145), y2:toY(backDimY)});
+                    toX(backDimX), toY(0), toX(backDimX), toY(backDimY),
+                    '40.0"', '#00ffff', 15, {x:-21, y:0},
+                    {x1:toX(-floorHalf), y1:toY(0), x2:toX(backDimX), y2:toY(0)},
+                    {x1:toX(backWallX), y1:toY(backDimY), x2:toX(backDimX), y2:toY(backDimY)});
                 ctx.restore();
             }
-            function after(ctx, m) {
+                        function after(ctx, m) {
                 const seats = ph(TL.seats, 0.6), pax = ph(TL.pax, 0.6), st = stature();
                 window.drawSeatedScene(ctx, m.W, m.H, {
                     hAisle: st, hWin: st, backAng: window.SEATED_STAT.backAng, map: m4,
@@ -11654,7 +11660,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                     ctx.closePath();
                     ctx.fill();
                 });
-                ctx.font = '700 14px "JetBrains Mono", monospace';
+                ctx.font = '700 15px "JetBrains Mono", monospace';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 const tw = ctx.measureText(label).width + 16;
