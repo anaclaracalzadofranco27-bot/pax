@@ -66,7 +66,7 @@
         window.APHA_CINE_TIMELINE = APHA_CINE_TIMELINE;
         // Parâmetros de câmera única m4 (abas 5/6) e figura isolada.
         const APHA_BRIDGE_CFG = Object.freeze({
-            zoomInMs: 760, doorMs: 1220, zoomOutMs: 1580,
+            zoomInMs: 0, doorMs: 0, zoomOutMs: 1580,
             startZoom: 1.72, closeZoom: 2.04, binFocusYcm: 173,
             startOffsetSeconds: 0.5,
             uiFadeMs: 280, figurePhase: .52, figureScale: 3,
@@ -9159,7 +9159,7 @@ window.drawUniReferenceBins = drawReferenceBins;
         function toggleManikinAnimation() {
             if (manikinState.animating) { manikinState.animating = false; setAnimLabel(); return; }
             cancelResultsSequence();
-            if (manikinState.phase >= 0.999) { manikinState.phase = 0; hideCards(); }
+            if (manikinState.phase >= 0.999) { manikinState.phase = aphaInitialManikinPhase(); hideCards(); }
             manikinState.animating = true;
             setAnimLabel();
         }
@@ -9225,7 +9225,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                         window.ergoDone = true;
                     } else {
                         // Tab 6 itself plays continuously, without requiring a click.
-                        manikinState.phase = 0;
+                        manikinState.phase = aphaInitialManikinPhase();
                         hideCards();
                         updateErgonomics();
                     }
@@ -9632,6 +9632,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const xL = toX(-aisle), xR = toX(aisle);
                 const yT = toY(aisleTopY), yB = toY(0);
                 ctx.save();
+                ctx.globalAlpha *= window.__aphaBridgeSeatsAlpha == null ? 1 : window.__aphaBridgeSeatsAlpha;
                 ctx.fillStyle = 'rgba(67, 70, 151, 0.065)';
                 ctx.fillRect(xL, yT, xR - xL, yB - yT);
                 ctx.strokeStyle = 'rgba(112, 125, 215, 0.85)';
@@ -9678,7 +9679,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                     1 - ergoSmooth((phase - timeline.doorClose.start / timeline.duration) /
                         ((timeline.doorClose.end - timeline.doorClose.start) / timeline.duration));
                 withAba5CabinColors(() => window.drawUniReferenceBins(ctx, W, H,
-                    window.__aphaShowConventional ? 1 : 0, 1, doorU));
+                    window.__aphaShowConventional !== false ? 1 : 0, 1, doorU));
             }
 
             // Renderiza somente a cabine durante o movimento contínuo da câmera.
@@ -10298,6 +10299,8 @@ window.drawUniReferenceBins = drawReferenceBins;
             const doorAmount=()=>cubic((U.t-TL.open)/TL.openDur);
             const cinematicCamera=(W,H)=>{const a=cameraAmount(),k=1+(APHA_BRIDGE_CFG.startZoom-1)*a,cy=m4(W,H).toY(APHA_BRIDGE_CFG.binFocusYcm);return {k,x:W/2,y:H/2+(cy-H/2)*a}};
             
+            // Snapshot da câmera REAL da Aba 5 para a emenda com a Aba 6.
+            window.uniCameraState = (W,H) => cinematicCamera(W,H);
             const YMIN = -14;                                   // enquadra apenas do piso para cima (sem porão)
             const m4 = (W, H) => { const sc = Math.min((W - 60) / 380, (H - 50) / (230 - YMIN)), cx = W / 2; return { toX: x => cx + x * sc, toY: y => H - 22 - (y - YMIN) * sc, scale: sc }; };
             // Referência geométrica compartilhada entre a Aba 5 e a cena biomecânica da Aba 6.
@@ -12670,11 +12673,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 ? 1-bridgeEase(((manikinState.phase||0)-.96)/.04)
                 : 1;
             let m=b.end;
-            if(b.mode!=='stow'){
-                if(elapsed<C.zoomInMs)m=bridgeMix(b.start,b.close,bridgeEase(elapsed/C.zoomInMs));
-                else if(elapsed<C.zoomInMs+C.doorMs)m=b.close;
-                else m=bridgeMix(b.close,b.end,bridgeEase((elapsed-C.zoomInMs-C.doorMs)/C.zoomOutMs));
-            }
+            if(b.mode!=='stow')m=bridgeMix(b.start,b.end,bridgeEase(elapsed/C.zoomOutMs));
             // Uma única transformação para shell, assentos, piso, bins e manikin.
             b.lastRendered={...m};
             g.setTransform(dpr,0,0,dpr,0,0);
@@ -12683,13 +12682,13 @@ window.drawUniReferenceBins = drawReferenceBins;
             const L=manikinState.last,mass=L?L.mass:10,ang=L?L.angleDeg:17;
             const Fg=L?L.Fg:mass*9.81,Fn=L?L.Fn:Fg*Math.cos(ang*Math.PI/180),Ft=L?L.Ft:Fg*Math.sin(ang*Math.PI/180);
             const t=L?L.times[0]:ergoTimes(ERGO_PERCENTILES[0].h,mass,ang);
-            const phase=b.mode==='stow'?Math.max(manikinState.phase||0,aphaInitialManikinPhase()):0;
+            const phase=b.mode==='stow'?Math.max(manikinState.phase||0,aphaInitialManikinPhase()):aphaInitialManikinPhase();
             const old=[window.__aphaOnlyCabin,window.__aphaShowConventional,window.__aphaBridgeDoorU,window.__aphaBridgeMinimalHUD,window.__aphaBridgeManikinAlpha,window.__aphaBridgeSeatsAlpha];
             try{
                 // Renderiza o cenário inteiro em todos os quadros. O manequim surge
                 // no final do recuo, sem trocar de canvas nem deslocar a fuselagem.
-                window.__aphaOnlyCabin=b.mode!=='stow';
-                const outU=bridgeEase((elapsed-C.zoomInMs-C.doorMs)/C.zoomOutMs);
+                window.__aphaOnlyCabin=false;
+                const outU=bridgeEase(elapsed/C.zoomOutMs);
                 window.__aphaBridgeSeatsAlpha=b.mode==='stow'?1:outU;
                 window.__aphaBridgeManikinAlpha=b.mode==='stow'?1:
                     bridgeEase((outU-.70)/.30);
@@ -12752,10 +12751,13 @@ window.drawUniReferenceBins = drawReferenceBins;
             const ix=W*margin,iy=H*margin,destW=W-2*ix,destH=H-2*iy;
             const from=cabin.map(baseW,baseH),to=cabin.map(destW,destH);
             const fx=from.toX(0),fy=from.toY(C.binFocusYcm);
-            const k0=C.startZoom,kc=C.closeZoom,k1=to.scale/from.scale;
-            const start={k:k0,tx:r.left-sr.left+baseW/2-k0*baseW/2,
-                                  ty:r.top-sr.top+baseH/2-k0*fy};
-            const close={k:kc,tx:W*.48-kc*fx,ty:H*.50-kc*fy};
+            const lastCamera=typeof window.uniCameraState==='function'
+                ? window.uniCameraState(baseW,baseH) : {k:C.startZoom,x:baseW/2,y:fy};
+            const k1=to.scale/from.scale;
+            const start={k:lastCamera.k,
+                tx:r.left-sr.left+baseW/2-lastCamera.k*lastCamera.x,
+                ty:r.top-sr.top+baseH/2-lastCamera.k*lastCamera.y};
+            const close=start;
             // Similaridade exata m4 → m4: posição final do bin idêntica à aba 6.
             const end={k:k1,tx:ix+to.toX(0)-k1*from.toX(0),
                              ty:iy+to.toY(0)-k1*from.toY(0)};
@@ -12770,12 +12772,12 @@ window.drawUniReferenceBins = drawReferenceBins;
                 paintBridge(now);bridge.raf=requestAnimationFrame(tick);
             }
             bridge.raf=requestAnimationFrame(tick);
-            const ok=await tween(C.zoomInMs+C.doorMs+C.zoomOutMs,my,()=>{});
+            const ok=await tween(C.zoomOutMs,my,()=>{});
             if(!ok){destroyBridge();return false;}
             // Mantém o mesmo canvas e a mesma projeção m4 no frame de junção.
             // Renderiza explicitamente o frame terminal da câmera antes de
             // mudar somente a camada de personagem (sem mudar a matriz).
-            paintBridge(bridge.started+C.zoomInMs+C.doorMs+C.zoomOutMs);
+            paintBridge(bridge.started+C.zoomOutMs);
             verifyBridgeSeam(bridge);
             bridge.mode='stow';bridge.stowStart=performance.now();
             paintBridge(bridge.stowStart);
