@@ -60,6 +60,21 @@
             ctx.restore();
         }
         window.drawAphaCabinGrid = drawAphaCabinGrid;
+        // Fonte única do background da seção transversal, do manikin e da
+        // ponte de câmera. No tour, #tour-stage já pinta cor + grid fixos.
+        function drawUnifiedCabinBackground(ctx, W, H, opts = {}) {
+            if (opts.tour) return;
+            if (opts.paint !== false) {
+                ctx.save();
+                ctx.fillStyle = APHA_BLUEPRINT.background;
+                ctx.fillRect(0, 0, W, H);
+                ctx.restore();
+            }
+            if (typeof opts.toX === 'function' && typeof opts.toY === 'function') {
+                drawAphaCabinGrid(ctx, opts.toX, opts.toY);
+            }
+        }
+        window.drawUnifiedCabinBackground = drawUnifiedCabinBackground;
         // Dimensões físicas compartilhadas pela projeção m4 (centímetros).
         const APHA_CABIN_GEOMETRY = Object.freeze({
             fuselageRadiusCm: 137.16, fuselageCenterYCm: 62.84,
@@ -8122,9 +8137,9 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             alphaWithCutouts.addPath(new Path2D(ALPHA_LOWER_TRIANGLE));
             ctx.save();
             ctx.clip(alphaShell);
-            // Paredes ghost a 12%: a carga e o passageiro continuam legíveis
-            // durante a inserção; o contorno CAD e a porta conservam as cores.
-            ctx.fillStyle = APHA_CABIN_PALETTE.rgba('mid', 0.12);
+            // Paredes a 50%: Alpha claramente visível, sem ocultar as malas.
+            // Geometria e transparência idênticas nas Abas 5 e 6.
+            ctx.fillStyle = APHA_CABIN_PALETTE.rgba('mid', 0.50);
             ctx.fill(alphaWithCutouts, 'evenodd');
             ctx.restore();
             // Escurecimento progressivo da cavidade quando a persiana recolhe:
@@ -8328,6 +8343,8 @@ window.drawUniReferenceBins = drawReferenceBins;
             if (opts.bgFill) {
                 ctx.fillStyle = opts.bgFill;
                 ctx.fillRect(0, 0, W, H);
+            } else if (opts.unifiedCabinBackground) {
+                drawUnifiedCabinBackground(ctx, W, H, { tour: !!opts.tourBackdrop });
             }
 
             const xMin = -(g.R + 4);
@@ -8387,8 +8404,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                     for (let i = 0; i <= N; i++) { const [x, y] = pt(g.R, th(i)); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
                     for (let i = N; i >= 0; i--) { const [x, y] = pt(R_ext, th(i)); ctx.lineTo(x, y); }
                     ctx.closePath();
-                    ctx.fillStyle = 'rgba(148, 163, 184, 0.35)'; ctx.fill();
-                    ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2.5;
+                    ctx.fillStyle = APHA_CABIN_PALETTE.rgba('shellFill', 0.35); ctx.fill();
+                    ctx.strokeStyle = APHA_CABIN_PALETTE.shellOutline; ctx.lineWidth = 2.5;
                     [g.R, R_ext].forEach(rr => { ctx.beginPath(); for (let i = 0; i <= N; i++) { const [x, y] = pt(rr, th(i)); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); });
                     if (p < 1) { const [x, y] = pt(g.R + 2.75, th1); ctx.beginPath(); ctx.arc(x, y, 6, 0, 7); ctx.fillStyle = '#2a1dc2'; ctx.fill(); }
                     ctx.restore();
@@ -9635,7 +9652,13 @@ window.drawUniReferenceBins = drawReferenceBins;
             // O mesmo grid físico da Aba 5 acompanha a câmera, sem salto de passo/cor.
             // Figure Export permanece em PNG transparente, sem fundo nem grid.
             if (!window.__mkExport) {
-                drawAphaCabinGrid(ctx, toX, toY);
+                // O grid do roteiro é fixo na moldura: não deve acompanhar a
+                // câmera móvel nem ser desenhado uma segunda vez sobre ela.
+                const tourBackdrop = !!(ctx.canvas && (
+                    ctx.canvas.id === 'apha-continuous-cabin' || ctx.canvas.closest('#tour-stage')));
+                drawUnifiedCabinBackground(ctx, W, H, {
+                    tour: tourBackdrop, paint: false, toX, toY
+                });
                 if (cabin) withAba5CabinColors(() => cabin.drawShell(ctx, toX, toY, scale));
             }
 
@@ -9902,8 +9925,9 @@ window.drawUniReferenceBins = drawReferenceBins;
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             const W = rect.width, H = rect.height;
             ctx.clearRect(0, 0, W, H);
-            ctx.fillStyle = APHA_BLUEPRINT.background;
-            ctx.fillRect(0, 0, W, H);
+            drawUnifiedCabinBackground(ctx, W, H, {
+                tour: !!canvas.closest('#tour-stage')
+            });
 
             // O relógio é único: a fase global é a fração do ciclo do percentil mais lento.
             // Cada manikin termina no seu próprio tempo e aguarda os demais.
@@ -10078,7 +10102,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const backrestTopY = backTopY;          // topo do encosto = 40" do piso
 
                 ctx.save();
-                ctx.globalAlpha = L.seats;
+                ctx.globalAlpha *= L.seats;
                 window.__dkRole = 'seat';   // paleta escura da exportação: poltrona
                 // 1. Pernas da cadeira
                 ctx.strokeStyle = '#5a5d63';
@@ -10145,7 +10169,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 ctx.restore();
                 window.__dkRole = null;
 
-                ctx.save(); ctx.globalAlpha = L.pax;
+                ctx.save(); ctx.globalAlpha *= L.pax;
                 // DUMMY POSTURE AJUSTADA PELA INCLINAÇÃO (TTL: 20° da vertical, assento a 16")
                 // O tronco tomba para trás, reduzindo a altura vertical projetada do passageiro.
                 const physicalSittingHeight = stature * 0.51; 
@@ -10256,6 +10280,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const dark = (c, kind) => {
                     const role = window.__dkRole || '', key = role + '|' + kind + '|' + c;
                     if (dkCache.has(key)) return dkCache.get(key);
+                    // Background da cabine é fixo, não uma superfície a remapear.
+                    if (c.trim().toLowerCase() === APHA_BLUEPRINT.background) return c;
                     const v = toRGBA(c.trim()) || hslToRGBA(c.trim()); let out = c;
                     if (v) {
                         const a = v[3];
@@ -10353,9 +10379,9 @@ window.drawUniReferenceBins = drawReferenceBins;
                         ctx.lineTo(...p);
                     }
                     ctx.closePath();
-                    ctx.fillStyle = 'rgba(148, 163, 184, 0.35)';
+                    ctx.fillStyle = APHA_CABIN_PALETTE.rgba('shellFill', 0.35);
                     ctx.fill();
-                    ctx.strokeStyle = '#1e293b';
+                    ctx.strokeStyle = APHA_CABIN_PALETTE.shellOutline;
                     ctx.lineWidth = 2.5;
                     [false, true].forEach(outer => {
                         ctx.beginPath();
@@ -10366,8 +10392,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                         ctx.stroke();
                     });
                     // Piso coincidente com a Aba 5: 252 cm de vão visual, 8 cm de espessura.
-                    ctx.fillStyle = '#cbd5e1';
-                    ctx.strokeStyle = '#64748b';
+                    ctx.fillStyle = APHA_CABIN_PALETTE.floorFill;
+                    ctx.strokeStyle = APHA_CABIN_PALETTE.floorOutline;
                     ctx.lineWidth = 1.8;
                     const x = toX(-APHA_CABIN_GEOMETRY.floorWidthCm / 2), w = APHA_CABIN_GEOMETRY.floorWidthCm * scale,
                           y = toY(0), h = APHA_CABIN_GEOMETRY.floorThicknessCm * scale;
@@ -10389,31 +10415,33 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const { toX, toY, scale } = m4(m.W, m.H);   // eixo com y=0 no piso
                 if (!U.exporting && !inTourView()) {
                     // Referencial idêntico ao do manikin e à ponte da câmera.
-                    drawAphaCabinGrid(ctx, toX, toY);
+                    drawUnifiedCabinBackground(ctx, m.W, m.H, { paint: false, toX, toY });
                 }
                 const p = cl((U.t - TL.ring) / 0.8);          // trechos laterais da fuselagem até o piso (y=0), sem porão
                 if (p > 0) {
-                    const aEnd = Math.asin(FC / 137.16);       // ângulo exato onde a parede encontra o piso (y=0)
+                    const shellR = APHA_CABIN_GEOMETRY.fuselageRadiusCm;
+                    const shellOuterR = shellR + APHA_CABIN_GEOMETRY.shellThicknessCm;
+                    const aEnd = Math.asin(FC / shellR);
                     const N = 40;
                     [-1, 1].forEach(side => {
                         ctx.save(); ctx.beginPath();
                         for (let i = 0; i <= N; i++) {
                             const a = -aEnd * p * (i / N);
-                            const x = side * 137.16 * Math.cos(a), y = FC + 137.16 * Math.sin(a);
+                            const x = side * shellR * Math.cos(a), y = FC + shellR * Math.sin(a);
                             i ? ctx.lineTo(toX(x), toY(y)) : ctx.moveTo(toX(x), toY(y));
                         }
                         for (let i = N; i >= 0; i--) {
                             const a = -aEnd * p * (i / N);
-                            const x = side * 142.66 * Math.cos(a), y = FC + 137.16 * Math.sin(a);
+                            const x = side * shellOuterR * Math.cos(a), y = FC + shellR * Math.sin(a);
                             ctx.lineTo(toX(x), toY(y));
                         }
-                        ctx.closePath(); ctx.fillStyle = 'rgba(148, 163, 184, 0.35)'; ctx.fill();
-                        ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2.5;
-                        [137.16, 142.66].forEach(rx => {   // só as duas paredes (sem a reta horizontal de emenda)
+                        ctx.closePath(); ctx.fillStyle = APHA_CABIN_PALETTE.rgba('shellFill', 0.35); ctx.fill();
+                        ctx.strokeStyle = APHA_CABIN_PALETTE.shellOutline; ctx.lineWidth = 2.5;
+                        [shellR, shellOuterR].forEach(rx => {   // só as duas paredes (sem a reta horizontal de emenda)
                             ctx.beginPath();
                             for (let i = 0; i <= N; i++) {
                                 const a = -aEnd * p * (i / N);
-                                const x = side * rx * Math.cos(a), y = FC + 137.16 * Math.sin(a);
+                                const x = side * rx * Math.cos(a), y = FC + shellR * Math.sin(a);
                                 i ? ctx.lineTo(toX(x), toY(y)) : ctx.moveTo(toX(x), toY(y));
                             }
                             ctx.stroke();
@@ -10423,9 +10451,12 @@ window.drawUniReferenceBins = drawReferenceBins;
                 }
                 const pf = ph(TL.floor, 0.6);                  // piso da cabine, abrindo a partir do centro
                 if (pf > 0) {
-                    ctx.fillStyle = '#cbd5e1'; ctx.strokeStyle = '#64748b'; ctx.lineWidth = 1.8;
-                    ctx.fillRect(toX(-126 * pf), toY(0), 252 * pf * scale, 8 * scale);
-                    ctx.strokeRect(toX(-126 * pf), toY(0), 252 * pf * scale, 8 * scale);
+                    ctx.fillStyle = APHA_CABIN_PALETTE.floorFill;
+                    ctx.strokeStyle = APHA_CABIN_PALETTE.floorOutline; ctx.lineWidth = 1.8;
+                    const floorW = APHA_CABIN_GEOMETRY.floorWidthCm;
+                    const floorH = APHA_CABIN_GEOMETRY.floorThicknessCm;
+                    ctx.fillRect(toX(-floorW * pf / 2), toY(0), floorW * pf * scale, floorH * scale);
+                    ctx.strokeRect(toX(-floorW * pf / 2), toY(0), floorW * pf * scale, floorH * scale);
                 }
             }
 
@@ -10514,7 +10545,9 @@ window.drawUniReferenceBins = drawReferenceBins;
                 if(U.t>=TL.open){if(slider)slider.value=Math.round(100*window.__uniRefDoorProgress);if(pct)pct.textContent=Math.round(100*window.__uniRefDoorProgress)+'%'}
                 window.BIN_SOLID = true; window.BIN_DARK = true;   // paleta escura (#5b7b9e · #9ba9b5 · #bababa, poltronas #2f4a6b) também na tela
                 try {
-                    drawCADCanvas(U.g, { canvasId: 'uniCanvas', referenceBins: true, noBags: true, noLegend: inTourView(), finalDims: true, minimalDims: true, T: T1, map: m1, camera:cinematicCamera, noGrid: true, dimFade: 1 - ph(TL.ring, 0.5), fade: U.fx || null, before, after });
+                    drawCADCanvas(U.g, { canvasId: 'uniCanvas', referenceBins: true,
+                        unifiedCabinBackground: true, tourBackdrop: inTourView(),
+                        noBags: true, noLegend: inTourView(), finalDims: true, minimalDims: true, T: T1, map: m1, camera:cinematicCamera, noGrid: true, dimFade: 1 - ph(TL.ring, 0.5), fade: U.fx || null, before, after });
                     if (U.focus > 0) {   // foco no passageiro da janela (ponta esquerda): o resto do desenho cai para ~18% de opacidade (a malha do quadro não muda)
                         const cvs = document.getElementById('uniCanvas'), box = cvs.parentElement, W = box.offsetWidth, H = box.offsetHeight;
                         const m = m4(W, H), g2 = cvs.getContext('2d'), dpr = cvs.width / Math.max(1, W);
@@ -12695,7 +12728,8 @@ window.drawUniReferenceBins = drawReferenceBins;
             b.lastRendered={...m};
             g.setTransform(dpr,0,0,dpr,0,0);
             g.clearRect(0,0,W,H);
-            g.fillStyle=APHA_CABIN_PALETTE.background;g.fillRect(0,0,W,H);
+            // O #tour-stage mantém a malha e a cor por trás do canvas móvel.
+            drawUnifiedCabinBackground(g, W, H, { tour: true });
             const L=manikinState.last,mass=L?L.mass:10,ang=L?L.angleDeg:17;
             const Fg=L?L.Fg:mass*9.81,Fn=L?L.Fn:Fg*Math.cos(ang*Math.PI/180),Ft=L?L.Ft:Fg*Math.sin(ang*Math.PI/180);
             const t=L?L.times[0]:ergoTimes(ERGO_PERCENTILES[0].h,mass,ang);
