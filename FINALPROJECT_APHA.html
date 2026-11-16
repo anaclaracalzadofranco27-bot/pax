@@ -7250,21 +7250,23 @@ const CABIN_R = 137.00;
                 y: seatedBagBotRight.y - 0.25
             };
 
-            // Sliding hinge in the inclined upper-side guide (CAD coordinates in cm).
-            // The pin translates on this existing rail while the blade rotates.
+            // Bring the kinematic carriage towards the front lip: the oval door
+            // now rocks around a point closer to its edge rather than
+            // tilting far backwards around the rear of the bin.
             const pvt = {
-                x: seatedBagTopRight.x - 10.65,
-                y: seatedBagTopRight.y + 5.15
+                x: seatedBagTopRight.x - 5.65,
+                y: seatedBagTopRight.y + 4.00
             };
-            // Virtual centre governs the door's rotation/translation, NOT the
-            // visible lever pivot. The latter is a freely articulating pin.
-            const carriageTravel = { x: -8.50, y: -5.20 };
-            const leverPinClosed = { x: pvt.x - 8.00, y: pvt.y - 10.50 };
-            const CONVENTIONAL_DOOR_OPEN_DEG = 88.0;
+            // Retraction along the upper guide counters the outward
+            // swing; the articulated rod is constructed on the door below.
+            const carriageTravel = { x: -13.00, y: -3.80 };
+            const CONVENTIONAL_DOOR_OPEN_DEG = 74.0;
 
             // No vertical lip/step: the front door meets the continuous
             // upper fuselage arc at this CAD-derived point.
-            const roofJoinX = pvt.x - 11.20;
+            // Preserve the roof seam in the exact same fuselage location even
+            // though the moving carriage has been relocated forwards.
+            const roofJoinX = seatedBagTopRight.x - 21.85;
             const fuseTop = {
                 x: roofJoinX,
                 y: CABIN_YC + Math.sqrt(Math.max(0, CABIN_R * CABIN_R - roofJoinX * roofJoinX))
@@ -7341,9 +7343,10 @@ const CABIN_R = 137.00;
                 y: brkJoinBot.y
             };
 
-            // Gently elliptical / ovalized two-skin door, without a circular-arc
-            // approximation.  The original quadratics supply only the initial
-            // bulge reference; the actual profile is two cubic segments of a shallow elliptic arc.
+            // Door shaped after the yellow CAD sketch: a nearly horizontal
+            // shoulder at the roof, a broad oval transition, then an
+            // almost vertical front at the lower lip. Both skins follow
+            // the same curve model, preserving the panel thickness.
             const doorOuterCtrl = {
                 x: doorTipOuter.x + 2.65,
                 y: (bladeTopOuter.y + doorTipOuter.y) * 0.5 + 1.55
@@ -7355,65 +7358,32 @@ const CABIN_R = 137.00;
             mouthCurveCtrl.x = doorInnerCtrl.x;
             mouthCurveCtrl.y = doorInnerCtrl.y;
 
-            function makeSemiEllipticProfile(top, tip, formerControl) {
-                const dx = tip.x - top.x, dy = tip.y - top.y;
-                const length = Math.hypot(dx, dy);
-                const nxOval = -dy / length, nyOval = dx / length;
-                const half = { x: dx * 0.5, y: dy * 0.5 };
-                const middle = { x: top.x + half.x, y: top.y + half.y };
-                const formerMid = {
-                    x: 0.25 * top.x + 0.5 * formerControl.x + 0.25 * tip.x,
-                    y: 0.25 * top.y + 0.5 * formerControl.y + 0.25 * tip.y
+            // A single, asymmetric cubic provides a flatter top tangent
+            // and an upright nose. Subdivide it at t=.5 so the existing
+            // seven-point silhouette, swept envelope and export paths
+            // continue to sample exactly the same rigid oval door.
+            function makeFrontOvalProfile(top, tip) {
+                const dx = tip.x - top.x;
+                const drop = top.y - tip.y;
+                const p1 = {
+                    x: top.x + 0.34 * dx,
+                    y: top.y + 0.045 * drop
                 };
-                // Preserve the previous frontal projection while gently
-                // smoothing the curvature into an elliptical half-profile.
-                const projection = (formerMid.x - middle.x) * nxOval
-                                 + (formerMid.y - middle.y) * nyOval;
-                const bulge = Math.max(0.90, projection * 1.035);
-                // A genuine rotated elliptical arc, parameterized from -45° to
-                // +45°. Unlike a 180° half-ellipse, its top tangent points
-                // inward/downward, staying below the cabin fuselage.
-                const alpha = Math.PI / 4;
-                const sa = Math.sin(alpha), ca = Math.cos(alpha);
-                const kappa = (4 / 3) * Math.tan(alpha / 4);
-                const ellipsePoint = angle => {
-                    const s = Math.sin(angle) / sa;
-                    const o = bulge * (Math.cos(angle) - ca) / (1 - ca);
-                    return {
-                        x: middle.x + half.x * s + nxOval * o,
-                        y: middle.y + half.y * s + nyOval * o
-                    };
+                const p2 = {
+                    x: tip.x + 0.035 * dx,
+                    y: tip.y + 0.53 * drop
                 };
-                const ellipseTangent = angle => {
-                    const along = Math.cos(angle) / sa;
-                    const offset = -bulge * Math.sin(angle) / (1 - ca);
-                    return {
-                        x: half.x * along + nxOval * offset,
-                        y: half.y * along + nyOval * offset
-                    };
-                };
-                const crown = ellipsePoint(0);
-                const tStart = ellipseTangent(-alpha);
-                const tCrown = ellipseTangent(0);
-                const tEnd = ellipseTangent(alpha);
-                // Two equal 45° cubic Bézier approximations of the same
-                // elliptic arc, with C1 continuity at the central crown.
-                return [
-                    top,
-                    { x: top.x + kappa * tStart.x,
-                      y: top.y + kappa * tStart.y },
-                    { x: crown.x - kappa * tCrown.x,
-                      y: crown.y - kappa * tCrown.y },
-                    crown,
-                    { x: crown.x + kappa * tCrown.x,
-                      y: crown.y + kappa * tCrown.y },
-                    { x: tip.x - kappa * tEnd.x,
-                      y: tip.y - kappa * tEnd.y },
-                    tip
-                ];
+                const half = (a, b) => ({
+                    x: (a.x + b.x) * 0.5,
+                    y: (a.y + b.y) * 0.5
+                });
+                const a = half(top, p1), b = half(p1, p2), c = half(p2, tip);
+                const d = half(a, b), e = half(b, c), crown = half(d, e);
+                // Adjacent cubic pieces are C1-continuous at the crown.
+                return [top, a, d, crown, e, c, tip];
             }
-            const ovalOuter = makeSemiEllipticProfile(bladeTopOuter, doorTipOuter, doorOuterCtrl);
-            const ovalInner = makeSemiEllipticProfile(bladeTopInner, doorTipInner, doorInnerCtrl);
+            const ovalOuter = makeFrontOvalProfile(bladeTopOuter, doorTipOuter);
+            const ovalInner = makeFrontOvalProfile(bladeTopInner, doorTipInner);
 
             // Two revolute joints: a pin on the curved guide and a mounting
             // pin rigidly attached to the *actual oval door*, SVG-style.
@@ -7424,8 +7394,15 @@ const CABIN_R = 137.00;
                 return { x: v*v*v*a.x + 3*v*v*t*b.x + 3*v*t*t*c.x + t*t*t*d.x,
                          y: v*v*v*a.y + 3*v*v*t*b.y + 3*v*t*t*c.y + t*t*t*d.y };
             };
+            // Mount the link on the *front half* of the inner door skin,
+            // rather than behind its upper shoulder. Its guide pin sits
+            // almost directly below the mount: nearly vertical at rest.
             const leverMountLocal = cubicPoint(
-                ovalInner[0], ovalInner[1], ovalInner[2], ovalInner[3], 0.55);
+                ovalInner[3], ovalInner[4], ovalInner[5], ovalInner[6], 0.24);
+            const leverPinClosed = {
+                x: leverMountLocal.x - 0.70,
+                y: leverMountLocal.y - 11.00
+            };
             const leverDx = leverMountLocal.x - leverPinClosed.x;
             const leverDy = leverMountLocal.y - leverPinClosed.y;
             const leverLength = Math.hypot(leverDx, leverDy);
@@ -7463,7 +7440,7 @@ const CABIN_R = 137.00;
                 // the pin trajectory is solved from the arm's exact length.
                 const leverMount = move(leverMountLocal);
                 const leverAngle = leverStartAngle
-                    + (angDeg * Math.PI / 180) * 0.32;
+                    + (angDeg * Math.PI / 180) * 0.15;
                 const pin = {
                     x: leverMount.x - leverLength * Math.cos(leverAngle),
                     y: leverMount.y - leverLength * Math.sin(leverAngle)
