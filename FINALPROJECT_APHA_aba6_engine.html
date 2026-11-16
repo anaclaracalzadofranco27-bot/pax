@@ -3688,7 +3688,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const tCycle = Math.max(6, manikinState.cycleT || 20) * 0.55;   // percentil mais lento define o ciclo
                 manikinState.phase = Math.min(1.0, manikinState.phase + (dt * 1.45) / tCycle); // playback 1.45x; timer usa a mesma phase
                 const finished = manikinState.phase >= 1.0;
-                if (finished) manikinState.animating = false;
+                // Keep animating across cycle boundaries; phase resets below.
                 updateErgonomics();
                 if (finished) {
                     // Continuous unattended playback: begin the next boarding cycle at 0.0 s.
