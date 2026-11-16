@@ -7507,12 +7507,6 @@ const CABIN_R = 137.00;
             const doorPeak = getDoorAtProgress(peakU);
 
             const doorBulgeBeyondTipMm = doorClosed.rightmostX - doorTipOuter.x;
-            // The reported peak corresponds to the true translated/rotated door.
-            let peakRightX = -Infinity;
-            for (let i = 0; i <= 80; i++) {
-                peakRightX = Math.max(peakRightX,
-                    getDoorAtAngle(openLimitDeg * i / 80).rightmostX);
-            }
             const corridorMarginPeakMm = CORRIDOR_LEFT_X - peakRightX; // > 0 = livre, 0 = colado na linha do corredor
             const corridorMarginCurrMm = CORRIDOR_LEFT_X - doorCurr.rightmostX;
 
