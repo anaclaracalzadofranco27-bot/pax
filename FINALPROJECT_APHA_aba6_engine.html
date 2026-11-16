@@ -3654,10 +3654,17 @@ window.drawUniReferenceBins = drawReferenceBins;
                 // Keep animating across cycle boundaries; phase resets below.
                 updateErgonomics();
                 if (finished) {
-                    // Continuous unattended playback: begin the next boarding cycle at 0.0 s.
-                    manikinState.phase = 0;
-                    hideCards();
-                    updateErgonomics();
+                    if (aba6TourMode && window.parent !== window) {
+                        // The full presentation holds on the finished pose, then continues to Closing.
+                        manikinState.animating = false;
+                        setAnimLabel();
+                        window.parent.postMessage({type:'apha-aba6-cycle-complete'}, '*');
+                    } else {
+                        // Tab 6 itself plays continuously, without requiring a click.
+                        manikinState.phase = 0;
+                        hideCards();
+                        updateErgonomics();
+                    }
                 }
             }, 40);
         }
@@ -5019,6 +5026,7 @@ window.drawUniReferenceBins = drawReferenceBins;
         // The embedded engine is autonomous only while its SPA tab is visible.
         // DOMContentLoaded is used instead of window.onload so images and fonts cannot delay playback.
         let aba6Visible = window.parent === window;
+        let aba6TourMode = false;
         function aba6RestartAutoplay() {
             currentTab = 'sim';
             showManikin();                     // resets posture and boarding timer to 0.0 s
@@ -5039,6 +5047,7 @@ window.drawUniReferenceBins = drawReferenceBins;
         window.addEventListener('message', event => {
             if (event.source !== window.parent || !event.data || event.data.type !== 'apha-aba6-visibility') return;
             aba6Visible = !!event.data.visible;
+            aba6TourMode = !!event.data.tour;
             if (!window.__aba6Booted) return; // queued visibility is applied by aba6Boot
             if (aba6Visible) {
                 aba6RestartAutoplay();
