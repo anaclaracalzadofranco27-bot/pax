@@ -8081,7 +8081,7 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
         ctx.translate(0, CABIN_YC);
         ctx.translate(ALPHA_FIXED.tx, ALPHA_FIXED.ty);
         ctx.scale(ALPHA_FIXED.scaleX, ALPHA_FIXED.scaleY);
-        // Contorno CAD da peça, com vazados estruturais exclusivos da Aba 5.
+        // Contorno CAD único e vazados estruturais preservados nas Abas 5 e 6.
         const alphaShell = new Path2D();
         ALPHA_OUTLINE.forEach((p, i) => i ? alphaShell.lineTo(p[0], p[1]) : alphaShell.moveTo(p[0], p[1]));
         alphaShell.closePath();
@@ -8138,7 +8138,7 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
         pts.push([b[0], b[1]]);
         // Visual opening envelope follows the exact section vacated by the door.
         // The closed frontal surface stays semi-opaque; opening reveals the shell.
-        if (overrideDoorU == null && start > 0.001) {
+        if (start > 0.001) {
             ctx.save();
             ctx.clip(alphaShell);
             ctx.beginPath();
@@ -8158,8 +8158,8 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
         pts.forEach((p, i) => i ? ctx.lineTo(p[0],p[1]) : ctx.moveTo(p[0],p[1]));
         ctx.lineCap = 'butt'; ctx.lineJoin = 'round';
         {
-            // Porta tambour com as MESMAS três camadas, cores e ripas das abas 5 e 6.
-            // e esteira recolhida no trilho superior), com lâminas discretas.
+            // Porta tambour: mesmas três camadas, cores e lâminas nas duas abas,
+            // tanto na frente fechada quanto recolhida no trilho superior.
             ctx.lineWidth = 610; ctx.strokeStyle = '#143550'; ctx.stroke();
             ctx.lineWidth = 505; ctx.strokeStyle = '#4FC1FF'; ctx.stroke();
             ctx.lineWidth = 380; ctx.strokeStyle = '#569CD6'; ctx.stroke();
