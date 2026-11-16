@@ -254,18 +254,17 @@
         #tour-stage.rec #module-pax .sim-card,#tour-stage.rec #pax-host{height:100%;aspect-ratio:auto}
 
 
-        /* Headerless fullscreen playback only for integrated and biomechanical views. */
+        /* Fullscreen only for Tab 6. Keep the full presentation in its original centered 16:9 layout. */
         body.apha-simulation-view > header { display:none !important; }
         body.apha-simulation-view > main { max-width:none !important; width:100% !important; min-height:100vh !important; padding:0 !important; margin:0 !important; }
-        body.apha-simulation-view #module-sim,
-        body.apha-simulation-view #module-tour { margin:0 !important; padding:0 !important; min-height:100vh !important; gap:0 !important; }
+        body.apha-simulation-view #module-sim { margin:0 !important; padding:0 !important; min-height:100vh !important; gap:0 !important; }
         body.apha-simulation-view #module-sim > #aba6-engine-frame { height:100vh !important; min-height:100vh !important; border:0 !important; border-radius:0 !important; }
-        body.apha-simulation-view #module-tour #tour-ctl-bar { display:none !important; }
-        body.apha-simulation-view #module-tour #tour-stage { margin:0 !important; }
+        /* An unobtrusive exit is needed when the global navigation header is hidden. */
+        #apha-return-tabs {display:none;position:fixed;left:14px;bottom:14px;z-index:70;padding:7px 12px;background:rgba(10,26,58,.9);color:#d4dce6;border:1px solid #5b7b9e;border-radius:8px;font:600 11px 'JetBrains Mono',monospace;cursor:pointer}
+        body.apha-simulation-view #apha-return-tabs {display:block !important}
+        #apha-return-tabs:hover,#apha-return-tabs:focus-visible {background:#2f4a6b}
 
-        /* Oculta somente os cabeçalhos de ações, preservando telemetria interna. */
-        #module-tour #tour-ctl-bar { display:none !important; }
-        #module-tour { row-gap:0 !important; }
+        /* Hide redundant section headings without hiding the general-simulation controls. */
         #module-ergo > .bg-cad-panel:first-child,
         #module-unified > .bg-cad-panel:first-of-type { display:none !important; }
         #module-ergo, #module-unified { row-gap:0 !important; }
@@ -5967,6 +5966,7 @@ function xrayRun(ms) {
             <div id="tour-stage" class="tour-frame"><i class="tw-corner c1"></i><i class="tw-corner c2"></i><i class="tw-corner c3"></i><i class="tw-corner c4"></i></div>
         </section>
     </main>
+    <button id="apha-return-tabs" type="button" onclick="switchTab('unified')" title="Return to the other simulation tabs">← Back to tabs</button>
 
 
     <!-- ========================================================================= -->
@@ -6066,13 +6066,14 @@ function xrayRun(ms) {
             if (tab !== 'tour' && window.tourAbort) window.tourAbort();
             const previousTab = currentTab;
             currentTab = tab;
-            document.body.classList.toggle('apha-simulation-view', tab === 'sim' || tab === 'tour');
+            document.body.classList.toggle('apha-simulation-view', tab === 'sim');
             const embeddedEngine = document.getElementById('aba6-engine-frame');
             if (embeddedEngine && embeddedEngine.contentWindow) embeddedEngine.contentWindow.postMessage({type:'apha-aba6-visibility',visible:tab === 'sim'}, '*');
             // Entrar na Aba 6 sempre parte da pega baixa da primeira mala.
             if (tab === 'sim' && previousTab !== 'sim') {
+                // Tab 6 is now entirely owned by the embedded engine.
                 manikinState.phase = 0;
-                manikinState.animating = true;
+                manikinState.animating = false;
                 hideCards();
                 setAnimLabel();
             }
@@ -6100,12 +6101,27 @@ function xrayRun(ms) {
                 if (tab === 'pax' && window.paxEnter) window.paxEnter();
                 if (tab === 'nova' && window.novaEnter) { window.novaEnter(); if(window.novaShowHeader)window.novaShowHeader(true); }
                 if (tab === 'unified' && window.uniEnter) window.uniEnter();
-                if (tab === 'tour' && window.tourStart) window.tourStart();
                 
                 if (tab === 'cad3d' && window.resizeCAD3D) window.resizeCAD3D();
                 if (tab === 'closing' && window.closingEnter) window.closingEnter();   // encerramento: recalcula a escala e toca do início
             }, 30);
         }
+        // Handshake prevents the embedded animation from missing the first tab-change event.
+        (function connectAba6Engine() {
+            const frame = document.getElementById('aba6-engine-frame');
+            if (!frame) return;
+            function syncVisibility() {
+                if (frame.contentWindow) frame.contentWindow.postMessage({
+                    type: 'apha-aba6-visibility', visible: currentTab === 'sim'
+                }, '*');
+            }
+            frame.addEventListener('load', syncVisibility);
+            window.addEventListener('message', event => {
+                if (event.source === frame.contentWindow && event.data && event.data.type === 'apha-aba6-ready') {
+                    syncVisibility();
+                }
+            });
+        })();
 
         // -------------------------------------------------------------------------
         // MÓDULO 1: GEOMETRIA CAD 2D (APÊNDICE A)
@@ -10275,7 +10291,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             updateErgonomics();
             startManikinLoop();
             if (window.resizeCAD3D) window.resizeCAD3D();
-            switchTab('tour');
+            switchTab('pax');
         };
 
         // -------------------------------------------------------------------------
@@ -12425,7 +12441,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             if (window.__tourEnded) await window.__tourEnded();
             frameOn(false);
             btn.textContent = '↻ Run full simulation again'; btn.dataset.mode = 'run'; live = false;
-            if (currentTab === 'tour' && !rec && !snap) setTimeout(() => { if (currentTab === 'tour' && !live) run(0); }, 0);
+            // Do not loop or restart the full presentation without the user's click.
         }
         function abort() {
             if (!live && !active) return;                       // nada rodando: não mexe em nada
@@ -12773,7 +12789,7 @@ window.drawUniReferenceBins = drawReferenceBins;
         };
         window.__stopTourRec = () => { if (snap) { snapFinish().then(() => abort()); return; } prevStopRec(); };
 
-        window.tourStart = () => { if (!live) run(0); }; // autoplay ao abrir/retornar à aba
+        window.tourStart = () => { if (!live) run(0); }; // explicit start only (general presentation button)
         window.tourAbort = abort;               // chamado ao sair da aba 8
     })();
 
