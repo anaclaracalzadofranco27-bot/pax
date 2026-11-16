@@ -7259,8 +7259,9 @@ const CABIN_R = 137.00;
             };
             // Retraction along the upper guide counters the outward
             // swing; the articulated rod is constructed on the door below.
-            const carriageTravel = { x: -13.00, y: -3.80 };
-            const CONVENTIONAL_DOOR_OPEN_DEG = 74.0;
+            const carriageTravel = { x: -12.00, y: -2.70 };
+            // SVG porta(5): menor rotação, com deslocamento da folha para cima e para trás.
+            const CONVENTIONAL_DOOR_OPEN_DEG = 54.0;
 
             // No vertical lip/step: the front door meets the continuous
             // upper fuselage arc at this CAD-derived point.
@@ -7399,10 +7400,12 @@ const CABIN_R = 137.00;
             // The upper guide pin is raised inside the bin; the rod remains
             // freely hinged and its guide follows the solved door motion.
             const leverMountLocal = cubicPoint(
-                ovalInner[3], ovalInner[4], ovalInner[5], ovalInner[6], 0.50);
+                ovalInner[0], ovalInner[1], ovalInner[2], ovalInner[3], 0.68);
+            // Pino da guia alto, junto ao teto; articulação na parte superior
+            // frontal da folha, conforme as duas posições da referência SVG.
             const leverPinClosed = {
-                x: leverMountLocal.x - 3.00,
-                y: leverMountLocal.y + 12.00
+                x: leverMountLocal.x - 4.00,
+                y: leverMountLocal.y + 6.40
             };
             const leverDx = leverMountLocal.x - leverPinClosed.x;
             const leverDy = leverMountLocal.y - leverPinClosed.y;
@@ -7442,8 +7445,10 @@ const CABIN_R = 137.00;
                 // The pin follows the raised upper guide while the door tip
                 // keeps precisely the original open-stop coordinates.
                 const leverMount = move(leverMountLocal);
+                // Articulação independente: o braço muda sua inclinação durante
+                // a abertura, mantendo exatamente o mesmo comprimento.
                 const leverAngle = leverStartAngle
-                    + (angDeg * Math.PI / 180) * 0.50;
+                    + (angDeg * Math.PI / 180) * 0.82;
                 const pin = {
                     x: leverMount.x - leverLength * Math.cos(leverAngle),
                     y: leverMount.y - leverLength * Math.sin(leverAngle)
