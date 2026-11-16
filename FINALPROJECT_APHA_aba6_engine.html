@@ -5066,6 +5066,8 @@ window.drawUniReferenceBins = drawReferenceBins;
             if (event.data.visible) {
                 if (!window.__aba6Booted) return;
                 switchTab('sim');
+                showManikin();                 // Restart the cycle and boarding timer at 0.0 s on every re-entry.
+                toggleManikinAnimation();
                 requestAnimationFrame(() => updateErgonomics());
             } else {
                 manikinState.animating = false;
