@@ -7966,8 +7966,43 @@ function lowerBinSurfaceAtX(points, x) {
     }
     return Number.isFinite(lower) ? lower : null;
 }
+// Guarda os controles originais da curva inferior (quadrática) para que
+// a cota coincida com o CAD, sem erro de discretização dos 100 segmentos.
+let referenceConventionalBelly = null;
+function exactConventionalUndersideY(x) {
+    if (!referenceConventionalBelly || !Number.isFinite(x)) return null;
+    const { wallFix, psuBotCorner: p0, bellyCtrl: p1, doorLipBot: p2, doorTip } = referenceConventionalBelly;
+    const candidates = [];
+    const addSegment = (a, b) => {
+        if (x < Math.min(a.x, b.x) - 1e-7 || x > Math.max(a.x, b.x) + 1e-7) return;
+        if (Math.abs(b.x - a.x) < 1e-9) {
+            candidates.push(a.y, b.y);
+        } else {
+            const t = Math.max(0, Math.min(1, (x - a.x) / (b.x - a.x)));
+            candidates.push(a.y + t * (b.y - a.y));
+        }
+    };
+    addSegment(wallFix, p0);
+    const a = p0.x - 2 * p1.x + p2.x;
+    const b = 2 * (p1.x - p0.x);
+    const c = p0.x - x;
+    const roots = Math.abs(a) < 1e-12
+        ? (Math.abs(b) < 1e-12 ? [] : [-c / b])
+        : (() => {
+            const d = b*b - 4*a*c;
+            return d < 0 ? [] : [(-b + Math.sqrt(d))/(2*a), (-b - Math.sqrt(d))/(2*a)];
+        })();
+    for (const t of roots) {
+        if (t < -1e-8 || t > 1 + 1e-8) continue;
+        const u = 1 - Math.max(0, Math.min(1, t));
+        const v = Math.max(0, Math.min(1, t));
+        candidates.push(u*u*p0.y + 2*u*v*p1.y + v*v*p2.y);
+    }
+    addSegment(p2, doorTip);
+    return candidates.length ? Math.min(...candidates) : null;
+}
 window.getUniBinUndersideY = (x, isAlpha) =>
-    lowerBinSurfaceAtX(isAlpha ? referenceBinUndersides.alpha : referenceBinUndersides.conventional, x);
+    isAlpha ? lowerBinSurfaceAtX(referenceBinUndersides.alpha, x) : exactConventionalUndersideY(x);
 
 function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
     const cabin = window.cabinSectionReference;
@@ -7982,6 +8017,11 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
     state.bagInsertPct = 100;
     state.thetaDeg = 0;
     const initialConv = computeLeftBinAtY(state.leftBaseY);
+    referenceConventionalBelly = {
+        wallFix: initialConv.wallFix, psuBotCorner: initialConv.psuBotCorner,
+        bellyCtrl: initialConv.bellyCtrl, doorLipBot: initialConv.doorLipBot,
+        doorTip: initialConv.doorClosed.tip
+    };
     state.thetaDeg = u * initialConv.openLimitDeg;
     const conventional = computeLeftBinAtY(state.leftBaseY);
     const alpha = computeRightAlphaLocked();
@@ -10262,7 +10302,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                         toX(px), toY(ceilingY),
                         cotaTxt, '#00ffff', 15, {x: 25, y: 0},
                         {x1: toX(px - 4), y1: toY(currentHeadTopY), x2: toX(px + 4), y2: toY(currentHeadTopY)},
-                        {x1: toX(px - 4), y1: toY(ceilingY), x2: toX(px + 4), y2: toY(ceilingY)}
+                        // Marca curta centrada na interseção exata com a curva CAD.
+                        {x1: toX(px - 2), y1: toY(ceilingY), x2: toX(px + 2), y2: toY(ceilingY)}
                     );
                     ctx.restore();
                 }
@@ -10527,25 +10568,44 @@ window.drawUniReferenceBins = drawReferenceBins;
             function drawSeatbackLeader(ctx,W,H,alpha) {
                 if (alpha <= 0) return;
                 const {toX,toY} = m4(W,H);
-                const x0 = toX(-99.5 - 46/2 + 6), y0 = toY(98);
+                // A mesma aresta do encosto usada em drawEmbraerSeatAndDummy3D:
+                // banco de janela esquerdo, face esquerda, topo e base reais.
+                const centerX = -99.5, seatW = 46;
+                const bottom = {x:toX(centerX - seatW/2 + 1), y:toY(16*CM_PER_IN)};
+                const top = {x:toX(centerX - seatW/2 + 4.5), y:toY(40*CM_PER_IN - 12)};
+                const dx = top.x - bottom.x, dy = top.y - bottom.y;
+                const len = Math.hypot(dx, dy);
+                if (len < 1) return;
+                const ux = dx / len, uy = dy / len;
+                // Linha de chamada colinear com o encosto, sem ângulo fixo
+                // independente do desenho. Label girado no sentido legível.
+                const anchor = {x:bottom.x + dx*0.76, y:bottom.y + dy*0.76};
                 const label = 'Seatback reclines 20°';
-                const labelLines = [label.slice(0, 8), label.slice(9)];
-                const labelX = toX(-152) + 9; // mantém o vão entre a cota vertical e o arco
-                const labelY = toY(165); // centro da área assinalada, abaixo da posição anterior
+                const angle = Math.atan2(-uy, -ux);
                 ctx.save();
                 ctx.globalAlpha *= alpha;
-                ctx.font = 'bold 11px "JetBrains Mono", monospace';
-                // A líder começa no canto inferior direito do texto, sem atravessá-lo.
-                const leaderX = labelX + ctx.measureText(labelLines[1]).width;
-                const leaderY = labelY + 14;
-                ctx.strokeStyle = '#7c8b9e'; ctx.lineWidth = 1.2;
-                ctx.beginPath(); ctx.moveTo(leaderX, leaderY); ctx.lineTo(x0, y0); ctx.stroke();
-                ctx.beginPath(); ctx.arc(x0, y0, 2.1, 0, 2*Math.PI);
-                ctx.fillStyle = '#7c8b9e'; ctx.fill();
-                ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-                ctx.shadowBlur = 0;
-                ctx.fillText(labelLines[0], labelX, labelY);
-                ctx.fillText(labelLines[1], labelX, labelY + 14);
+                ctx.strokeStyle = '#00ffff';
+                ctx.fillStyle = '#ffffff';
+                ctx.lineWidth = 1.5;
+                ctx.shadowColor = 'rgba(0,0,0,0.9)';
+                ctx.shadowBlur = 4;
+                ctx.beginPath();
+                ctx.moveTo(anchor.x, anchor.y);
+                ctx.lineTo(anchor.x - ux*24, anchor.y - uy*24);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(anchor.x, anchor.y, 2.1, 0, 2*Math.PI);
+                ctx.fill();
+                ctx.translate(anchor.x - ux*28, anchor.y - uy*28);
+                // Normaliza a orientação para evitar texto de cabeça para baixo.
+                let textAngle = angle;
+                if (textAngle > Math.PI/2) textAngle -= Math.PI;
+                if (textAngle < -Math.PI/2) textAngle += Math.PI;
+                ctx.rotate(textAngle);
+                ctx.font = 'bold 12px "JetBrains Mono", monospace';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText(label, -5, -5);
                 ctx.restore();
             }
             // Cotas da seção transversal compartilhadas com a exportação (PNG).
