@@ -68,7 +68,8 @@
         // Atrasos relativos à estabilização dos objetos no primeiro quadro CAD.
         const APHA_INTRO_CFG = Object.freeze({
             crossfadeMs: 520, titleDelayMs: 180, legendDelayMs: 610,
-            measuresDelayMs: 1020, descriptionDelayMs: 1460, fadeMs: 560
+            measuresDelayMs: 1020, descriptionDelayMs: 1460, fadeMs: 560,
+            sequenceHoldMs: 2250
         });
         window.APHA_INTRO_CFG = APHA_INTRO_CFG;
         tailwind.config = {
@@ -11366,7 +11367,9 @@ window.drawUniReferenceBins = drawReferenceBins;
                 setBagPoseAlongPath(1, 0);
                 updateDoor(0);
                 syncDoorUI();
-                simStartTime = performance.now();
+                // Bin e malas permanecem imóveis e opacos durante a entrada
+                // completa de título, legenda, cotas e descrição.
+                simStartTime = performance.now() + (inTour ? APHA_INTRO_CFG.sequenceHoldMs : 0);
                 btnStartSim.innerHTML = '<span>⏳ Simulating...</span>';
                 upd();
                 simReq = requestAnimationFrame(runSimulationFrame);
@@ -12603,7 +12606,7 @@ window.drawUniReferenceBins = drawReferenceBins;
         const ezo = x => 1 - Math.pow(1 - x, 2);
         // Verificação subpixel da matriz de câmera na junção dos dois atos.
         function verifyBridgeSeam(b){
-            const m=b.end;
+            const m=b.lastRendered || b.end;
             for(const [x,y] of [[0,0],[b.baseW/2,b.baseH/2],[b.baseW*.63,b.baseH*.22]]){
                 const a=[m.k*x+m.tx,m.k*y+m.ty];
                 const c=[b.end.k*x+b.end.tx,b.end.k*y+b.end.ty];
@@ -12642,6 +12645,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 else if(elapsed<C.zoomInMs+C.doorMs)m=b.close;
                 else m=bridgeMix(b.close,b.end,bridgeEase((elapsed-C.zoomInMs-C.doorMs)/C.zoomOutMs));
             }
+            b.lastRendered={...m};
             g.setTransform(dpr,0,0,dpr,0,0);
             g.clearRect(0,0,W,H);
             g.fillStyle=APHA_CABIN_PALETTE.background;g.fillRect(0,0,W,H);
@@ -12710,6 +12714,9 @@ window.drawUniReferenceBins = drawReferenceBins;
             bridge.raf=requestAnimationFrame(tick);
             const ok=await tween(C.zoomInMs+C.doorMs+C.zoomOutMs,my,()=>{});
             if(!ok){destroyBridge();return false;}
+            // Renderiza explicitamente o frame terminal da câmera antes de
+            // mudar somente a camada de personagem (sem mudar a matriz).
+            paintBridge(bridge.started+C.zoomInMs+C.doorMs+C.zoomOutMs);
             verifyBridgeSeam(bridge);
             bridge.mode='stow';bridge.stowStart=performance.now();
             paintBridge(bridge.stowStart);
