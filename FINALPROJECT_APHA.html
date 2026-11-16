@@ -8312,6 +8312,10 @@ window.drawUniReferenceBins = drawReferenceBins;
             const alphaProf = faded(FD.alpha, () => traceBinAlphaProfile(ctx, toX, toY, g.x_livre, yBottomAlpha, 1, scaleFactor, g.R, 0.0));
             ctx.restore();
 
+            // Na aba 5, os bins CAD de referência são desenhados logo abaixo.
+            // Não desenhar malas do perfil legado atrás da cavidade do Alpha:
+            // ao abrir a porta, esses contornos apareciam através do interior.
+            if (!opts.referenceBins) {
             cadBag(1, ctx,
                 toX(alphaProf.m1Cx),
                 toY(alphaProf.m1Cy),
@@ -8335,6 +8339,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                 true,
                 COR_ALPHA
             );
+
+            }
 
             // =========================================================================
             // Tab 5 only: restore canvas and paint the newly integrated CAD bins.
