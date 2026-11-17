@@ -6249,19 +6249,24 @@ function xrayRun(ms) {
                 aba6Initialized = true;
                 window.aba6Initialized = true;
             }
+            // Reinicialização determinística: cancela qualquer RAF anterior antes
+            // de assumir o relógio. manikinState.last é cache biomecânico,
+            // não timestamp; nunca zerá-lo para tentar corrigir o delta de tempo.
+            stopManikinLoop();
             window.__aba6TourMode = !!options.tour;
-            if (options.reset || !manikinState.last) {
+            if (options.reset || !manikinState.last || options.tour) {
                 showManikin();
-                // A pose do primeiro frame deve ser a mesma que a ponte entregou.
+                // A ponte entrega uma fase global, não a fase de uma mala isolada.
                 if (Number.isFinite(options.initialPhase)) {
                     manikinState.phase = Math.max(0, Math.min(.95, options.initialPhase));
                 }
             }
+            manikinFrameTime = 0;
             manikinState.animating = true;
-            startManikinLoop(); // one cancellable RAF per active simulation
+            startManikinLoop(); // relógio novo; startManikinLoop usa performance.now()
             setAnimLabel();
             updateErgonomics();
-            window.dispatchEvent(new Event('resize'));
+            // Sem resize global: evita reentrância no tour e nos outros canvases.
             return true;
         }
         let aba6LaunchToken = 0;
@@ -10058,6 +10063,97 @@ window.drawUniReferenceBins = drawReferenceBins;
             };
         }
 
+        function drawManikinFallback(ctx, W, H, phase, tBack, tFront, drawCabin = false) {
+            // Fallback compartilhado pelo viewport e pelo canvas contínuo.
+            // Cobre as DUAS malas e mantém o braço em retorno até o fim do ciclo.
+            const clamp = v => Math.max(0, Math.min(1, v));
+            const ease = v => { const u = clamp(v); return u * u * (3 - 2 * u); };
+            const ratio = tBack / (tBack + tFront);
+            const split = Number.isFinite(ratio) && ratio > 0 && ratio < 1 ? ratio : .5;
+            const second = phase >= split;
+            const u = clamp(second ? (phase - split) / (1 - split) : phase / split);
+            let map = null;
+            try {
+                if (window.cabinSectionReference) map = window.cabinSectionReference.map(W, H);
+            } catch (_) { /* O fallback não deve depender de geometria CAD. */ }
+            if (!map || !Number.isFinite(map.scale) || typeof map.toX !== 'function' || typeof map.toY !== 'function') {
+                const sc = Math.min((W - 60) / 380, (H - 50) / 244), cx = W / 2;
+                map = { toX: x => cx + x * sc, toY: y => H - 22 - (y + 14) * sc, scale: sc };
+            }
+            const { toX, toY, scale } = map;
+            const P = (x, y) => [toX(x), toY(y)];
+            const start = second ? [9.8, 97.5] : [9.5, 95.0];
+            const end = second ? [38.0, 167.2] : [70.2, 155.0];
+            const lift = ease((u - .10) / .43);
+            const push = ease((u - .52) / .32);
+            const release = ease((u - .84) / .16);
+            const bagX = start[0] + (end[0] - start[0]) * (.48 * lift + .52 * push);
+            const bagY = start[1] + (160 - start[1]) * lift + (end[1] - 160) * push;
+            const bagAng = second ? 4.5 * push : -90 + 106.3 * push;
+
+            const drawBag = (x, y, w, h, angle, alpha = 1) => {
+                const [px, py] = P(x, y);
+                ctx.save();
+                ctx.globalAlpha *= alpha;
+                ctx.translate(px, py);
+                ctx.rotate(-angle * Math.PI / 180);
+                const bw = w * scale, bh = h * scale;
+                ctx.fillStyle = 'rgba(67,70,151,.83)';
+                ctx.strokeStyle = '#c8d1e9';
+                ctx.lineWidth = Math.max(1.5, 2 * scale);
+                ctx.beginPath();
+                if (ctx.roundRect) ctx.roundRect(-bw/2, -bh/2, bw, bh, Math.max(2, 4*scale));
+                else ctx.rect(-bw/2, -bh/2, bw, bh);
+                ctx.fill(); ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(-bw*.16, -bh/2); ctx.lineTo(-bw*.16, -bh/2 - 5*scale);
+                ctx.lineTo(bw*.16, -bh/2 - 5*scale); ctx.lineTo(bw*.16, -bh/2);
+                ctx.stroke();
+                ctx.restore();
+            };
+
+            ctx.save();
+            if (drawCabin) {
+                const R = APHA_CABIN_GEOMETRY.fuselageRadiusCm;
+                const centerY = APHA_CABIN_GEOMETRY.fuselageCenterYCm;
+                ctx.strokeStyle = '#71839f'; ctx.lineWidth = Math.max(1.5, 2*scale);
+                ctx.beginPath();
+                for (let x = -R; x <= R; x += 3) {
+                    const pos = P(x, centerY + Math.sqrt(Math.max(0, R*R-x*x)));
+                    if (x === -R) ctx.moveTo(...pos); else ctx.lineTo(...pos);
+                }
+                ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(...P(-126, 0)); ctx.lineTo(...P(126, 0)); ctx.stroke();
+                ctx.fillStyle = 'rgba(74,144,226,.24)';
+                ctx.fillRect(toX(25), toY(192), 83*scale, 43*scale);
+                ctx.strokeRect(toX(25), toY(192), 83*scale, 43*scale);
+            }
+
+            // A primeira mala continua visível durante a entrada da segunda.
+            if (second) drawBag(70.2, 155, 33.2, 22.8, 16.3);
+            const shoulderX = -7 + 3*push*(1-release), shoulderY = 121;
+            const gripX = bagX - 9, gripY = bagY - 3;
+            const handX = gripX + (4 - gripX)*release;
+            const handY = gripY + (98 - gripY)*release;
+            const segment = (x1,y1,x2,y2,width=5) => {
+                ctx.beginPath(); ctx.moveTo(...P(x1,y1));ctx.lineTo(...P(x2,y2));
+                ctx.lineWidth = Math.max(3,width*scale);ctx.stroke();
+            };
+            ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#d6d9e1';
+            segment(-13,77,-17,40,8); segment(-17,40,-18,3,7);
+            segment(-13,77,-8,40,8); segment(-8,40,-4,3,7);
+            segment(-13,77,shoulderX,shoulderY,11);
+            segment(shoulderX,shoulderY,shoulderX+(handX-shoulderX)*.53-5,
+                shoulderY+(handY-shoulderY)*.48,5);
+            segment(shoulderX+(handX-shoulderX)*.53-5,
+                shoulderY+(handY-shoulderY)*.48,handX,handY,5);
+            ctx.fillStyle='#d6d9e1';
+            ctx.beginPath();ctx.arc(...P(shoulderX-2,140),Math.max(5,7*scale),0,Math.PI*2);ctx.fill();
+            drawBag(bagX,bagY,second?23.2:33.2,second?34.8:22.8,bagAng,
+                second?ease(u/.10):1);
+            ctx.restore();
+        }
+
         function drawManikinViewport(mass, angleDeg, Fg, Fn, Ft, phase, times) {
             const canvas = document.getElementById('aba6-manikinCanvas');
             if (!canvas) return;
@@ -10073,11 +10169,13 @@ window.drawUniReferenceBins = drawReferenceBins;
                 canvas.height = ph;
             }
             const ctx = canvas.getContext('2d');
-            // Limpa pixels físicos sem câmera, clip ou DPR herdado da cena anterior.
-            ctx.save();
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.restore();
+            // reset() também descarta o stack de ctx.save() se o renderer
+            // anterior lançou erro antes de restaurar o estado do canvas.
+            if (typeof ctx.reset === 'function') ctx.reset();
+            else {
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             const W = rect.width, H = rect.height;
             drawUnifiedCabinBackground(ctx, W, H, {
@@ -10110,32 +10208,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                         console.error('Biomechanical passenger render:', err);
                         window.__aphaErgoRenderWarning = true;
                     }
-                    const floor = H * .86, k = Math.min(panelW / 420, H / 560);
-                    const sx = panelW * .46, sy = floor;
-                    const t = Math.max(0, Math.min(1, localPhase));
-                    const lift = Math.max(0, Math.min(1, (t - .12) / .52));
-                    const smooth = lift * lift * (3 - 2 * lift);
-                    const bagX = sx + (38 + 120 * smooth) * k;
-                    const bagY = sy - (95 + 245 * smooth) * k;
-                    ctx.save();
-                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-                    ctx.strokeStyle = '#d6d9e1'; ctx.lineWidth = Math.max(5, 13*k);
-                    const seg = (x1,y1,x2,y2) => { ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); };
-                    const hipY = sy-165*k, shY = sy-280*k;
-                    seg(sx,hipY,sx-26*k,sy-75*k); seg(sx-26*k,sy-75*k,sx-41*k,sy);
-                    seg(sx,hipY,sx+25*k,sy-78*k); seg(sx+25*k,sy-78*k,sx+34*k,sy);
-                    seg(sx,hipY,sx,shY);
-                    const handX=bagX-13*k, handY=bagY+4*k;
-                    seg(sx,shY,sx+28*k,shY+45*k); seg(sx+28*k,shY+45*k,handX,handY);
-                    seg(sx,shY,sx-28*k,shY+45*k); seg(sx-28*k,shY+45*k,handX-7*k,handY+5*k);
-                    ctx.beginPath(); ctx.arc(sx,shY-35*k,26*k,0,Math.PI*2);
-                    ctx.fillStyle='#d6d9e1';ctx.fill();
-                    ctx.translate(bagX,bagY);
-                    ctx.fillStyle='#536e90';ctx.strokeStyle='#d6d9e1';ctx.lineWidth=Math.max(2,3*k);
-                    ctx.beginPath();ctx.roundRect(-31*k,-43*k,62*k,86*k,6*k);ctx.fill();ctx.stroke();
-                    ctx.beginPath();ctx.roundRect(-12*k,-55*k,24*k,12*k,4*k);ctx.stroke();
-                    for(const x of [-19,19]){ctx.beginPath();ctx.arc(x*k,46*k,5*k,0,Math.PI*2);ctx.fillStyle='#bababa';ctx.fill();}
-                    ctx.restore();
+                    drawManikinFallback(ctx, panelW, H, localPhase, t.tA2, t.tA1, true);
                     st = {tTotal: t.tA2 + t.tA1};
                 }
                 ctx.restore();
@@ -12872,9 +12945,10 @@ window.drawUniReferenceBins = drawReferenceBins;
         const bridgeEase=v=>{v=Math.max(0,Math.min(1,v));return v<.5?4*v*v*v:1-Math.pow(-2*v+2,3)/2;};
         const bridgeMix=(a,b,u)=>({k:a.k+(b.k-a.k)*u,tx:a.tx+(b.tx-a.tx)*u,ty:a.ty+(b.ty-a.ty)*u});
         function destroyBridge(fadeMs=0){
+            // Limpa a flag inclusive quando a ponte já não existe.
+            window.__aphaTourBridgeActive = false;
             if(!bridge)return;
             const b=bridge;bridge=null;
-            window.__aphaTourBridgeActive = false;
             cancelAnimationFrame(b.raf);
             if(fadeMs){
                 b.canvas.style.transition='opacity '+(fadeMs/1000)+'s ease-in-out';
@@ -12898,11 +12972,13 @@ window.drawUniReferenceBins = drawReferenceBins;
             if(b.mode!=='stow')m=bridgeMix(b.start,b.end,bridgeEase(elapsed/C.zoomOutMs));
             // Uma única transformação para shell, assentos, piso, bins e manikin.
             b.lastRendered={...m};
-            // A limpeza ocorre em pixels físicos antes de aplicar a câmera m4.
-            g.save();
-            g.setTransform(1,0,0,1,0,0);
-            g.clearRect(0,0,b.canvas.width,b.canvas.height);
-            g.restore();
+            // reset() remove também transforms/saves deixados por um frame
+            // com exceção no desenho vetorial, evitando acumulação de estados.
+            if (typeof g.reset === 'function') g.reset();
+            else {
+                g.setTransform(1,0,0,1,0,0);
+                g.clearRect(0,0,b.canvas.width,b.canvas.height);
+            }
             g.setTransform(dpr,0,0,dpr,0,0);
             // O #tour-stage mantém a malha e a cor por trás do canvas móvel.
             drawUnifiedCabinBackground(g, W, H, { tour: true });
@@ -12951,6 +13027,21 @@ window.drawUniReferenceBins = drawReferenceBins;
                 } finally { g.restore(); }
             }catch(err){
                 if(!b.error){b.error=true;console.error('Continuous cabin camera:',err);}
+                // Não deixar somente a fuselagem parada quando o renderizador
+                // detalhado falha: o fallback continua no MESMO canvas e câmera.
+                try {
+                    if (typeof g.reset === 'function') g.reset();
+                    else b.canvas.width = b.canvas.width;
+                    g.setTransform(dpr,0,0,dpr,0,0);
+                    drawUnifiedCabinBackground(g,W,H,{tour:true});
+                    g.save();
+                    try {
+                        g.transform(m.k,0,0,m.k,m.tx,m.ty);
+                        drawManikinFallback(g,b.baseW,b.baseH,phase,t.tA2,t.tA1,true);
+                    } finally { g.restore(); }
+                } catch(fallbackErr) {
+                    if(!b.fallbackError){b.fallbackError=true;console.error('Continuous cabin fallback:',fallbackErr);}
+                }
             }finally{
                 [window.__aphaOnlyCabin,window.__aphaShowConventional,window.__aphaBridgeDoorU,window.__aphaBridgeMinimalHUD,window.__aphaBridgeManikinAlpha,window.__aphaBridgeSeatsAlpha,window.__aphaAlphaBodyOpacity]=old;
             }
