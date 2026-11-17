@@ -200,6 +200,9 @@
         #module-unified aside, #module-unified .sim-card > div:last-child{background:var(--apha-bg);border-color:var(--apha-mid-45)}
         #module-unified aside .font-mono, #module-unified .sim-card > div:last-child span{color:var(--apha-muted)}
         #module-unified .sim-bg{background:var(--apha-bg)}   /* simulação integrada: fundo escuro (mesma paleta da exportação P95) */
+        /* When the camera zooms into opening bins, hide the stature scale without changing canvas dimensions. */
+        #module-unified aside{transition:opacity .28s ease,visibility 0s linear .28s}
+        #module-unified.uni-bin-zoom aside{opacity:0 !important;visibility:hidden !important;pointer-events:none !important}
         /* ===== Botões e Chips CAD ===== */
         .cad-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:#6d90b8;color:#000223;font:600 12px 'JetBrains Mono',monospace;border:0;cursor:pointer;transition:background .2s}
         .cad-btn:hover{background:#5b7b9e}
@@ -5803,13 +5806,11 @@ function xrayRun(ms) {
                         <span class="flex items-center gap-1.5"><i class="inline-block w-3 h-3 rounded-sm" style="background:#9ba9b5"></i>Conventional</span>
                     </div>
                 </div>
-                <div class="px-4 py-2 bg-cad-panel border-b border-cad-border flex flex-wrap items-center gap-3">
-                    <button id="top-play" type="button" class="cad-btn">▶ Play</button>
-                    <div id="top-chips" class="flex flex-wrap gap-1.5"></div>
-                    <button id="top-export" type="button" onclick="topExportPNG()" class="cad-btn" title="Downloads the current frame of the top view as a PNG (dark background)">
-                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>Export PNG
-                    </button>
-                    <input id="top-scrub" type="range" min="0" max="6" step="0.001" value="0" class="flex-1 min-w-[140px]" aria-label="Top view timeline">
+                <div class="px-4 py-2 bg-cad-panel border-b border-cad-border flex items-center gap-3">
+                    <button id="top-play" type="button" class="cad-btn" title="Restart the top-view animation from the beginning">↻ Replay</button>
+                    <!-- Keep internal timeline elements for simulation and full-tour synchronization. -->
+                    <div id="top-chips" style="display:none !important" aria-hidden="true"></div>
+                    <input id="top-scrub" type="range" min="0" max="6" step="0.001" value="0" style="display:none !important" tabindex="-1" aria-hidden="true">
                 </div>
                 <div class="overflow-x-auto">
                     <div id="top-stage" class="relative w-full sim-bg" style="min-width:820px;height:660px">
@@ -5852,7 +5853,7 @@ function xrayRun(ms) {
             <div class="bg-cad-panel border border-cad-border rounded-xl overflow-hidden flex flex-col sim-card">
                 <div class="px-4 py-2 bg-cad-panel border-b border-cad-border flex flex-wrap items-center gap-3">
                     <button id="uni-play" type="button" onclick="uniTogglePlay()" class="cad-btn"></button>
-                    <div id="uni-chips" class="flex flex-wrap gap-1.5"></div>
+                    <div id="uni-chips" style="display:none !important" aria-hidden="true"></div>
                     <input id="uni-scrub" type="range" min="0" max="20" step="0.01" value="0" class="flex-1 min-w-[140px]" aria-label="Integrated timeline" oninput="uniScrub(this.value)">
 
                     <button id="uni-bin-door-toggle" type="button" onclick="uniRefToggleDoors()" class="cad-btn" title="Operate the conventional hinged door and Alpha curved-rail sliding door">Open bin doors</button>
@@ -10997,6 +10998,8 @@ window.drawUniReferenceBins = drawReferenceBins;
 
             function refresh() {
                 U.g = U.g || computeAllGeometries();
+                const uniSection = document.getElementById('module-unified');
+                if (uniSection) uniSection.classList.toggle('uni-bin-zoom', U.t >= TL.zoom);
                 const T1=Math.min(4,U.t/UNI_CAD_SEC);
                 if(U.playing && U.t<TL.open)window.__uniRefDoorProgress=0;
                 if(U.t>=TL.open)window.__uniRefDoorProgress=doorAmount();
@@ -11106,7 +11109,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 U.playing = true; U.last = performance.now();
                 cancelAnimationFrame(U.raf); U.raf = requestAnimationFrame(tick); refresh();
             }
-            document.getElementById('uni-chips').innerHTML = PH.map((p, i) => `<button type="button" class="cad-chip" onclick="uniGo(${i})">${i + 1}. ${p[0]}</button>`).join('');
+            // Keep the phase timeline and uniGo() API, but do not render phase buttons.
             // Tempo exato na fase 4 em que a curva de estatura passa por WORLD_MEAN_CM (165,0 cm)
             const T_WORLD_MEAN = TL.stat + TL.dur * Math.acos(1 - 2 * (WORLD_MEAN_CM - window.SEATED_STAT.min) / (window.SEATED_STAT.max - window.SEATED_STAT.min)) / Math.PI;
 
@@ -12956,7 +12959,7 @@ window.drawUniReferenceBins = drawReferenceBins;
 
         // ------------------------- controles -------------------------
         const btn = document.getElementById('top-play'), scrub = document.getElementById('top-scrub'), chips = document.getElementById('top-chips');
-        chips.innerHTML = STAGES.map((n, i) => `<button type="button" class="cad-chip" data-i="${i}">${i + 1}. ${n}</button>`).join('');
+        // Phase navigation buttons were removed; keep the timeline node for JS.
 
         function refresh() {
             draw();
@@ -12967,7 +12970,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 c.classList.toggle('done', T >= i + 1);
                 c.classList.toggle('on', i === idx && T < N_ST);
             });
-            btn.textContent = A.playing ? '❚❚ Pause' : (T >= N_ST ? '↻ Restart' : '▶ Play');
+            btn.textContent = '↻ Replay';
         }
         function tick(now) {
             if (!A.playing) return;
@@ -12983,11 +12986,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             A.stopAt = stopAt; A.playing = true; A.last = performance.now();
             cancelAnimationFrame(A.raf); A.raf = requestAnimationFrame(tick);
         }
-        btn.addEventListener('click', () => {
-            if (A.playing) { A.playing = false; refresh(); }
-            else if (A.t >= N_ST - 0.001) play(0, N_ST);
-            else play(null, N_ST);
-        });
+        btn.addEventListener('click', () => { play(0, N_ST); refresh(); });
         chips.addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b) { const i = +b.dataset.i; play(i, i + 1); } });
         scrub.addEventListener('input', () => { A.playing = false; A.t = parseFloat(scrub.value); refresh(); });
 
