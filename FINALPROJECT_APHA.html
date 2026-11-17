@@ -6244,7 +6244,8 @@ function xrayRun(ms) {
             const canvas = document.getElementById('aba6-manikinCanvas');
             if (!host || !canvas || !canvas.parentElement) return false;
             const rect = canvas.parentElement.getBoundingClientRect();
-            if (rect.width < 2 || rect.height < 2) return false;
+            // No Tour, o canvas da Aba 6 fica oculto atrás da ponte: o layout não deve bloquear os cálculos.
+            if (!options.tour && (rect.width < 2 || rect.height < 2)) return false;
             if (!aba6Initialized) {
                 aba6Initialized = true;
                 window.aba6Initialized = true;
@@ -9404,8 +9405,12 @@ window.drawUniReferenceBins = drawReferenceBins;
                     const dt = Math.min(0.1, elapsed / 1000);
                     manikinFrameTime = now;
                     const tCycle = Math.max(6, manikinState.cycleT || 20) * 0.55;
-                    manikinState.phase = Math.min(1,
-                        manikinState.phase + (dt * 1.45) / tCycle);
+                    // Quando a ponte está ativa, paintBridge é a única fonte de avanço.
+                    // O motor oculto continua atualizando os cálculos biomecânicos.
+                    if (!window.__aba6TourMode || !window.__aphaTourBridgeActive) {
+                        manikinState.phase = Math.min(1,
+                            manikinState.phase + (dt * 1.45) / tCycle);
+                    }
                     const finished = manikinState.phase >= 1;
                     updateErgonomics();
                     if (finished) {
@@ -12964,9 +12969,26 @@ window.drawUniReferenceBins = drawReferenceBins;
             const width=Math.round(W*dpr),height=Math.round(H*dpr);
             if(b.canvas.width!==width||b.canvas.height!==height){b.canvas.width=width;b.canvas.height=height;}
             const g=b.canvas.getContext('2d'),elapsed=now-b.started;
-            // A abertura pertence inteiramente à Aba 5; a ponte não a reinicia.
+            const L=manikinState.last,mass=L?L.mass:10,ang=L?L.angleDeg:17;
+            const Fg=L?L.Fg:mass*9.81,Fn=L?L.Fn:Fg*Math.cos(ang*Math.PI/180),Ft=L?L.Ft:Fg*Math.sin(ang*Math.PI/180);
+            const t=L?L.times[0]:ergoTimes(ERGO_PERCENTILES[0].h,mass,ang);
+            // A ponte usa seu próprio relógio para não congelar se a Aba 6 oculta não inicializar.
+            let phase=b.initialPhase;
+            if(b.mode==='stow'){
+                const tCycle=Math.max(6,manikinState.cycleT||(t.tA1+t.tA2)||10)*.55;
+                const stowElapsed=Math.max(0,(now-b.stowStart)/1000);
+                const bridgePhase=Math.min(1,b.initialPhase+(stowElapsed*1.45)/tCycle);
+                phase=Math.max(manikinState.phase||0,bridgePhase);
+                manikinState.phase=phase;
+                if(phase>=1&&!window.ergoDone){
+                    manikinState.animating=false;
+                    stopManikinLoop();
+                    window.ergoDone=true;
+                }
+            }
+            // A abertura pertence à Aba 5; fecha a porta só nos últimos 4% da estiva.
             const doorU=b.mode==='stow'
-                ? 1-bridgeEase(((manikinState.phase||0)-.96)/.04)
+                ? 1-bridgeEase((phase-.96)/.04)
                 : 1;
             let m=b.end;
             if(b.mode!=='stow')m=bridgeMix(b.start,b.end,bridgeEase(elapsed/C.zoomOutMs));
@@ -12999,13 +13021,6 @@ window.drawUniReferenceBins = drawReferenceBins;
             }else if(b.snapshot && handoff>=1){
                 b.snapshot=null; // liberar memória da captura após a emenda
             }
-            const L=manikinState.last,mass=L?L.mass:10,ang=L?L.angleDeg:17;
-            const Fg=L?L.Fg:mass*9.81,Fn=L?L.Fn:Fg*Math.cos(ang*Math.PI/180),Ft=L?L.Ft:Fg*Math.sin(ang*Math.PI/180);
-            const t=L?L.times[0]:ergoTimes(ERGO_PERCENTILES[0].h,mass,ang);
-            // Fixar o frame inicial: a inicialização da física não salta a mala.
-            const phase=b.mode==='stow'
-                ? Math.max(manikinState.phase||0,b.initialPhase)
-                : b.initialPhase;
             const old=[window.__aphaOnlyCabin,window.__aphaShowConventional,window.__aphaBridgeDoorU,window.__aphaBridgeMinimalHUD,window.__aphaBridgeManikinAlpha,window.__aphaBridgeSeatsAlpha,window.__aphaAlphaBodyOpacity];
             try{
                 // Renderiza o cenário inteiro em todos os quadros. O manequim surge
@@ -13148,6 +13163,9 @@ window.drawUniReferenceBins = drawReferenceBins;
             paintBridge(bridge.started+C.zoomOutMs);
             verifyBridgeSeam(bridge);
             bridge.mode='stow';bridge.stowStart=performance.now();
+            // Uma nova execução não pode herdar phase=1 de uma simulação anterior.
+            manikinState.phase=bridge.initialPhase;
+            window.ergoDone=false;
             paintBridge(bridge.stowStart);
             return true;
         }
