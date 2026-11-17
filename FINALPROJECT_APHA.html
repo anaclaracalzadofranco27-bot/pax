@@ -371,7 +371,6 @@
 
         /* ===== Aba 1: Boarding Bridge (passageiros caminhando na passarela do Aviao_Fuselagem_PDF_v10) ===== */
         #pax-frame{display:block;width:100%;height:100%;border:0;background:transparent;color-scheme:dark}
-        #tour-stage #module-pax > div:first-child{display:none}   /* roteiro: sem a caixa de título */
         #tour-stage #module-pax .sim-card{border:0;border-radius:0;box-shadow:none;background:transparent}
         #tour-stage #module-pax .sim-card > div:first-child{display:none}   /* roteiro: sem a barra do viewport */
         #tour-stage #pax-host{height:auto;aspect-ratio:16/9}
@@ -889,12 +888,6 @@
         <!--  ele usa o three.js r128 e CSS próprios)                                  -->
         <!-- ========================================================================= -->
         <section id="module-pax" class="space-y-4 hidden">
-            <div class="bg-cad-panel border border-cad-border rounded-xl px-4 py-3">
-                <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-cad-cyan"></span>
-                    Boarding Bridge – Passengers Walking
-                </h2>
-            </div>
             <div class="bg-cad-panel border border-cad-border rounded-xl overflow-hidden flex flex-col sim-card">
                 <div class="px-4 py-2.5 bg-cad-bg border-b border-cad-border flex flex-wrap items-center gap-2">
                     <span class="w-2.5 h-2.5 rounded-full bg-cad-cyan animate-pulse"></span>
@@ -5731,26 +5724,10 @@ function xrayRun(ms) {
                         <button id="cad3d-export" type="button" onclick="cad3dExportImages()" class="cad-btn" title="Downloads 3 4K images (3840 × 2160): isometric view with door closed, isometric view with door 80% open, and an isolated side wall (transparent PNG, without luggage or door)">
                             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>Exportar imagens 4K
                         </button>
-                        <button id="cad3d-export-side" type="button" onclick="cad3dExportSideTransparent()" class="cad-btn" title="Exports two 4K views of the complete bin with four visible bags and translucent side panels: lateral and side-oblique">
-                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>Exportar lateral c/ malas (2 PNG)
-                        </button>
                         <div class="flex items-center gap-2 bg-cad-bg px-3 py-1.5 rounded-lg border border-cad-border text-xs font-mono">
                             <span class="text-slate-700">Door:</span>
                             <input id="cad3d-doorSlider" type="range" min="0" max="100" value="0" step="0.5" class="w-24">
                             <span id="cad3d-doorPct" class="font-bold text-cad-cyan w-9 text-right">0%</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="bg-cad-panel border border-cad-border rounded-xl p-4 flex-1 flex flex-col">
-                    <h3 class="text-sm font-bold uppercase tracking-wider text-cad-cyan font-mono pb-2 mb-2 border-b border-cad-border">Standards</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-                        <div class="space-y-1">
-                            <span class="text-[11px] font-mono uppercase font-bold text-cad-cyan">1. IATA Bag Envelope</span>
-                            <div class="text-base font-mono font-bold text-slate-900">22 × 14 × 10 in</div>
-                        </div>
-                        <div class="space-y-1">
-                            <span class="text-[11px] font-mono uppercase font-bold text-cad-orange">2. Alpha Staggered Layout</span>
-                            <div class="text-base font-mono font-bold text-slate-900">2 Lying + 2 Upright</div>
                         </div>
                     </div>
                 </div>
@@ -5762,12 +5739,6 @@ function xrayRun(ms) {
                     <div class="flex items-center gap-2">
                         <span class="w-2.5 h-2.5 rounded-full bg-cad-cyan animate-pulse"></span>
                         <span class="text-xs font-mono font-semibold text-slate-800">CAD 3D VIEWPORT — ALPHA BIN + ROLL-UP DOOR + 4 IATA BAGS</span>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-1.5">
-                        <button data-cad3d-v="iso" class="px-2.5 py-1 rounded bg-white hover:bg-slate-200 text-slate-800 border border-slate-300 text-xs font-mono transition">Isometric</button>
-                        <button data-cad3d-v="side" class="px-2.5 py-1 rounded bg-white hover:bg-slate-200 text-slate-800 border border-slate-300 text-xs font-mono transition">Side (Y-Z)</button>
-                        <button data-cad3d-v="front" class="px-2.5 py-1 rounded bg-white hover:bg-slate-200 text-slate-800 border border-slate-300 text-xs font-mono transition">Front (X-Z)</button>
-                        <button data-cad3d-v="top" class="px-2.5 py-1 rounded bg-white hover:bg-slate-200 text-slate-800 border border-slate-300 text-xs font-mono transition">Top</button>
                     </div>
                 </div>
                 <div id="cad3d-container" class="relative w-full h-[540px] sm:h-[600px] sim-bg select-none overflow-hidden">
@@ -5801,9 +5772,7 @@ function xrayRun(ms) {
         <!-- ========================================================================= -->
         <section id="module-nova" class="space-y-4 hidden">
             <div class="bg-cad-panel border border-cad-border rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-                <h2 class="text-base font-bold text-slate-900">Top View: Alpha Bin × Conventional Bin (4 Bags)</h2>
                 <button onclick="exportBinsPNG()" class="py-2 px-4 rounded-lg font-mono font-semibold text-xs transition" style="border:1px solid #5b7b9e;color:#d4dce6;background:transparent" onmouseover="this.style.background='rgba(91,123,158,.14)'" onmouseout="this.style.background='transparent'">Export both bins (PNG, transparent)</button>
-                <button onclick="exportBinsPNG(2.5, 'alpha')" class="py-2 px-4 rounded-lg font-mono font-semibold text-xs transition" style="border:1px solid #5b7b9e;color:#d4dce6;background:transparent" onmouseover="this.style.background='rgba(91,123,158,.14)'" onmouseout="this.style.background='transparent'">Export Alpha bin only</button>
             </div>
             <div id="nova-comparison-header">
                 <h2 class="comparison-title">SPACE EFFICIENCY COMPARISON</h2>
@@ -12082,20 +12051,19 @@ window.drawUniReferenceBins = drawReferenceBins;
 
 
 
-            // Uma só altura local para os dois canvases, independente das geometrias 3D.
-            // Mantém a etiqueta e as setas inteiras dentro da área útil do canvas.
+            // Both measurements share one top baseline and the same auxiliary-line height.
+            // Keep the actual widths (44" Alpha and 56" conventional) and their horizontal scale.
             const TOP_BIN_DIMENSION_Y = 44;
-            // Cotas comuns aos dois bins: branco puro, setas externas e etiqueta escura.
-            // Compartilhar o mesmo desenhador garante que 44" e 56" mantenham a mesma linguagem visual.
-            function drawTopDimension(ctx, x1, x2, yDim, yExt, label) {
+            const TOP_BIN_DIMENSION_EXTENSION_END_Y = 164;
+            function drawTopDimension(ctx, x1, x2, yDim, label) {
                 ctx.save();
                 ctx.setLineDash([]);
                 ctx.strokeStyle = '#FFFFFF';
                 ctx.fillStyle = '#FFFFFF';
                 ctx.lineWidth = 1.3;
                 ctx.beginPath();
-                ctx.moveTo(x1, yExt); ctx.lineTo(x1, yDim - 7);
-                ctx.moveTo(x2, yExt); ctx.lineTo(x2, yDim - 7);
+                ctx.moveTo(x1, TOP_BIN_DIMENSION_EXTENSION_END_Y); ctx.lineTo(x1, yDim - 7);
+                ctx.moveTo(x2, TOP_BIN_DIMENSION_EXTENSION_END_Y); ctx.lineTo(x2, yDim - 7);
                 ctx.moveTo(x1, yDim); ctx.lineTo(x2, yDim);
                 ctx.stroke();
                 // Setas triangulares sólidas, apontadas para fora da medida.
@@ -12225,8 +12193,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                         const dx = dc.getContext('2d'); dx.setTransform(dpr, 0, 0, dpr, 0, 0); dx.clearRect(0, 0, r.width, r.height);
                         nvCam.updateMatrixWorld(true);
                         const P = (x, z) => { const v = new THREE.Vector3(x, 655, z).project(nvCam); return [(v.x + 1) / 2 * r.width, (1 - v.y) / 2 * r.height]; };
-                        const [xa, yTop] = P(TH / 2, 0), [xb] = P(DIST - TH / 2, 0);
-                        drawTopDimension(dx, xa, xb, TOP_BIN_DIMENSION_Y, yTop - 3, '44"');
+                        const [xa] = P(TH / 2, 0), [xb] = P(DIST - TH / 2, 0);
+                        drawTopDimension(dx, xa, xb, TOP_BIN_DIMENSION_Y, '44"');
                     }
                 }
                 window.novaEnter = () => {
@@ -12400,7 +12368,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                     const c=ctxFor(dim,W,H,dpr);
                     if(!window.__convNoDim){
                         const a=geo.p(924,7931),b=geo.p(19770,7931);
-                        drawTopDimension(c,a[0],b[0],TOP_BIN_DIMENSION_Y,a[1]-5,'56"');
+                        drawTopDimension(c,a[0],b[0],TOP_BIN_DIMENSION_Y,'56"');
                     }
                     return cv;
                 }
