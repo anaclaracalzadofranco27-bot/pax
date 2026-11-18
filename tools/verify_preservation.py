@@ -15,6 +15,10 @@ for tab in tabs:
 # Each navigation tab has its own HTML source. File numbers follow tab order,
 # not the legacy DOM order (the original Aba 6 block lives earlier in the page).
 template = (ROOT / "source/page.template.html").read_text(encoding="utf-8")
+# Shared cabin-section drawing is used in ABA5 and ABA6.
+sectioncabin_path = ROOT / "source/js/engine/sectioncabin.js"
+assert sectioncabin_path.is_file(), "Missing shared sectioncabin.js"
+assert template.count("@@APHA_INCLUDE:source/js/engine/sectioncabin.js@@") == 1, "Broken shared sectioncabin.js include"
 for index, name in enumerate(tabs, start=1):
     relative_path = f"source/html/ABA{index}/ABA{index}.html"
     source_path = ROOT / relative_path

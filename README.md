@@ -39,7 +39,7 @@ HTML e recursos exclusivos ficam juntos:
 | `source/css/global.css` | CSS, aparência e transições usadas por várias abas |
 | `source/js/core/config.js` | Paleta, geometria, linha do tempo e configurações comuns |
 | `source/js/engine/cad2d-and-shared.js` | CAD 2D, comparação da Aba 3 e funções compartilhadas |
-| `source/js/engine/seated-ergonomics.js` | Ergonomia sentada e funções compartilhadas com a simulação da cabine |
+| `source/js/engine/sectioncabin.js` | Ergonomia sentada e funções compartilhadas com a simulação da cabine |
 
 Códigos específicos de uma aba também podem ser **chamados pela Simulação Geral**
 (ABA8), mas ficam na pasta de origem. O diretor da ABA8 apenas os coordena.
