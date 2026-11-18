@@ -443,6 +443,13 @@
            então a área útil também é 16:9 e nenhuma cena é cortada ou distorcida */
         #tour-stage.rec { width: var(--rec-w, 1456px) !important; height: var(--rec-h, 819px) !important; aspect-ratio: 16 / 9; margin-left: auto !important; margin-right: auto !important; padding: calc(var(--rec-h, 819px) * 0.022) calc(var(--rec-w, 1456px) * 0.022) !important; overflow: hidden !important; box-sizing: border-box !important; }
         #tour-stage.rec #cad3d-container { height: 100% !important; }
+        /* A comparação ocupa exatamente a mesma área útil tanto na medição
+           do ponto de chegada do giro quanto na entrada real da Aba 3. */
+        #tour-stage.rec > #module-nova {
+            position:absolute !important;
+            top:2.2% !important;left:2.2% !important;right:2.2% !important;
+            margin:0 !important;
+        }
         #tour-stage.rec #aba6-module-ergo .sm\:h-\[740px\] { height: calc(var(--rec-h, 819px) * 0.956) !important; }   /* área útil do quadro (altura menos o recuo de 2,2% em cima e embaixo) */
         /* gravação: tamanho fixo do quadro, para o vídeo não mudar de resolução */
 
@@ -11537,7 +11544,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                         if(bagDimensionLayer) bagDimensionLayer.appendChild(label);
                         bagDimensionLabels.push({
                             el:label, envelope:env,
-                            a:new THREE.Vector3(...a), b:new THREE.Vector3(...b)
+                            a:new THREE.Vector3(...a), b:new THREE.Vector3(...b),
+                            anchor:new THREE.Vector3(...c)  // posição próxima à das cotas originais
                         });
                     }
                     dim([215,-279.5,160],[215,279.5,160],'22 in',[248,0,160]);
@@ -11550,8 +11558,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                 return { root, env, mBody };
             }
 
-            // Cotas em pixels de tela: números sempre DEBAIXO da linha, dentro
-            // do quadro Full HD, sem alterar a geometria nem o tempo de exibição.
+            // Cotas junto à mala como antes: usa a âncora original de cada medida
+            // e aplica apenas um pequeno afastamento abaixo da linha e limites 16:9.
             function fitBagDimensionLabels() {
                 const w=container.clientWidth, h=container.clientHeight;
                 if(!bagDimensionLayer || w<1 || h<1) return;
@@ -11567,29 +11575,37 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const desc=box && _balloons.offsetParent && getComputedStyle(box).visibility!=='hidden'
                     ?box.getBoundingClientRect():null;
                 const cont=container.getBoundingClientRect();
-                const topSafe=h*.20, bottomSafe=h*.72;
+                // O antigo limite de 72% forçava as cotas para cima da mala.
+                const topSafe=h*.12, bottomSafe=h*.90;
+                const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
                 for(const entry of bagDimensionLabels){
-                    const {el,envelope,a,b}=entry;
+                    const {el,envelope,a,b,anchor}=entry;
                     el.style.visibility='hidden';
                     if(!envelope.visible || !envelope.parent || !envelope.parent.visible) continue;
-                    const wa=a.clone(),wb=b.clone();
-                    envelope.localToWorld(wa); envelope.localToWorld(wb);
-                    const p=pos(wa),q=pos(wb);
-                    if(!Number.isFinite(p.x+p.y+q.x+q.y) || (p.z>1 && q.z>1)) continue;
-                    const ew=el.offsetWidth||58,eh=el.offsetHeight||24;
-                    const leftSafe=w*.06+ew/2,rightSafe=w*.94-ew/2;
-                    const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
-                    let x=clamp((p.x+q.x)/2,leftSafe,rightSafe);
+                    const wa=a.clone(),wb=b.clone(),wc=anchor.clone();
+                    envelope.localToWorld(wa);envelope.localToWorld(wb);envelope.localToWorld(wc);
+                    const p=pos(wa),q=pos(wb),r=pos(wc);
+                    if(!Number.isFinite(p.x+p.y+q.x+q.y+r.x+r.y) || (p.z>1 && q.z>1)) continue;
+                    const ew=el.offsetWidth||58, eh=el.offsetHeight||24;
+                    const leftSafe=w*.06+ew/2, rightSafe=w*.94-ew/2;
+                    let x=clamp(r.x,leftSafe,rightSafe);
                     const horizontal=Math.abs(p.x-q.x)>=Math.abs(p.y-q.y)*.85;
-                    let y=horizontal?Math.max(p.y,q.y)+14:(p.y+q.y)/2+17;
+                    let y=horizontal?Math.max(r.y+6,Math.max(p.y,q.y)+11):r.y+9;
                     y=clamp(y,topSafe,bottomSafe-eh);
-                    // Evita o texto do modelo geométrico: nenhum número cobre a descrição.
+                    // Preferir mover lateralmente o rótulo (em vez de subi-lo)
+                    // quando o texto explicativo ocupa sua posição.
                     if(desc){
                         const dl=desc.left-cont.left,dt=desc.top-cont.top;
                         const dr=desc.right-cont.left,db=desc.bottom-cont.top;
                         if(x+ew/2>dl-8 && x-ew/2<dr+8 && y+eh>dt-7 && y<db+7){
-                            y=clamp(dt-eh-14,topSafe,bottomSafe-eh);
-                            if(y+eh>dt-7) x=clamp(dl-ew/2-14,leftSafe,rightSafe);
+                            const xl=dl-ew/2-14, xr=dr+ew/2+14;
+                            const canLeft=xl>=leftSafe,canRight=xr<=rightSafe;
+                            if(canLeft||canRight){
+                                x=canLeft&&(!canRight||Math.abs(x-xl)<=Math.abs(x-xr))?xl:xr;
+                            }else{
+                                const below=db+10,above=dt-eh-10;
+                                y=clamp(below+eh<=bottomSafe?below:above,topSafe,bottomSafe-eh);
+                            }
                         }
                     }
                     el.style.left=x.toFixed(1)+'px';
@@ -12012,6 +12028,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 morphSaved.clear();
                 cam.fov = 35; cam.up.set(0, 1, 0); cam.clearViewOffset(); cam.updateProjectionMatrix();
                 const bl = container.querySelector('.cad3d-balloons'); if (bl) { bl.style.opacity = ''; bl.classList.remove('hud-off'); }
+                if (bagDimensionLayer) { bagDimensionLayer.style.opacity = ''; bagDimensionLayer.style.visibility = ''; }
             };
             window.cad3dTourMorph = o => new Promise(resolve => {
                 stopAllAnimations();
@@ -12040,8 +12057,18 @@ window.drawUniReferenceBins = drawReferenceBins;
                     Tm.lerpVectors(T0, NV_T_M, k);
                     cam.position.set(Tm.x + Rm * Math.cos(el) * Math.cos(az), Tm.y + Rm * Math.sin(el), Tm.z + Rm * Math.cos(el) * Math.sin(az));
                     const w = k * k * k; cam.up.set(0, 1 - w, w).normalize();                  // sem ponto cego perto do zênite
-                    cam.setViewOffset(cw, ch, dx * k, dy * k, cw, ch);                          // desliza o bin para a esquerda/cima, em sincronia
+                    cam.setViewOffset(cw, ch, dx * k, dy * k, cw, ch);                          // destino medido na mesma escala CSS da câmera
+                    if (u >= 1) {
+                        // Último frame = MESMA câmera ortogonal à planta usada por novaFront():
+                        // posição, vetor up, FOV, centro e escala coincidem com o bin Alpha seguinte.
+                        cam.position.set(NV_T_M.x, NV_T_M.y + RrN * ch / colH, NV_T_M.z);
+                        cam.up.set(0, 0, 1);
+                    }
                     cam.lookAt(Tm);
+                    if (bagDimensionLayer) {
+                        bagDimensionLayer.style.opacity = String(1 - km);
+                        bagDimensionLayer.style.visibility = km >= .999 ? 'hidden' : 'visible';
+                    }
                     morphSet(mat, 0.30, km); morphSet(wm, 0.30, km); morphSet(fm, 0.40, km);
                     profileBandMaterials.forEach(m => morphSet(m, 0.30, km));   // sólido → translúcido (wireframe em destaque)
                     slatMats.forEach(m => morphSet(m, 0, km));                                  // porta rolante some (na aba 2 ela está recolhida)
@@ -13467,15 +13494,24 @@ window.drawUniReferenceBins = drawReferenceBins;
                 }
             }
         }
-        // posição real da coluna ALPHA da vista de cima (módulo 3) no quadro, medida com o módulo invisível no lugar em que vai entrar
+        // Medir o viewport Alpha no mesmo layout final da aba seguinte.
+        // Converter pixels visuais de getBoundingClientRect em pixels CSS locais
+        // evita diferenças de enquadramento sob escala/zoom na prévia ou na gravação.
         function measureNovaCol() {
             const sec = $('module-nova'), ph = document.createComment('m'), cs = getComputedStyle(stage);
             sec.parentNode.insertBefore(ph, sec); stage.appendChild(sec); sec.classList.remove('hidden');
             Object.assign(sec.style, { position: 'absolute', top: cs.paddingTop, left: cs.paddingLeft, right: cs.paddingRight, visibility: 'hidden' });
             fitRec(sec, { key: 'nova' });
             const r = $('nova-container').getBoundingClientRect(), c = $('cad3d-container').getBoundingClientRect();
+            const vw=$('cad3d-container').clientWidth, vh=$('cad3d-container').clientHeight;
+            const sx=c.width/Math.max(1,vw), sy=c.height/Math.max(1,vh);
+            const target={
+                w:r.width/sx, h:r.height/sy,
+                cx:(r.left+r.width/2-c.left)/sx,
+                cy:(r.top+r.height/2-c.top)/sy
+            };
             clearSec(sec); sec.style.visibility = ''; sec.classList.add('hidden'); ph.parentNode.insertBefore(sec, ph); ph.remove();
-            return { w: r.width, h: r.height, cx: r.left + r.width / 2 - c.left, cy: r.top + r.height / 2 - c.top };
+            return target;
         }
         // 3: o bin Alpha aparece sozinho, no ponto exato em que a transição do CAD 3D terminou; depois o convencional ao lado; por fim cotas + nomes
         async function fxNovaIn(my) {
