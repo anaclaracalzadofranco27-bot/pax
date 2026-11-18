@@ -943,8 +943,19 @@ body {
   from { stroke-opacity: 0.35; }
   to { stroke-opacity: 1; }
 }
-@keyframes pulseBag {   /* pulso só de opacidade: filtro animado em cada peça travava a reprodução e a gravação */
+@keyframes pulseBag {   /* pulso leve na Aba 1 independente */
   from { opacity: 0.72; }
+  to { opacity: 1; }
+}
+/* Na Simulação Geral, o alerta precisa piscar de forma clara e contínua.
+   Apenas opacidade: evita filtros/shadows caros sobre dezenas de paths SVG. */
+body.no-ctl #camera-rig.bin-active .bag-top,
+body.no-ctl #camera-rig.bin-active .bag-front,
+body.no-ctl #camera-rig.bin-active .bag-detail {
+  animation: paxTourBinPulse 0.75s ease-in-out infinite alternate;
+}
+@keyframes paxTourBinPulse {
+  from { opacity: 0.28; }
   to { opacity: 1; }
 }
 
@@ -1529,12 +1540,15 @@ document.querySelectorAll('#camera-rig > svg path').forEach(p => {
 let time = 0, playing = false, interval = null;
 const ZOOM_END = 10;   // segundos com o zoom na passarela; depois a câmera abre para o avião inteiro
 const BIN_ON = ZOOM_END + 1.8;   // bagageiros acendem em laranja só quando a câmera termina de abrir (1,8 s)
-const TOTAL_TIME = 14; // duração total da animação (s): o Play para aqui. O selo OVERHEAD BINS FULL assenta em ~12,5 s: a tela fica parada no alerta só ~2 s
+const TOTAL_TIME = 14; // Aba 1 independente mantém a duração original.
+const TOUR_EXTRA_BINS_TIME = 2.5; // tempo adicional de piscar apenas na Simulação Geral.
+let tourMode = false;
+const playbackEnd = () => TOTAL_TIME + (tourMode ? TOUR_EXTRA_BINS_TIME : 0);
 
 function updateStage(sec) {
   paxLastTick = performance.now();
   scrubber.value = sec;
-  timerEl.textContent = `00:${String(Math.floor(sec)).padStart(2,'0')} / 00:${String(TOTAL_TIME).padStart(2,'0')}`;
+  timerEl.textContent = `00:${String(Math.floor(sec)).padStart(2,'0')} / 00:${String(playbackEnd()).padStart(2,'0')}`;
 
   const cls = sec < ZOOM_END ? 'zoom-bridge' : sec < BIN_ON ? '' : 'bin-active';
   if (rig.className !== cls) rig.className = cls;   // só troca a classe quando muda (sem recalcular estilos a cada 0,1 s)
@@ -1544,11 +1558,11 @@ function togglePlay() {
   playing = !playing;
   playBtn.textContent = playing ? '⏸ Pause' : '▶ Play';
   if (playing) {
-    if (time >= TOTAL_TIME) time = 0;
+    if (time >= playbackEnd()) time = 0;
     interval = setInterval(() => {
-      time = Math.min(TOTAL_TIME, +(time + 0.1).toFixed(1));
+      time = Math.min(playbackEnd(), +(time + 0.1).toFixed(1));
       updateStage(time);
-      if (time >= TOTAL_TIME) {
+      if (time >= playbackEnd()) {
         clearInterval(interval);
         playing = false;
         playBtn.textContent = '▶ Play';
@@ -5250,8 +5264,15 @@ window.paxEmbed = {
   reset: () => { rig.style.transition = 'none'; document.getElementById('resetBtn').click(); void rig.offsetWidth; rig.style.transition = ''; },
   play: () => { if (window.PAX?.setActive) window.PAX.setActive(true); if (!playing) togglePlay(); },
   pause: () => { if (playing) togglePlay(); if (window.PAX?.setActive) window.PAX.setActive(false); },
-  done: () => time >= TOTAL_TIME,
-  setControls: on => { if (window.PAX?.setActive) window.PAX.setActive(true); document.body.classList.toggle('no-ctl', !on); window.dispatchEvent(new Event('resize')); },
+  done: () => time >= playbackEnd(),
+  setControls: on => {
+    tourMode = !on;
+    if (window.PAX?.setActive) window.PAX.setActive(true);
+    document.body.classList.toggle('no-ctl', tourMode);
+    scrubber.max = String(playbackEnd());
+    updateStage(Math.min(time, playbackEnd()));
+    window.dispatchEvent(new Event('resize'));
+  },
   xray: ms => xrayRun(ms || 1700),
   xrayReset: () => xrayReset()
 };
@@ -5310,8 +5331,8 @@ function xrayRun(ms) {
                 if (a) { if (a.xrayReset) a.xrayReset(); a.setControls(false); a.reset(); a.play(); }
                 t0 = performance.now();
             };
-            // terminou quando a linha do tempo chega a 14 s (TOTAL_TIME); se o iframe não responder, segue após 15 s
-            window.paxTourDone = () => { if (!t0) return false; const a = api(); return a ? a.done() : performance.now() - t0 > 15000; };
+            // Tour: 14 s originais + 2,5 s de piscadas; fallback acompanha a duração estendida.
+            window.paxTourDone = () => { if (!t0) return false; const a = api(); return a ? a.done() : performance.now() - t0 > 18000; };
         })();
         </script>
 
@@ -12566,7 +12587,7 @@ window.drawUniReferenceBins = drawReferenceBins;
 
         // Cada passo: módulo a emprestar, como iniciar, como saber que terminou, quanto esperar no final
         const STEPS = [
-            { key: 'pax', sec: 'module-pax', title: '1. Boarding Bridge – Passengers Walking', hold: 200, timeout: 45000, noFit: true,   // alerta OVERHEAD BINS FULL parado só ~2 s
+            { key: 'pax', sec: 'module-pax', title: '1. Boarding Bridge – Passengers Walking', hold: 200, timeout: 45000, noFit: true,   // +2,5 s de piscadas durante o próprio playback do roteiro
               overlapMs: APHA_INTRO_CFG.crossfadeMs,             // sobreposição entre avião e bin, sem frame escuro
               morphOut: null,                                    // avião e CAD trocam opacidade simultaneamente
               keepAlive: true,                                   // move o módulo sem recarregar o iframe (moveBefore), quando o navegador permite
