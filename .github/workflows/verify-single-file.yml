@@ -1,0 +1,14 @@
+name: Verify single-file build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify-html:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Compare HTML output with modular source
+        run: python3 tools/build.py --check

@@ -1,0 +1,16 @@
+<section id="module-tour" class="space-y-4 hidden">
+            <div id="tour-ctl-bar" class="flex justify-center items-center gap-3 flex-wrap"><button type="button" id="tour-btn" data-mode="run">▶ Run full simulation</button><button type="button" id="tour-rec">⏺ Export video (MP4)</button><button type="button" id="tour-snap" title="Runs the full simulation and saves 2 PNGs (1920×1080) per tab — one at the start and one at the end — delivered as a single ZIP" aria-hidden="true" tabindex="-1">📷 Export start/end PNGs</button><button type="button" id="tour-figure-export" title="Export isolated manikin, suitcase and open Alpha bin" aria-hidden="true" tabindex="-1">📷 Export figure (PNG)</button></div>
+            <div id="tour-frame-adjust">
+                <label for="tour-frame-scale">Tamanho do quadro na tela</label>
+                <input id="tour-frame-scale" type="range" min="65" max="100" step="5" value="85" aria-label="Tamanho do quadro de gravação na tela">
+                <output id="tour-frame-scale-value" for="tour-frame-scale">85%</output>
+            </div>
+            <div id="tour-takes" role="group" aria-label="Grouped simulation video takes">
+                <div class="take-controls"><button type="button" data-take-play="0" title="Reproduzir somente a cena do avião">▶ Take 1 · Avião</button><button type="button" class="take-export" data-take-rec="0" title="Exportar só a cena do avião em 1920×1080">⏺ MP4</button></div>
+                <div class="take-controls"><button type="button" data-take-play="1" title="Reproduzir abas 2, 3 e 4, com as transições">▶ Take 2 · Abas 2–4</button><button type="button" class="take-export" data-take-rec="1" title="Exportar abas 2 a 4 em um único MP4 com transições">⏺ MP4</button></div>
+                <div class="take-controls"><button type="button" data-take-play="2" title="Reproduzir abas 5 e 6, com a transição contínua">▶ Take 3 · Abas 5–6</button><button type="button" class="take-export" data-take-rec="2" title="Exportar abas 5 e 6 em um único MP4 com transição">⏺ MP4</button></div>
+                <div class="take-controls"><button type="button" data-take-play="3" title="Reproduzir a conclusão sem a logo">▶ Take 4 · Conclusão</button><button type="button" class="take-export" data-take-rec="3" title="Exportar só a conclusão, sem a logo final">⏺ MP4</button></div>
+                <div class="take-controls"><button type="button" data-take-play="4" title="Reproduzir somente a animação da logo">▶ Take 5 · Logo</button><button type="button" class="take-export" data-take-rec="4" title="Exportar apenas a logo final, em MP4 próprio">⏺ MP4</button></div>
+            </div>
+            <div id="tour-stage" class="tour-frame"><i class="tw-corner c1"></i><i class="tw-corner c2"></i><i class="tw-corner c3"></i><i class="tw-corner c4"></i></div>
+        </section>

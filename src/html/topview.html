@@ -1,0 +1,35 @@
+<section id="module-topview" class="space-y-4 hidden">
+            <!-- ===================================================================== -->
+            <!-- SEÇÃO 2 (aba 1): VISTA SUPERIOR DA CABINE — VANTAGEM VOLUMÉTRICA      -->
+            <!-- ===================================================================== -->
+            <div class="bg-cad-panel border border-cad-border rounded-xl px-4 py-3">
+                <h2 class="text-base font-semibold text-slate-900 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-cad-cyan"></span>
+                    Top View – Volumetric Advantage
+                </h2>
+            </div>
+
+            <div id="top-card" class="bg-cad-panel border border-cad-border rounded-xl overflow-hidden flex flex-col sim-card">
+                <div class="px-4 py-2.5 bg-cad-bg border-b border-cad-border flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-cad-green animate-pulse"></span>
+                        <span class="text-xs font-mono font-semibold text-slate-700">CAD 2D VIEWPORT — TOP VIEW · ALPHA BIN × CONVENTIONAL BIN</span>
+                    </div>
+                    <div class="flex items-center gap-3 text-[11px] font-mono text-slate-700">
+                        <span class="flex items-center gap-1.5"><i class="inline-block w-3 h-3 rounded-sm" style="background:#718ba6"></i>Alpha</span>
+                        <span class="flex items-center gap-1.5"><i class="inline-block w-3 h-3 rounded-sm" style="background:#9ba9b5"></i>Conventional</span>
+                    </div>
+                </div>
+                <div class="px-4 py-2 bg-cad-panel border-b border-cad-border flex items-center gap-3">
+                    <button id="top-play" type="button" class="cad-btn" title="Restart the top-view animation from the beginning">↻ Replay</button>
+                    <!-- Keep internal timeline elements for simulation and full-tour synchronization. -->
+                    <div id="top-chips" style="display:none !important" aria-hidden="true"></div>
+                    <input id="top-scrub" type="range" min="0" max="6" step="0.001" value="0" style="display:none !important" tabindex="-1" aria-hidden="true">
+                </div>
+                <div class="overflow-x-auto">
+                    <div id="top-stage" class="relative w-full sim-bg" style="min-width:820px;height:660px">
+                        <canvas id="topCanvas" class="absolute inset-0 w-full h-full block" role="img" aria-label="Top view of the aircraft with Alpha bins on one side and conventional bins on the other, and a comparison section with numbered bags"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>

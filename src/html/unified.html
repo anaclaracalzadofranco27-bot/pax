@@ -1,0 +1,49 @@
+<section id="module-unified" class="space-y-4 hidden">
+            <svg class="uni-titles" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                <text x="112" y="147" font-size="43" textLength="351" lengthAdjust="spacingAndGlyphs" fill="#9ba9b5">CONVENTIONAL</text>
+                <text x="1260" y="144" font-size="51" textLength="185" lengthAdjust="spacingAndGlyphs" fill="#5b7b9e">ALPHA</text>
+            </svg>
+            <div class="bg-cad-panel border border-cad-border rounded-xl px-4 py-3">
+                <h2 class="text-base font-bold text-slate-900">Integrated Simulation (2D Section)</h2>
+            </div>
+            <div class="bg-cad-panel border border-cad-border rounded-xl overflow-hidden flex flex-col sim-card">
+                <div class="px-4 py-2 bg-cad-panel border-b border-cad-border flex flex-wrap items-center gap-3">
+                    <button id="uni-play" type="button" onclick="uniTogglePlay()" class="cad-btn"></button>
+                    <div id="uni-chips" style="display:none !important" aria-hidden="true"></div>
+                    <input id="uni-scrub" type="range" min="0" max="20" step="0.01" value="0" class="flex-1 min-w-[140px]" aria-label="Integrated timeline" oninput="uniScrub(this.value)">
+
+                    <button id="uni-bin-door-toggle" type="button" onclick="uniRefToggleDoors()" class="cad-btn" title="Operate the conventional hinged door and Alpha curved-rail sliding door">Open bin doors</button>
+                    <label for="uni-bin-door-slider" class="text-[10px] font-mono text-slate-600 whitespace-nowrap">Doors <span id="uni-bin-door-pct">0%</span></label>
+                    <input id="uni-bin-door-slider" type="range" min="0" max="100" step="1" value="0" class="w-24" aria-label="Bin doors opening" oninput="uniRefSetDoors(this.value/100)">
+
+                    <button id="uni-export" type="button" onclick="uniExport4K()" class="cad-btn" title="Downloads the scene (world-average stature, bins and all dimensions) as a 3840 × 2160 PNG">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>Export 4K image
+                    </button>
+                    <button id="uni-export-p95" type="button" onclick="uniExport4K({ stat: 'p95', transparent: true, palette: 'dark' })" class="cad-btn" title="Downloads the scene with P95 Male stature, transparent background (colors #5b7b9e · #9ba9b5 · #bababa, made for a #000223 background), bins and all dimensions, as a 3840 × 2160 PNG">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>Export 4K · P95 Male · no background
+                    </button>
+                </div>
+                <div class="flex flex-col lg:flex-row">
+                    <div class="relative flex-1 min-w-0 h-[720px] sim-bg">
+                        <canvas id="uniCanvas" class="absolute inset-0 w-full h-full block"></canvas>
+                    </div>
+                    <aside class="w-full lg:w-60 shrink-0 border-t lg:border-t-0 lg:border-l border-cad-border bg-cad-bg p-3 flex flex-col h-[420px] lg:h-[720px]">
+                        <div class="text-[14px] font-mono font-semibold text-slate-700 mb-1">STATURE SCALE</div>
+                        <div id="uni-gauge" class="relative flex-1 mt-3 mb-2"></div>
+                        <div class="uni-note text-[10px] font-mono italic text-slate-600 text-right">* Approximate values</div>
+                    </aside>
+                </div>
+                
+                <div id="uni-bin-height-compare" hidden aria-hidden="true" style="display:none !important" class="grid grid-cols-1 md:grid-cols-2 gap-3 px-4 py-3 border-t border-cad-border bg-cad-bg text-[11px] font-mono">
+                    <div><strong class="text-slate-800">HIGH FLOOR POINT · ABOVE CABIN FLOOR</strong>
+                        <div class="flex gap-4 flex-wrap mt-1 text-slate-600">Conventional <b id="uni-height-conv-high">—</b> Alpha <b id="uni-height-alpha-high">—</b> <span>Δ Alpha − Conventional <b id="uni-height-delta-high">—</b></span></div>
+                    </div>
+                    <div><strong class="text-slate-800">LOWEST BIN POINT · ABOVE CABIN FLOOR</strong>
+                        <div class="flex gap-4 flex-wrap mt-1 text-slate-600">Conventional <b id="uni-height-conv-low">—</b> Alpha <b id="uni-height-alpha-low">—</b> <span>Δ Alpha − Conventional <b id="uni-height-delta-low">—</b></span></div>
+                    </div>
+                </div>
+                <div class="px-4 py-1.5 bg-cad-bg border-t border-cad-border flex items-center justify-end">
+                    <span class="text-[11px] font-mono italic text-slate-600">* Approximate values</span>
+                </div>
+            </div>
+        </section>

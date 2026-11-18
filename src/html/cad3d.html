@@ -1,0 +1,63 @@
+<section id="module-cad3d" class="space-y-6 hidden">
+            <div class="flex flex-col lg:flex-row items-stretch gap-4">
+                <div class="bg-cad-panel border border-cad-border rounded-xl p-4 space-y-3 shrink-0">
+                    <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-cad-cyan"></span>
+                        CAD 3D Kinematic Simulation
+                    </h2>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button id="cad3d-startSim" class="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition shadow-lg border border-amber-600">
+                            <span>▶ Start Simulation</span>
+                        </button>
+                        <button id="cad3d-resetSim" class="px-3 py-2 rounded-lg bg-white hover:bg-slate-200 text-slate-800 font-mono text-xs border border-slate-300 transition">
+                            Restart
+                        </button>
+                        <button id="cad3d-toggleDoor" class="px-3 py-2 rounded-lg bg-cad-cyan/15 hover:bg-cad-cyan/25 text-cad-cyan border border-cad-cyan/40 font-mono font-semibold text-xs transition">
+                            Open Door
+                        </button>
+                        <button id="cad3d-export" type="button" onclick="cad3dExportImages()" class="cad-btn" title="Downloads 3 4K images (3840 × 2160): isometric view with door closed, isometric view with door 80% open, and an isolated side wall (transparent PNG, without luggage or door)">
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>Exportar imagens 4K
+                        </button>
+                        <div class="flex items-center gap-2 bg-cad-bg px-3 py-1.5 rounded-lg border border-cad-border text-xs font-mono">
+                            <span class="text-slate-700">Door:</span>
+                            <input id="cad3d-doorSlider" type="range" min="0" max="100" value="0" step="0.5" class="w-24">
+                            <span id="cad3d-doorPct" class="font-bold text-cad-cyan w-9 text-right">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3D Viewport Card -->
+            <div class="bg-cad-panel border border-cad-border rounded-xl overflow-hidden flex flex-col sim-card">
+                <div class="px-4 py-2.5 bg-cad-bg border-b border-cad-border flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-cad-cyan animate-pulse"></span>
+                        <span class="text-xs font-mono font-semibold text-slate-800">CAD 3D VIEWPORT — ALPHA BIN + ROLL-UP DOOR + 4 IATA BAGS</span>
+                    </div>
+                </div>
+                <div id="cad3d-container" class="relative w-full h-[540px] sm:h-[600px] sim-bg select-none overflow-hidden">
+                    <canvas id="cad3dCanvas" class="w-full h-full block touch-none"></canvas>
+                    <div class="cad3d-balloons" aria-hidden="true">
+                        <div class="hud-callout hud-callout-door">
+                            <svg class="cb-lead"><line id="cb-line" x1="0" y1="0" x2="0" y2="0"/><circle id="cb-dot" cx="0" cy="0" r="0"/></svg>
+                            <div class="cb cb-door"><b>TAMBOUR DOOR</b><span>zero obstruction,<br>keeping the aisle clear</span></div>
+                        </div>
+                        <div class="hud-callout hud-callout-hero">
+                            <div class="alpha-hero-title-box"><span class="word-overhead">OVERHEAD</span> <span class="word-binalpha">BIN ALPHA</span></div>
+                        </div>
+                        <div class="hud-callout hud-callout-desc">
+                            <div class="alpha-hero-desc-box">
+                                Refined via a custom Python geometric model, our stepped bag arrangement maps fuselage curvature and cabin constraints to <strong>maximize stowage capacity and clearances without reducing headroom.</strong>
+                            </div>
+                        </div>
+                        <div class="hud-callout hud-callout-iata">
+                            <div class="cb cb-iata"><p>Based on IATA<br><u>carry-on standards</u></p><p>22 X 14 X 10 in</p></div>
+                        </div>
+                    </div>
+                    <div class="cad3d-dimension-labels" aria-hidden="true"></div>
+                    <div class="absolute left-3 bottom-3 bg-white/90 backdrop-blur text-slate-700 px-3 py-1.5 rounded-lg text-[11px] font-mono border border-cad-border/40 pointer-events-none">
+                        Drag to rotate · Scroll the mouse wheel to zoom · Use the buttons above to control the simulation
+                    </div>
+                </div>
+            </div>
+        </section>

@@ -1,0 +1,31 @@
+<section id="module-nova" class="space-y-4 hidden">
+            <div class="bg-cad-panel border border-cad-border rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+                <button onclick="exportBinsPNG()" class="py-2 px-4 rounded-lg font-mono font-semibold text-xs transition" style="border:1px solid #5b7b9e;color:#d4dce6;background:transparent" onmouseover="this.style.background='rgba(91,123,158,.14)'" onmouseout="this.style.background='transparent'">Export both bins (PNG, transparent)</button>
+            </div>
+            <div id="nova-comparison-header">
+                <h2 class="comparison-title">SPACE EFFICIENCY COMPARISON</h2>
+                <p class="comparison-subtitle">BIN TOP VIEW</p>
+            </div>
+            <div class="bg-cad-panel border border-cad-border rounded-xl overflow-hidden sim-card">
+                <div class="grid grid-cols-1 lg:grid-cols-[1fr_1.3fr]">
+                    <div class="min-w-0">
+                        <div class="px-4 py-2 bg-cad-bg border-b border-cad-border text-xs font-mono font-semibold text-slate-700">ALPHA BIN — TOP VIEW</div>
+                        <div id="nova-container" class="relative w-full h-[540px] sm:h-[620px] sim-bg select-none overflow-hidden">
+                            <canvas id="novaCanvas" class="w-full h-full block"></canvas>
+                            <canvas id="novaDimCanvas" class="absolute inset-0 w-full h-full block pointer-events-none"></canvas>
+                        </div>
+                        <div class="sim-bg select-none" style="text-align:center;padding:6px 0 18px;font:700 26px/1.2 'Montserrat','Inter',sans-serif;letter-spacing:.02em;color:#5b7b9e">ALPHA</div>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="px-4 py-2 bg-cad-bg border-b border-cad-border text-xs font-mono font-semibold text-slate-700">CONVENTIONAL BIN — TOP VIEW</div>
+                        <div id="conv-top-container" class="relative w-full h-[540px] sm:h-[620px] sim-bg select-none overflow-hidden">
+                            <canvas id="convStructureBackCanvas" class="absolute inset-0 w-full h-full block pointer-events-none" aria-hidden="true"></canvas>
+                            <canvas id="convTopCanvas" class="absolute inset-0 w-full h-full block" role="img" aria-label="56 inch bin: original SVG shell with four grey-blue 3D suitcases"></canvas>
+                            <canvas id="convStructureFrontCanvas" class="absolute inset-0 w-full h-full block pointer-events-none" aria-hidden="true"></canvas>
+                            <canvas id="convDimCanvas" class="absolute inset-0 w-full h-full block pointer-events-none" aria-hidden="true"></canvas>
+                        </div>
+                        <div class="sim-bg select-none" style="text-align:center;padding:6px 0 18px;font:700 26px/1.2 'Montserrat','Inter',sans-serif;letter-spacing:.02em;color:#9ba9b5">CONVENTIONAL</div>
+                    </div>
+                </div>
+            </div>
+        </section>
