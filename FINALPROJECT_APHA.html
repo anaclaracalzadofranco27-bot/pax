@@ -11422,6 +11422,8 @@ window.drawUniReferenceBins = drawReferenceBins;
             const bagBodyGeo=new THREE.ExtrudeGeometry(bagShape,{depth:212,bevelEnabled:true,bevelThickness:18,bevelSize:18,bevelOffset:-18,bevelSegments:5,curveSegments:10});
             bagBodyGeo.translate(0,0,-106);
 
+            // Rótulos das cotas: mantidos junto à mala, mas confinados à área útil da câmera.
+            const bagDimensionLabels = [];
             function createSuitcase(bodyColorHex, withDims){
                 const root = new THREE.Group();
                 const inner = new THREE.Group();
@@ -11475,15 +11477,52 @@ window.drawUniReferenceBins = drawReferenceBins;
                         x.fillStyle='#e0a800';x.fillText(txt,128,48);
                         const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(k),depthTest:false,transparent:true}));
                         s.scale.set(140,52,1);s.position.set(...c);s.renderOrder=6;env.add(s);
+                        bagDimensionLabels.push({ sprite:s, envelope:env, anchor:s.position.clone() });
                     }
-                    dim([215,-279.5,160],[215,279.5,160],'22 in',[295,0,160]);
-                    dim([-178,-322,160],[178,-322,160],'14 in',[0,-380,160]);
-                    dim([215,-322,-127],[215,-322,127],'10 in',[295,-322,0]);
+                    dim([215,-279.5,160],[215,279.5,160],'22 in',[248,0,160]);
+                    dim([-178,-322,160],[178,-322,160],'14 in',[0,-345,160]);
+                    dim([215,-322,-127],[215,-322,127],'10 in',[248,-322,0]);
                 }
 
                 root.visible = false;
                 scene.add(root);
                 return { root, env, mBody };
+            }
+
+            // Mantém visíveis as etiquetas inclusive no vídeo 16:9 e durante a movimentação
+            // da mala. O clamp só atua quando o rótulo sairia do enquadramento;
+            // não altera as linhas, dimensões, animações nem o tempo de exibição.
+            function fitBagDimensionLabels() {
+                const w = container.clientWidth, h = container.clientHeight;
+                if (!w || !h) return;
+                cam.updateMatrixWorld();
+                const world = new THREE.Vector3(), ndc = new THREE.Vector3();
+                const cameraSpace = new THREE.Vector3();
+                const tanHalfFov = Math.tan(cam.fov * Math.PI / 360);
+                for (const {sprite, envelope, anchor} of bagDimensionLabels) {
+                    sprite.position.copy(anchor);
+                    if (!envelope.visible || !envelope.parent.visible) continue;
+                    sprite.getWorldPosition(world);
+                    const depth = -cameraSpace.copy(world).applyMatrix4(cam.matrixWorldInverse).z;
+                    if (depth <= 0) continue;
+                    ndc.copy(world).project(cam);
+                    const pxPerUnit = h / (2 * depth * tanHalfFov);
+                    const halfW = sprite.scale.x * pxPerUnit / 2;
+                    const halfH = sprite.scale.y * pxPerUnit / 2;
+                    const minX = Math.min(w / 2, w * .055 + halfW);
+                    const maxX = Math.max(w / 2, w * .945 - halfW);
+                    const minY = Math.min(h / 2, h * .16 + halfH);
+                    const maxY = Math.max(h / 2, h * .84 - halfH);
+                    const x = Math.max(minX, Math.min(maxX, (ndc.x + 1) * w / 2));
+                    const y = Math.max(minY, Math.min(maxY, (1 - ndc.y) * h / 2));
+                    const oldX = (ndc.x + 1) * w / 2, oldY = (1 - ndc.y) * h / 2;
+                    if (Math.abs(x - oldX) < .5 && Math.abs(y - oldY) < .5) continue;
+                    ndc.x = x * 2 / w - 1;
+                    ndc.y = 1 - y * 2 / h;
+                    ndc.unproject(cam);
+                    envelope.worldToLocal(ndc);
+                    sprite.position.copy(ndc);
+                }
             }
 
             const bags = [
@@ -11702,6 +11741,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             function upd(){
                 cam.position.set(T.x + R*Math.cos(el)*Math.cos(az), T.y + R*Math.sin(el), T.z + R*Math.cos(el)*Math.sin(az));
                 cam.lookAt(T);
+                fitBagDimensionLabels();
                 const exterior=cam.position.x<-TH/2?0:(cam.position.x>DIST+TH/2?1:-1);
                 [...profileBandMeshes,...internalRailParts].forEach(o=>{o.visible=exterior!==o.userData.innerWallSide;});
                 ren.render(scene, cam);
