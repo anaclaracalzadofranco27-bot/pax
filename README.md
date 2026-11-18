@@ -27,7 +27,7 @@ HTML e recursos exclusivos ficam juntos:
 | `source/html/ABA3/` | `ABA3.html`, `bin-comparison-renderers.js` (desenho Alpha/convencional e cotas) e `export.js` (PNG) |
 | `source/html/ABA4/` | `ABA4.html`, `animation.js`, `export.js` e desenhos `*.svg.base64` da vista superior |
 | `source/html/ABA5/` | `ABA5.html`, `unified-simulation.js` e `door-addon.js` |
-| `source/html/ABA6/` | `ABA6.html` e `manikin.js` (manequim e movimentação das malas) |
+| `source/html/ABA6/` | `ABA6.html`, `manikin.js` e `controller.js` (início, pausa e sincronização da animação) |
 | `source/html/ABA7/` | `ABA7.html`, `animation.js` e sete ilustrações do encerramento em `svg/` |
 | `source/html/ABA8/` | `ABA8.html` e `director-and-recording.js` (Simulação Geral, transições e cinco takes) |
 
@@ -40,6 +40,8 @@ HTML e recursos exclusivos ficam juntos:
 | `source/js/core/config.js` | Paleta, geometria, linha do tempo e configurações comuns |
 | `source/js/engine/cad2d-and-shared.js` | CAD 2D, comparação da Aba 3 e funções compartilhadas |
 | `source/js/engine/sectioncabin.js` | Ergonomia sentada e funções compartilhadas com a simulação da cabine |
+
+**Controle da Aba 6:** `controller.js` contém `initAba6Engine()`, `scheduleAba6Engine()` e `pauseAba6Engine()`, usadas pela própria Aba 6 e pelo diretor da Aba 8. Como dependem do relógio do manequim e do estado global da aba, o `cad2d-and-shared.js` inclui este módulo na **posição original, dentro do mesmo `<script>`** por meio de `@@APHA_INCLUDE`. Isso é uma inclusão de código-fonte, não um carregamento separado: não muda a ordem de execução, o código gerado ou as transições.
 
 **Dependência importante da Aba 3:** `bin-comparison-renderers.js` pertence à comparação visual (dois bins, cotas de 44″ e 56″), mas utiliza a geometria, os materiais, as malas e a cena do motor `ABA2/cad3d.js`. Por isso, `ABA2/cad3d.js` contém um `@@APHA_INCLUDE` para inserir esse arquivo **dentro da função `initCAD3DModule()`**, exatamente onde o código estava. Ele **não** deve ser incluído como `<script>` separado. O resultado montado permanece idêntico, sem duplicar motores Three.js.
 

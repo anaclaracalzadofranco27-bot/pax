@@ -49,6 +49,20 @@ for asset in ("aircraft.svg.base64", "detail-s.svg.base64"):
     assert topview_js.count(marker) == 1, f"Missing or duplicate ABA4 asset include: {asset}"
 assert "source/assets/topview/" not in topview_js, "Outdated topview asset path"
 
+# ABA6 owns its own animation controller, but it is expanded inside the
+# original combined script (before CAD geometry) to preserve execution order.
+aba6_control_path = ROOT / "source/html/ABA6/controller.js"
+assert aba6_control_path.is_file(), "Missing ABA6 animation controller"
+aba6_control_source = aba6_control_path.read_text(encoding="utf-8")
+shared_cad_source = (ROOT / "source/js/engine/cad2d-and-shared.js").read_text(encoding="utf-8")
+assert shared_cad_source.count("@@APHA_INCLUDE:source/html/ABA6/controller.js@@") == 1, "Broken ABA6 controller include"
+assert shared_cad_source.index("@@APHA_INCLUDE:source/html/ABA6/controller.js@@") < shared_cad_source.index("function computeAllGeometries("), "ABA6 controller position changed"
+for name in ("initAba6Engine", "scheduleAba6Engine", "pauseAba6Engine"):
+    assert f"function {name}(" in aba6_control_source, f"Missing ABA6 controller function: {name}"
+    assert f"function {name}(" not in shared_cad_source, f"ABA6 controller duplicated in shared CAD: {name}"
+assert "scheduleAba6Engine({tour:true,reset:true" in director, "Tour does not start ABA6"
+assert "pauseAba6Engine()" in director, "Tour does not stop ABA6"
+
 # ABA3's two comparison renderers share the CAD3D closure and must stay
 # embedded at their original position, not loaded as a separate script.
 cad3d_source = (ROOT / "source/html/ABA2/cad3d.js").read_text(encoding="utf-8")
