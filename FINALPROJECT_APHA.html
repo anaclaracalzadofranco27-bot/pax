@@ -307,7 +307,7 @@
             font-family:'Montserrat','Segoe UI',Arial,sans-serif;font-weight:500;font-size:clamp(11px,1cqw,18px);line-height:1.28;letter-spacing:0.01em;color:#d4dce6}
         /* Os valores acompanham a linha projetada, mas são colocados ABAIXO dela, na área segura 16:9. */
         #cad3d-container .cad3d-dimension-labels{position:absolute;inset:0;z-index:6;pointer-events:none;overflow:hidden}
-        #cad3d-container .cad3d-dimension-value{position:absolute;display:none;white-space:nowrap;transform:translateX(-50%);
+        #cad3d-container .cad3d-dimension-value{position:absolute;display:block;visibility:hidden;white-space:nowrap;transform:translateX(-50%);
             background:rgba(5,12,36,.93);border:1px solid rgba(224,168,0,.65);border-radius:4px;
             padding:3px 7px;color:#f6d35f;text-shadow:0 1px 2px #050c24;
             font:800 clamp(11px,1.16cqw,18px)/1.25 'JetBrains Mono',monospace}
@@ -11570,13 +11570,12 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const topSafe=h*.20, bottomSafe=h*.72;
                 for(const entry of bagDimensionLabels){
                     const {el,envelope,a,b}=entry;
-                    el.style.display='none';
+                    el.style.visibility='hidden';
                     if(!envelope.visible || !envelope.parent || !envelope.parent.visible) continue;
                     const wa=a.clone(),wb=b.clone();
                     envelope.localToWorld(wa); envelope.localToWorld(wb);
                     const p=pos(wa),q=pos(wb);
                     if(!Number.isFinite(p.x+p.y+q.x+q.y) || (p.z>1 && q.z>1)) continue;
-                    el.style.display='block';
                     const ew=el.offsetWidth||58,eh=el.offsetHeight||24;
                     const leftSafe=w*.06+ew/2,rightSafe=w*.94-ew/2;
                     const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
@@ -11595,6 +11594,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                     }
                     el.style.left=x.toFixed(1)+'px';
                     el.style.top=y.toFixed(1)+'px';
+                    el.style.visibility='visible';
                 }
             }
 
@@ -11869,7 +11869,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 warmUp();
                 stopAllAnimations();
                 if (window.cad3dMorphReset) window.cad3dMorphReset();
-                az = -2.35; el = 0.28; R = 2650;
+                az = -2.35; el = 0.28; R = 2925;
                 updateDoor(0);
                 syncDoorUI();
                 bags.forEach((b, idx) => {
@@ -11913,7 +11913,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const t = Math.max(0, (now - simStartTime) / 1000);
                 if(container.closest('#tour-stage')){            // movimento contínuo e suave da câmera durante toda a cena
                     const k = smoothstep(Math.min(1, t / 5.9));
-                    R = 2650 + (2400 - 2650) * k;
+                    R = 2925 + (2700 - 2925) * k;
                     az = -2.35 + 0.10 * k;
                 }
 
@@ -11974,7 +11974,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 stopAllAnimations();
                 if (window.cad3dMorphReset) window.cad3dMorphReset();
                 const inTour = !!container.closest('#tour-stage');       // no roteiro (aba 8): a câmera parte exatamente da posição preparada em cad3dTourPrep
-                az = inTour ? -2.35 : -2.25; el = 0.28; R = inTour ? 2650 : 3100;
+                az = inTour ? -2.35 : -2.25; el = 0.28; R = inTour ? 2925 : 3100;
                 rs();
                 bags.forEach((b, idx) => {
                     b.root.visible = (idx <= 1);
