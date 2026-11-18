@@ -410,6 +410,14 @@
         #module-tour #tour-snap:hover{background:rgba(91,123,158,0.14)}
         #module-tour #tour-snap.on{background:#dc2626;border-color:#dc2626;color:#ffffff}
         #module-tour #tour-snap:disabled,#module-tour #tour-rec:disabled{opacity:.45;cursor:not-allowed}
+        /* Takes independentes: cada cena pode ser reproduzida e exportada em MP4 sem PNG. */
+        #tour-takes{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 12px;padding:2px 0 6px}
+        #tour-takes .take-controls{display:flex;align-items:stretch;border:1px solid #5b7b9e;border-radius:8px;overflow:hidden;background:rgba(5,12,36,.8)}
+        #tour-takes button{border:0;border-radius:0;background:transparent;color:#cbd5e1;padding:8px 10px;font:600 11px 'JetBrains Mono',monospace;cursor:pointer}
+        #tour-takes button:hover{background:rgba(91,123,158,.22);color:white}
+        #tour-takes .take-export{border-left:1px solid #5b7b9e;color:#9ba9b5}
+        #tour-takes button:focus-visible{outline:2px solid #00b4d8;outline-offset:-2px}
+        body.rec-clean #tour-takes{display:none!important}
         #tour-stage.rec{height:var(--rec-h,820px) !important;overflow:hidden}
         #tour-stage #ergo-overlay { position: absolute !important; inset: 0 !important; border-radius: 16px; }
         body.rec-clean { overflow: hidden !important; background-color: #000223 !important; }
@@ -6334,6 +6342,15 @@ function xrayRun(ms) {
 
         <section id="module-tour" class="space-y-4 hidden">
             <div id="tour-ctl-bar" class="flex justify-center items-center gap-3 flex-wrap"><button type="button" id="tour-btn" data-mode="run">▶ Run full simulation</button><button type="button" id="tour-rec">⏺ Export video (MP4)</button><button type="button" id="tour-snap" title="Runs the full simulation and saves 2 PNGs (1920×1080) per tab — one at the start and one at the end — delivered as a single ZIP" aria-hidden="true" tabindex="-1">📷 Export start/end PNGs</button><button type="button" id="tour-figure-export" title="Export isolated manikin, suitcase and open Alpha bin" aria-hidden="true" tabindex="-1">📷 Export figure (PNG)</button></div>
+            <div id="tour-takes" role="group" aria-label="Individual simulation takes">
+                <div class="take-controls"><button type="button" data-take-play="0" title="Play only Take 1">▶ Take 1 · Boarding</button><button type="button" class="take-export" data-take-rec="0" title="Export Take 1 as a separate 1920×1080 video">⏺ MP4</button></div>
+                <div class="take-controls"><button type="button" data-take-play="1" title="Play only Take 2">▶ Take 2 · CAD 3D</button><button type="button" class="take-export" data-take-rec="1" title="Export Take 2 as a separate 1920×1080 video">⏺ MP4</button></div>
+                <div class="take-controls"><button type="button" data-take-play="2" title="Play only Take 3">▶ Take 3 · Bins</button><button type="button" class="take-export" data-take-rec="2" title="Export Take 3 as a separate 1920×1080 video">⏺ MP4</button></div>
+                <div class="take-controls"><button type="button" data-take-play="3" title="Play only Take 4">▶ Take 4 · Top View</button><button type="button" class="take-export" data-take-rec="3" title="Export Take 4 as a separate 1920×1080 video">⏺ MP4</button></div>
+                <div class="take-controls"><button type="button" data-take-play="4" title="Play only Take 5">▶ Take 5 · Section</button><button type="button" class="take-export" data-take-rec="4" title="Export Take 5 as a separate 1920×1080 video">⏺ MP4</button></div>
+                <div class="take-controls"><button type="button" data-take-play="5" title="Play only Take 6">▶ Take 6 · Manikin</button><button type="button" class="take-export" data-take-rec="5" title="Export Take 6 as a separate 1920×1080 video">⏺ MP4</button></div>
+                <div class="take-controls"><button type="button" data-take-play="6" title="Play only Take 7">▶ Take 7 · Closing</button><button type="button" class="take-export" data-take-rec="6" title="Export Take 7 as a separate 1920×1080 video">⏺ MP4</button></div>
+            </div>
             <div id="tour-stage" class="tour-frame"><i class="tw-corner c1"></i><i class="tw-corner c2"></i><i class="tw-corner c3"></i><i class="tw-corner c4"></i></div>
         </section>
     </main>
@@ -13579,7 +13596,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             return false;
         }
 
-        async function run(from) {
+        async function run(from, through = STEPS.length - 1) {
             const my = ++token; live = true;
             destroyBridge();
             giveBack();
@@ -13587,7 +13604,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             stage.style.transition = 'none'; stage.style.opacity = '1';
             frameOn(true);
             let h0 = 0;                                        // altura do quadro no passo anterior (0 = primeiro passo)
-            for (let i = from; i < STEPS.length; i++) {
+            for (let i = from; i <= Math.min(through, STEPS.length - 1); i++) {
                 if (my !== token) return;
                 const st = STEPS[i];
                 currentTab = st.key;                               // alguns módulos só animam quando "sua" aba está ativa
@@ -13617,7 +13634,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 await sleep(st.hold);
                 if (my !== token) return;
                 if (window.__tourEdge) window.__tourEdge(i, st, 'fim');   // foto do FINAL (antes de dissolver para a próxima aba)
-                if (i < STEPS.length - 1) {
+                if (i < through) {
                     if (st.key === 'unified') {
                         const ok = await fxCabinToStow(my);
                         if (my !== token) return;
@@ -13650,6 +13667,11 @@ window.drawUniReferenceBins = drawReferenceBins;
         }
 
         btn.addEventListener('click', () => { if (btn.dataset.mode === 'stop') abort(); else run(0); });
+        document.querySelectorAll('#tour-takes [data-take-play]').forEach(b => b.addEventListener('click', () => {
+            if (rec) return;
+            const i = Number(b.dataset.takePlay);
+            if (i >= 0 && i < STEPS.length) run(i, i);
+        }));
 
         // ---- exportar vídeo: grava o quadro com suporte universal (file://, Guia, Janela ou Tela Cheia) em 1920x1080 ----
         const recBtn = $('tour-rec');
@@ -13670,8 +13692,9 @@ window.drawUniReferenceBins = drawReferenceBins;
             stopRec();
             await sleep(250);
         };
-        async function startRec() {
+        async function startRec(takeIndex = null) {
             if (rec) { stopRec(); abort(); return; }
+            const selectedTake = Number.isInteger(takeIndex) && takeIndex >= 0 && takeIndex < STEPS.length ? takeIndex : null;
             if (!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) || !window.MediaRecorder) {
                 alert('Video export requires the Google Chrome or Microsoft Edge browser (open the HTML file directly in the browser).');
                 return;
@@ -13706,7 +13729,8 @@ window.drawUniReferenceBins = drawReferenceBins;
             stage.style.setProperty('--rec-h', recH + 'px');
             document.body.style.setProperty('--rec-w', recW + 'px');
             stage.classList.add('rec');
-            run(0);                                                     // exibe o quadro e inicia a sequência
+            if (selectedTake === null) run(0);
+            else run(selectedTake, selectedTake);                       // grava somente o take selecionado
             await sleep(250);
 
             // Tenta recortar apenas o #tour-stage via Region Capture (funciona ao compartilhar Guia);
@@ -13829,7 +13853,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'simulacao-completa-bin-alpha.' + ext;
+                a.download = (selectedTake === null ? 'simulacao-completa-bin-alpha' :
+                    'take-' + String(selectedTake + 1).padStart(2, '0') + '-' + STEPS[selectedTake].key + '-bin-alpha') + '.' + ext;
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
@@ -13841,7 +13866,11 @@ window.drawUniReferenceBins = drawReferenceBins;
             recBtn.classList.add('on');
             recBtn.textContent = '■ Stop and save video';
         }
-        recBtn.addEventListener('click', startRec);
+        recBtn.addEventListener('click', () => startRec());
+        document.querySelectorAll('#tour-takes [data-take-rec]').forEach(b => b.addEventListener('click', () => {
+            const i = Number(b.dataset.takeRec);
+            if (i >= 0 && i < STEPS.length) startRec(i);
+        }));
 
         // ---- exportar PNGs do COMEÇO e do FINAL de cada aba: mesma captura/recorte do vídeo, quadros 1920x1080 num único ZIP ----
         const snapBtn = $('tour-snap');
