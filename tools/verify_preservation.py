@@ -6,7 +6,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 html = (ROOT / "FINALPROJECT_APHA.html").read_text(encoding="utf-8")
 director = (ROOT / "source/html/ABA8/director-and-recording.js").read_text(encoding="utf-8")
-css = (ROOT / "source/css/global.css").read_text(encoding="utf-8")
+# Verify visual invariants against the assembled CSS, not the modular include manifest.
+css = html.split("<style>", 1)[1].split("</style>", 1)[0]
 
 tabs = ("pax", "cad3d", "nova", "topview", "unified", "sim", "closing", "tour")
 for tab in tabs:
