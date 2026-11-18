@@ -12460,9 +12460,17 @@ window.drawUniReferenceBins = drawReferenceBins;
                     [back,cv,front].forEach(layer=>c.drawImage(layer,0,0,out.width,out.height));
                     return out;
                 };
-                window.novaShowHeader=show=>{
+                // O título só deve entrar uma vez, ao fim da revelação dos bins.
+                // No replay do take, cancela qualquer fade herdado da execução anterior.
+                window.novaShowHeader=(show, immediate=false)=>{
                     const el=document.getElementById('nova-comparison-header');
-                    if(el)el.classList.toggle('is-visible',!!show);
+                    if(!el)return;
+                    if(immediate)el.style.transition='none';
+                    el.classList.toggle('is-visible',!!show);
+                    if(immediate){
+                        void el.offsetWidth;
+                        el.style.transition='';
+                    }
                 };
                 new ResizeObserver(draw).observe(box);
                 const alphaBox=document.getElementById('nova-container');
@@ -13214,7 +13222,7 @@ window.drawUniReferenceBins = drawReferenceBins;
               leave: () => call(window.paxPause),
               after: () => call(window.paxEnter) },              // de volta à aba 1: controles visíveis outra vez
             { key: 'cad3d', sec: 'module-cad3d', title: '2. CAD 3D Kinematic Simulation', hold: 450, timeout: 45000, noFit: true,   // hold: espera o fade dos callouts HUD (0,35 s) antes de girar a câmera
-              overlapMs: 450,                                    // a próxima aba entra enquanto esta termina de sumir (o Alpha é praticamente idêntico nas duas)
+              overlapMs: 1100,                                   // dissolve longo entre os dois renderizadores; sem troca seca do contorno do Alpha
               morphOut: my => {                                  // sólido → translúcido · câmera para a vista de cima · bin desliza para a coluna ALPHA
                   const t = measureNovaCol();                    // posição e tamanho reais da coluna ALPHA no quadro (o bin termina exatamente ali)
                   return window.cad3dTourMorph ? window.cad3dTourMorph({ ms: 1300, colW: t.w, colH: t.h, cx: t.cx, cy: t.cy, cancel: () => my !== token }) : null;
@@ -13499,9 +13507,12 @@ window.drawUniReferenceBins = drawReferenceBins;
         // evita diferenças de enquadramento sob escala/zoom na prévia ou na gravação.
         function measureNovaCol() {
             const sec = $('module-nova'), ph = document.createComment('m'), cs = getComputedStyle(stage);
+            call(window.novaShowHeader, false, true);            // zera eventual título de take anterior, sem piscar
             sec.parentNode.insertBefore(ph, sec); stage.appendChild(sec); sec.classList.remove('hidden');
             Object.assign(sec.style, { position: 'absolute', top: cs.paddingTop, left: cs.paddingLeft, right: cs.paddingRight, visibility: 'hidden' });
             fitRec(sec, { key: 'nova' });
+            // Inicializa o WebGL e prepara o primeiro frame ainda com a aba invisível.
+            call(window.novaEnter);
             const r = $('nova-container').getBoundingClientRect(), c = $('cad3d-container').getBoundingClientRect();
             const vw=$('cad3d-container').clientWidth, vh=$('cad3d-container').clientHeight;
             const sx=c.width/Math.max(1,vw), sy=c.height/Math.max(1,vh);
@@ -13518,7 +13529,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             const sec = active.sec, grid = sec.querySelector('.sim-card .grid'); if (!grid) return false;
             const [c0, c1] = grid.children, lab0 = c0.lastElementChild, lab1 = c1.lastElementChild;
             const dim = $('novaDimCanvas'), cvc = $('convDimCanvas');
-            call(window.novaShowHeader,false);
+            call(window.novaShowHeader,false,true);
             fitRec(sec, active.step);
             call(window.novaEnter);
             // As duas cotas permanecem nos canvases originais: não criar cópias
@@ -13529,8 +13540,8 @@ window.drawUniReferenceBins = drawReferenceBins;
             const hide = (els, v) => els.forEach(el => { el.style.transition = 'none'; el.style.opacity = v; });
             hide([dim, lab0, lab1, c1], '0'); hide([c0], '0'); sec.style.opacity = '1'; void sec.offsetHeight;
             const show = (els, ms) => els.forEach(el => { el.style.transition = `opacity ${ms / 1000}s ease-in-out`; el.style.opacity = '1'; });
-            show([c0], 450);                                     // dissolve sobre o bin 3D, que termina no mesmo lugar
-            if (!(await tween(450 + 350, my, () => {}))) return true;
+            show([c0], 1100);                                    // o Alpha entra exatamente sobre o último frame 3D, sem pulo visual
+            if (!(await tween(1100 + 200, my, () => {}))) return true;
             show([c1], 650);                                     // bin convencional ao lado
             if (!(await tween(650 + 200, my, () => {}))) return true;
             show([dim, cvc, lab0, lab1], 550);                    // cotas 44" / 56" junto com os nomes ALPHA / CONVENTIONAL
