@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parent.parent
-code = (ROOT / "src/html/ABA1/js/passengers.js").read_text(encoding="utf-8")
+code = (ROOT / "source/html/ABA1/js/passengers.js").read_text(encoding="utf-8")
 
 
 def require(test: bool, message: str) -> None:

@@ -15,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PAGE = ROOT / "FINALPROJECT_APHA.html"
-SOURCE = "src/page.template.html"
+SOURCE = "source/page.template.html"
 INCLUDE = re.compile(rb"@@APHA_(INCLUDE|PAX):([A-Za-z0-9_./-]+)@@")
 
 

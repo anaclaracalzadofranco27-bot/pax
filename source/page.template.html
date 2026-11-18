@@ -8,8 +8,8 @@
     <script src="https://cdn.tailwindcss.com/3.4.17"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@500;700;800&family=Open+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script>@@APHA_INCLUDE:src/js/core/config.js@@</script>
-    <style>@@APHA_INCLUDE:src/css/global.css@@</style>
+    <script>@@APHA_INCLUDE:source/js/core/config.js@@</script>
+    <style>@@APHA_INCLUDE:source/css/global.css@@</style>
 </head>
 <body class="min-h-screen flex flex-col font-sans antialiased selection:bg-cad-cyan selection:text-white">
 
@@ -74,32 +74,32 @@
         <!-- (Aviao_Fuselagem_PDF_v10.html do PR #5, embutido num iframe isolado:      -->
         <!--  ele usa o three.js r128 e CSS próprios)                                  -->
         <!-- ========================================================================= -->
-        @@APHA_INCLUDE:src/html/ABA1/ABA1.html@@
-        <script type="text/plain" id="pax-src">@@APHA_PAX:src/html/ABA1/index.template.html@@</script>
-        <script>@@APHA_INCLUDE:src/html/ABA1/bridge.js@@</script>
+        @@APHA_INCLUDE:source/html/ABA1/ABA1.html@@
+        <script type="text/plain" id="pax-src">@@APHA_PAX:source/html/ABA1/index.template.html@@</script>
+        <script>@@APHA_INCLUDE:source/html/ABA1/bridge.js@@</script>
 
         <!-- ========================================================================= -->
         <!-- ABA 4: SIMULADOR DE EMBARQUE (manikin → embarque → Monte Carlo)          -->
         <!-- ========================================================================= -->
-@@APHA_INCLUDE:src/html/ABA6/ABA6.html@@
+@@APHA_INCLUDE:source/html/ABA6/ABA6.html@@
 
         <!-- ========================================================================= -->
         <!-- MÓDULO 6: SIMULAÇÃO CAD 3D INTERATIVA (PORTA ROLANTE 5MM & 4 MALAS IATA)  -->
         <!-- ========================================================================= -->
-        @@APHA_INCLUDE:src/html/ABA2/ABA2.html@@
+        @@APHA_INCLUDE:source/html/ABA2/ABA2.html@@
 
         <!-- ========================================================================= -->
         <!-- MÓDULO 7: VISTA SUPERIOR DA CABINE — VANTAGEM VOLUMÉTRICA                  -->
         <!-- ========================================================================= -->
-        @@APHA_INCLUDE:src/html/ABA3/ABA3.html@@
+        @@APHA_INCLUDE:source/html/ABA3/ABA3.html@@
 
-        @@APHA_INCLUDE:src/html/ABA4/ABA4.html@@
-        <script>@@APHA_INCLUDE:src/html/ABA4/export.js@@</script>
+        @@APHA_INCLUDE:source/html/ABA4/ABA4.html@@
+        <script>@@APHA_INCLUDE:source/html/ABA4/export.js@@</script>
 
         <!-- ========================================================================= -->
         <!-- MÓDULO 8: SIMULAÇÃO INTEGRADA (CONTORNO CAD 2D + ERGONOMIA SENTADO)        -->
         <!-- ========================================================================= -->
-        @@APHA_INCLUDE:src/html/ABA5/ABA5.html@@
+        @@APHA_INCLUDE:source/html/ABA5/ABA5.html@@
         <!-- ========================================================================= -->
         <!-- ABA 8: SIMULAÇÃO COMPLETA — roda as simulações das abas 1 → 7 em sequência  -->
         <!-- ========================================================================= -->
@@ -107,9 +107,9 @@
         <!-- ENCERRAMENTO (30 s): Operator Benefits · Materials & Feasibility ·        -->
         <!-- Compliance & Alpha IP + logo (Animacao_Unificada_30s.html)                -->
         <!-- ========================================================================= -->
-        @@APHA_INCLUDE:src/html/ABA7/ABA7.html@@
+        @@APHA_INCLUDE:source/html/ABA7/ABA7.html@@
 
-        @@APHA_INCLUDE:src/html/ABA8/ABA8.html@@
+        @@APHA_INCLUDE:source/html/ABA8/ABA8.html@@
     </main>
     <button id="apha-return-tabs" type="button" onclick="switchTab('unified')" title="Return to the other simulation tabs">← Back to tabs</button>
 
@@ -117,17 +117,17 @@
     <!-- ========================================================================= -->
     <!-- JAVASCRIPT ENGINE COMPLETO                                                -->
     <!-- ========================================================================= -->
-    <script>@@APHA_INCLUDE:src/js/engine/cad2d-and-shared.js@@@@APHA_INCLUDE:src/html/ABA6/manikin.js@@@@APHA_INCLUDE:src/js/engine/seated-ergonomics.js@@@@APHA_INCLUDE:src/html/ABA5/unified-simulation.js@@@@APHA_INCLUDE:src/html/ABA2/cad3d.js@@</script>
-    <script>@@APHA_INCLUDE:src/html/ABA3/export.js@@</script>
-    <script>@@APHA_INCLUDE:src/html/ABA4/animation.js@@</script>
+    <script>@@APHA_INCLUDE:source/js/engine/cad2d-and-shared.js@@@@APHA_INCLUDE:source/html/ABA6/manikin.js@@@@APHA_INCLUDE:source/js/engine/seated-ergonomics.js@@@@APHA_INCLUDE:source/html/ABA5/unified-simulation.js@@@@APHA_INCLUDE:source/html/ABA2/cad3d.js@@</script>
+    <script>@@APHA_INCLUDE:source/html/ABA3/export.js@@</script>
+    <script>@@APHA_INCLUDE:source/html/ABA4/animation.js@@</script>
 
     
 
     
-    <script>@@APHA_INCLUDE:src/html/ABA7/animation.js@@</script>
-    <script>@@APHA_INCLUDE:src/html/ABA8/director-and-recording.js@@</script>
+    <script>@@APHA_INCLUDE:source/html/ABA7/animation.js@@</script>
+    <script>@@APHA_INCLUDE:source/html/ABA8/director-and-recording.js@@</script>
 
-<script>@@APHA_INCLUDE:src/html/ABA5/door-addon.js@@</script>
+<script>@@APHA_INCLUDE:source/html/ABA5/door-addon.js@@</script>
 
 </body>
 </html>
