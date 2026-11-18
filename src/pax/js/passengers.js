@@ -213,185 +213,23 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
                 g.beginPath(); L.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); R.reverse().forEach(q => g.lineTo(q[0], q[1])); g.closePath(); g.fill();
             }
         }
-        // Convenção das texturas (LatheGeometry): u = 0 / 1 = frente (+z), 0.25 = lado +x, 0.5 = costas, 0.75 = lado -x. Canvas y = 0 no topo do segmento.
-        const PT = {
-            shirt: { w: 1024, h: 512, fn: (g, W, H) => {
-                g.fillStyle = '#767a46'; g.fillRect(0, 0, W, H);
-                g.fillStyle = '#5d6136'; g.fillRect(0, 0, W, H * 0.020);                              // gola canelada
-                inkTaper(g, W, H, [0, 0.022], [0.5, 0.022], [1, 0.022], 4);
-                inkTaper(g, W, H, [0, 0.952], [0.5, 0.952], [1, 0.952], 8);                           // barra (fim da camisa)
-                // dobras de tensão que partem da axila e descem para a cintura, uma de cada lado (e outra mais curta), levemente para a frente
-                [[0.215, 0.30], [0.785, 0.30]].forEach(([u, y]) => {
-                    const sg = u < 0.5 ? 1 : -1;
-                    inkTaper(g, W, H, [u, y], [u - sg * 0.020, y + 0.20], [u - sg * 0.040, y + 0.38], 8);
-                    inkTaper(g, W, H, [u - sg * 0.035, y + 0.06], [u - sg * 0.060, y + 0.20], [u - sg * 0.070, y + 0.31], 6);
-                });
-                // costas: duas dobras simétricas saindo das omoplatas
-                inkTaper(g, W, H, [0.44, 0.26], [0.46, 0.42], [0.49, 0.56], 7);
-                inkTaper(g, W, H, [0.56, 0.26], [0.54, 0.42], [0.51, 0.56], 7);
-                // peito/barriga: uma diagonal que cruza a frente (tecido puxado pelo braço levantado)
-                inkTaper(g, W, H, [0.935, 0.34], [0.975, 0.50], [0.030, 0.66], 6);
-            } },
-            sleeve: { w: 512, h: 256, fn: (g, W, H) => {
-                g.fillStyle = '#767a46'; g.fillRect(0, 0, W, H);
-                g.fillStyle = '#5d6136'; g.fillRect(0, H * 0.90, W, H * 0.10);                         // bainha da manga
-                inkTaper(g, W, H, [0, 0.90], [0.5, 0.90], [1, 0.90], 7);
-                inkTaper(g, W, H, [0.60, 0.20], [0.55, 0.45], [0.58, 0.72], 6);                         // uma dobra no cotovelo da manga
-            } },
-            thigh: { w: 512, h: 512, fn: (g, W, H, fill = '#446282') => {
-                g.fillStyle = fill; g.fillRect(0, 0, W, H);
-                // costuras laterais (externa e interna) ao longo da coxa
-                [0.25, 0.75].forEach(u => inkTaper(g, W, H, [u, 0.04], [u + 0.004, 0.50], [u, 0.96], 5));
-                // vincos na frente da coxa, logo acima do joelho (tecido se juntando quando o joelho dobra)
-                inkTaper(g, W, H, [0.945, 0.78], [1.000, 0.805], [0.055, 0.78], 6);
-                inkTaper(g, W, H, [0.955, 0.87], [1.000, 0.893], [0.045, 0.87], 6);
-                // vinco diagonal na dobra do quadril
-                inkTaper(g, W, H, [0.935, 0.10], [0.965, 0.20], [0.99, 0.30], 6);
-            } },
-            calf: { w: 512, h: 512, fn: (g, W, H, fill = '#446282') => {
-                g.fillStyle = fill; g.fillRect(0, 0, W, H);
-                [0.25, 0.75].forEach(u => inkTaper(g, W, H, [u, 0.02], [u - 0.003, 0.50], [u, 0.93], 5));      // costuras laterais continuam
-                inkTaper(g, W, H, [0, 0.945], [0.5, 0.945], [1, 0.945], 7);                                     // barra do jeans
-                // barra empilhada sobre o tênis: dois vincos na frente
-                inkTaper(g, W, H, [0.94, 0.82], [1.000, 0.845], [0.06, 0.82], 5);
-                inkTaper(g, W, H, [0.95, 0.88], [1.000, 0.900], [0.05, 0.88], 5);
-                // joelho dobrado: vinco curto na frente do topo da canela
-                inkTaper(g, W, H, [0.955, 0.06], [1.000, 0.080], [0.045, 0.06], 5);
-            } },
-            face: { w: 1024, h: 512, fn: (g, W, H) => {
-                g.fillStyle = '#e9a684'; g.fillRect(0, 0, W, H);
-                const P = (x, y) => headFP(x, y, W, H), N = a => [a[0] / W, a[1] / H], C = (pts, lw, col) => inkCurve(g, W, H, pts.map(N), lw, col);
-                const T = (a, b, c, w, col) => inkTaper(g, W, H, N(a), N(b), N(c), w, col);
-                const poly = (pts, col) => { g.fillStyle = col; g.beginPath(); pts.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath(); g.fill(); };
-                const SH = '#cf8a68';
-                [-1, 1].forEach(sd => {
-                    const e = HF.eye;
-                    poly([P(sd * 0.046, e + 0.016), P(sd * 0.030, e + 0.021), P(sd * 0.012, e + 0.019), P(sd * 0.013, e + 0.003), P(sd * 0.030, e + 0.008), P(sd * 0.046, e + 0.004)], SH);    // sombra da órbita sob a arcada
-                    poly([P(sd * 0.044, e - 0.008), P(sd * 0.030, e - 0.012), P(sd * 0.015, e - 0.008), P(sd * 0.017, e - 0.020), P(sd * 0.030, e - 0.025), P(sd * 0.042, e - 0.020)], SH);   // bolsa sob o olho
-                });
-                poly([P(-0.010, HF.mouth + 0.010), P(0.010, HF.mouth + 0.010), P(0.016, HF.nose - 0.002), P(-0.016, HF.nose - 0.002)], SH);                                            // sombra sob o nariz
-                [-1, 1].forEach(sd => {
-                    const e = HF.eye, eo = P(sd * 0.044, e), ei = P(sd * 0.016, e), ec = P(sd * 0.030, e);
-                    C([[ei[0], ec[1] - 3], [ec[0], ec[1] + 13], [eo[0], ec[1] - 3]], 9);                                        // pálpebra fechada (arco para baixo)
-                                        T(P(sd * 0.047, e + 0.014), P(sd * 0.030, e + 0.022), P(sd * 0.010, e + 0.0165), 11);                         // sobrancelha franzida (mais grossa na ponta interna)
-                    T(P(sd * 0.048, e - 0.004), P(sd * 0.053, e - 0.010), P(sd * 0.061, e - 0.013), 5);                           // pés de galinha
-                    T(P(sd * 0.048, e + 0.002), P(sd * 0.056, e + 0.002), P(sd * 0.064, e + 0.004), 5);
-                                        T(P(sd * 0.0185, HF.nose + 0.003), P(sd * 0.031, HF.mouth + 0.014), P(sd * 0.030, HF.mouth - 0.004), 6);   // sulco nasolabial
-                });
-                T(P(-0.006, HF.eye + 0.019), P(-0.0055, HF.eye + 0.027), P(-0.006, HF.eye + 0.037), 5);                          // franzido entre as sobrancelhas
-                T(P(0.006, HF.eye + 0.019), P(0.0055, HF.eye + 0.027), P(0.006, HF.eye + 0.037), 5);
-                C([P(-0.023, HF.mouth - 0.002), P(-0.011, HF.mouth + 0.001), P(0, HF.mouth - 0.001)], 7);                       // lábio superior
-                C([P(0, HF.mouth - 0.001), P(0.011, HF.mouth + 0.001), P(0.024, HF.mouth - 0.006)], 7);
-                C([P(-0.013, HF.mouth - 0.009), P(0, HF.mouth - 0.013), P(0.013, HF.mouth - 0.010)], 5);                         // lábio inferior
-                C([P(-0.008, HF.chin + 0.012), P(0, HF.chin + 0.015), P(0.008, HF.chin + 0.012)], 4);                            // vinco do queixo
-            } },
-            hair: { w: 1024, h: 512, fn: (g, W, H) => {
-                g.fillStyle = '#58382e'; g.fillRect(0, 0, W, H);
-                // mechas largas e paralelas descendo da coroa (u = ângulo, v = do topo à borda), em tom um pouco mais escuro e mais claro
-                for (let k = 0; k < 28; k++) {
-                    const u0 = k / 28 + 0.008, dark = k % 2 === 0;
-                    inkTaper(g, W, H, [u0, 0.04], [u0 + 0.012, 0.45], [u0 + 0.004, 0.97], dark ? 9 : 6, dark ? '#3a2620' : '#6f4a3c');
-                }
-            } }
-        };
+        // Current shared textures for the elder, mother and baby.
+        // The traveler's abandoned PT drawing recipes were replaced by TVT below.
+        const PT = {};
 
-        // ----------------------------------------------------------------------------
-        // Texturas pintadas do Senhor (terno bege) e da Mãe (casaco verde, calça cinza): mesmas regras do viajante
-        // (u = 0 frente, 0.25 lado +x, 0.5 costas; canvas y = 0 no topo do segmento). Cores iguais às dos materiais de cada um.
-        // ----------------------------------------------------------------------------
+        // Preserve precise base colors: SUIT_C is distinct from ELD.suit.
         const SUIT_C = '#bfa58e', COAT_C = '#5d6943', PANTS_C = '#474f57', WRINKLE_C = '#b87d65';
-        // dobras de tensão da axila para a cintura (uma de cada lado) e dobras das omoplatas
-        const paintTension = (g, W, H, y0, y1) => [0.215, 0.785].forEach(u => {
-            const sg = u < 0.5 ? 1 : -1, ym = (y0 + y1) / 2;
-            inkTaper(g, W, H, [u, y0], [u - sg * 0.018, ym], [u - sg * 0.036, y1], 7);
-            inkTaper(g, W, H, [u - sg * 0.032, y0 + 0.05], [u - sg * 0.055, ym + 0.02], [u - sg * 0.064, y1 - 0.06], 5);
-        });
-        const paintScapula = (g, W, H, y0, y1) => {
-            inkTaper(g, W, H, [0.44, y0], [0.46, (y0 + y1) / 2], [0.49, y1], 6);
-            inkTaper(g, W, H, [0.56, y0], [0.54, (y0 + y1) / 2], [0.51, y1], 6);
-        };
         const paintCloth = (name, fill, extra) => ({ fill, w: 512, h: 256, fn: (g, W, H, fl) => { g.fillStyle = fl; g.fillRect(0, 0, W, H); extra(g, W, H); } });
         Object.assign(PT, {
-            suitTorso: { w: 1024, h: 512, fill: SUIT_C, fn: (g, W, H, fl) => {
-                g.fillStyle = fl; g.fillRect(0, 0, W, H);
-                inkTaper(g, W, H, [0, 0.968], [0.5, 0.968], [1, 0.968], 8);                          // barra do paletó
-                inkTaper(g, W, H, [0.000, 0.44], [0.004, 0.70], [0.000, 0.966], 6);                  // abertura frontal abaixo das lapelas
-                paintTension(g, W, H, 0.26, 0.66);
-                paintScapula(g, W, H, 0.24, 0.52);
-                inkTaper(g, W, H, [0.50, 0.06], [0.502, 0.30], [0.50, 0.58], 4);                     // costura central das costas
-            } },
-            coatTorso: { w: 1024, h: 512, fill: COAT_C, fn: (g, W, H, fl) => {
-                g.fillStyle = fl; g.fillRect(0, 0, W, H);
-                inkTaper(g, W, H, [0, 0.968], [0.5, 0.968], [1, 0.968], 8);                          // barra do casaco longo
-                paintTension(g, W, H, 0.20, 0.62);
-                paintScapula(g, W, H, 0.18, 0.46);
-                inkTaper(g, W, H, [0.50, 0.05], [0.502, 0.45], [0.50, 0.94], 4);                     // costura central das costas
-            } },
-            suitSleeve: paintCloth('suitSleeve', SUIT_C, (g, W, H) => {
-                inkTaper(g, W, H, [0.93, 0.80], [1.00, 0.83], [0.07, 0.80], 5);                      // dobras na parte interna do cotovelo
-                inkTaper(g, W, H, [0.94, 0.89], [1.00, 0.915], [0.06, 0.89], 5);
-            }),
             coatSleeve: paintCloth('coatSleeve', COAT_C, (g, W, H) => {
                 inkTaper(g, W, H, [0.93, 0.80], [1.00, 0.83], [0.07, 0.80], 5);
                 inkTaper(g, W, H, [0.94, 0.89], [1.00, 0.915], [0.06, 0.89], 5);
-            }),
-            suitForearm: paintCloth('suitForearm', SUIT_C, (g, W, H) => {
-                inkTaper(g, W, H, [0.94, 0.07], [1.00, 0.10], [0.06, 0.07], 5);                      // dobras do cotovelo no começo do antebraço
-                inkTaper(g, W, H, [0.95, 0.14], [1.00, 0.165], [0.05, 0.14], 5);
-                inkTaper(g, W, H, [0, 0.965], [0.5, 0.965], [1, 0.965], 6);                          // boca da manga
             }),
             coatForearm: paintCloth('coatForearm', COAT_C, (g, W, H) => {
                 inkTaper(g, W, H, [0.94, 0.07], [1.00, 0.10], [0.06, 0.07], 5);
                 inkTaper(g, W, H, [0.95, 0.14], [1.00, 0.165], [0.05, 0.14], 5);
                 inkTaper(g, W, H, [0, 0.95], [0.5, 0.95], [1, 0.95], 6);
             }),
-            suitThigh: { w: 512, h: 512, fill: SUIT_C, fn: (g, W, H, fl) => {
-                g.fillStyle = fl; g.fillRect(0, 0, W, H);
-                inkTaper(g, W, H, [0.000, 0.10], [0.004, 0.52], [0.000, 0.97], 4);                   // vinco de passar na frente da calça
-                inkTaper(g, W, H, [0.945, 0.80], [1.000, 0.825], [0.055, 0.80], 5);                  // vincos acima do joelho
-                inkTaper(g, W, H, [0.955, 0.89], [1.000, 0.912], [0.045, 0.89], 5);
-                inkTaper(g, W, H, [0.935, 0.10], [0.965, 0.20], [0.99, 0.30], 5);                    // dobra do quadril
-            } },
-            suitCalf: { w: 512, h: 512, fill: SUIT_C, fn: (g, W, H, fl) => {
-                g.fillStyle = fl; g.fillRect(0, 0, W, H);
-                inkTaper(g, W, H, [0.000, 0.04], [0.004, 0.46], [0.000, 0.90], 4);                   // vinco de passar continua
-                inkTaper(g, W, H, [0, 0.955], [0.5, 0.955], [1, 0.955], 7);                          // barra da calça
-                inkTaper(g, W, H, [0.94, 0.86], [1.000, 0.885], [0.06, 0.86], 5);                    // a barra cai sobre o sapato
-            } },
-            pantsThigh: { ...PT.thigh, fill: PANTS_C, tex: undefined },
-            pantsCalf: { ...PT.calf, fill: PANTS_C, tex: undefined },
-            faceE: { w: 1024, h: 512, fn: (g, W, H) => {
-                g.fillStyle = '#f0baa3'; g.fillRect(0, 0, W, H);
-                const P = (x, y) => headFP(x, y, W, H), N = a => [a[0] / W, a[1] / H], C = (pts, lw, col) => inkCurve(g, W, H, pts.map(N), lw, col);
-                [0.176, 0.190].forEach((y, i) => C([P(-0.040 + i * 0.006, y), P(0, y + 0.004), P(0.040 - i * 0.006, y)], 5, WRINKLE_C));   // rugas da testa
-                [-1, 1].forEach(sd => {
-                    const e = P(sd * 0.030, HF.eye), eo = P(sd * 0.043, HF.eye), ei = P(sd * 0.017, HF.eye);
-                    C([P(sd * 0.047, HF.eye + 0.004), P(sd * 0.058, HF.eye + 0.009)], 4, WRINKLE_C);                                     // pés de galinha
-                    C([P(sd * 0.047, HF.eye - 0.001), P(sd * 0.059, HF.eye - 0.002)], 4, WRINKLE_C);
-                    C([P(sd * 0.047, HF.eye - 0.006), P(sd * 0.058, HF.eye - 0.013)], 4, WRINKLE_C);
-                    C([P(sd * 0.030, HF.eye - 0.020), P(sd * 0.037, HF.eye - 0.034)], 4, WRINKLE_C);                                     // bolsa sob o olho
-                    C([P(sd * 0.018, HF.nose + 0.002), P(sd * 0.030, HF.mouth + 0.010), P(sd * 0.032, HF.mouth - 0.004)], 5, WRINKLE_C);       // sulco nasolabial
-                    g.fillStyle = INK; g.beginPath(); g.ellipse(e[0], e[1], 9, 8, 0, 0, Math.PI * 2); g.fill();                           // olho
-                    C([[ei[0], e[1] - 6], [e[0], e[1] - 15], [eo[0], e[1] - 5]], 7);                                                      // pálpebra
-                    C([P(sd * 0.046, HF.eye + 0.015), P(sd * 0.030, HF.eye + 0.025), P(sd * 0.011, HF.eye + 0.021)], 17, '#aeb3b8');       // sobrancelha grisalha espessa
-                    C([P(sd * 0.044, HF.eye + 0.011), P(sd * 0.030, HF.eye + 0.020), P(sd * 0.011, HF.eye + 0.016)], 4, '#868c92');
-                });
-                C([P(-0.020, HF.mouth - 0.001), P(0, HF.mouth - 0.004), P(0.020, HF.mouth - 0.001)], 8);                                 // boca serena
-            } },
-            faceM: { w: 1024, h: 512, fn: (g, W, H) => {
-                g.fillStyle = '#e5b299'; g.fillRect(0, 0, W, H);
-                const P = (x, y) => headFP(x, y, W, H), N = a => [a[0] / W, a[1] / H], C = (pts, lw, col) => inkCurve(g, W, H, pts.map(N), lw, col);
-                [-1, 1].forEach(sd => {
-                    const e = P(sd * 0.030, HF.eye), eo = P(sd * 0.043, HF.eye), ei = P(sd * 0.017, HF.eye);
-                    g.fillStyle = INK; g.beginPath(); g.ellipse(e[0], e[1], 10, 9, 0, 0, Math.PI * 2); g.fill();                         // olho
-                    C([[ei[0], e[1] - 3], [e[0], e[1] - 16], [eo[0], e[1] - 3]], 9);                                                      // pálpebra superior
-                    C([[eo[0] - 2, e[1] - 6], P(sd * 0.050, HF.eye + 0.001)], 6);                                                         // cílio externo
-                    C([P(sd * 0.047, HF.eye + 0.011), P(sd * 0.030, HF.eye + 0.024), P(sd * 0.011, HF.eye + 0.019)], 8, '#3d231a');         // sobrancelha arqueada (preocupada)
-                });
-                const m = P(0, HF.mouth);
-                g.fillStyle = '#a66553'; g.beginPath(); g.ellipse(m[0], m[1], 22, 8, 0, 0, Math.PI * 2); g.fill();                        // lábios
-                C([P(-0.022, HF.mouth), P(0, HF.mouth - 0.001), P(0.022, HF.mouth)], 5);
-            } },
             hairE: { w: 1024, h: 256, fn: (g, W, H) => {
                 g.fillStyle = '#b0b5ba'; g.fillRect(0, 0, W, H);
                 for (let k = 0; k < 38; k++) {
@@ -399,13 +237,6 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
                     inkTaper(g, W, H, [u0, 0.02 + 0.18 * a], [u0 + 0.014 * (a - 0.5), 0.5], [u0 + 0.02 * (0.5 - a), 0.82 + 0.17 * (1 - a)], dark ? 7 : 5, dark ? '#9da3a9' : '#c9cdd0');
                 }
             } },
-            hairM: { w: 1024, h: 512, fn: (g, W, H) => {
-                g.fillStyle = '#3d231a'; g.fillRect(0, 0, W, H);
-                for (let k = 0; k < 36; k++) {
-                    const u0 = k / 36 + 0.005, dark = k % 2 === 0, wv = 0.014 * ((k % 3) - 1);
-                    inkTaper(g, W, H, [u0, 0.02], [u0 + wv, 0.5], [u0 + 0.004, 0.98], dark ? 9 : 6, dark ? '#2a1812' : '#59372b');
-                }
-            } }
         });
 
 
@@ -419,18 +250,8 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             });
         } });
         Object.assign(PT, {
-            earT: earPaint('#e9a684'), earE: earPaint('#f0baa3'), earM: earPaint('#e5b299'),
-            pelvis: { w: 512, h: 512, fn: (g, W, H, fill = '#446282') => {
-                g.fillStyle = fill; g.fillRect(0, 0, W, H);
-                inkTaper(g, W, H, [0, 0.11], [0.5, 0.11], [1, 0.11], 5);                              // cós do jeans
-                inkTaper(g, W, H, [0.000, 0.12], [0.012, 0.42], [0.985, 0.60], 4);                    // braguilha em J
-                [[0.955, 0.98, 0.915, 0.56], [0.045, 0.98, 0.085, 0.56]].forEach(([ua, ya, ub, yb]) =>
-                    inkTaper(g, W, H, [ua, ya], [(ua + ub) / 2, (ya + yb) / 2 + 0.04], [ub, yb], 5));  // dobras que partem da virilha para os quadris
-                inkTaper(g, W, H, [0.975, 0.98], [0.92, 0.80], [0.90, 0.66], 4);
-                inkTaper(g, W, H, [0.025, 0.98], [0.08, 0.80], [0.10, 0.66], 4);
-            } },
-            suitPelvis: { w: 512, h: 512, fill: SUIT_C, fn: (g, W, H, fl) => { g.fillStyle = fl; g.fillRect(0, 0, W, H); inkTaper(g, W, H, [0, 0.10], [0.5, 0.10], [1, 0.10], 4); } },
-            pantsPelvis: { w: 512, h: 512, fill: PANTS_C, fn: (g, W, H, fl) => { g.fillStyle = fl; g.fillRect(0, 0, W, H); inkTaper(g, W, H, [0, 0.10], [0.5, 0.10], [1, 0.10], 4); } }
+            earT: earPaint('#e9a684'),
+            earE: earPaint('#f0baa3')
         });
 
         // ----------------------------------------------------------------------------
@@ -675,31 +496,6 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
                 C([P(-0.023, HF.mouth - 0.001), P(0, HF.mouth - 0.003), P(0.023, HF.mouth - 0.001)], 5);
                 C([P(-0.011, HF.mouth - 0.010), P(0, HF.mouth - 0.013), P(0.011, HF.mouth - 0.010)], 3, '#8a4d3e');
             } },
-            hairM: { w: 1024, h: 512, fn: (g, W, H) => {
-                g.fillStyle = '#3d231a'; g.fillRect(0, 0, W, H);
-                for (let k = 0; k < 36; k++) {
-                    const u0 = k / 36 + 0.005, dark = k % 2 === 0, wv = 0.014 * ((k % 3) - 1);
-                    inkTaper(g, W, H, [u0, 0.02], [u0 + wv, 0.5], [u0 + 0.004, 0.98], dark ? 9 : 6, dark ? '#2a1812' : '#59372b');
-                }
-            } },
-            // manta bege: dobras do tecido enrolando o corpo (diagonais) e a ponta azul dobrada por cima
-            swaddle: { w: 512, h: 512, fn: (g, W, H) => {
-                g.fillStyle = BLANKET_W; g.fillRect(0, 0, W, H);
-                inkPoly(g, W, H, [[0.88, 0.10], [1.04, 0.16], [1.06, 0.34], [0.90, 0.30]], BLANKET_B, true, 4);                    // pequena aba azul dobrada sobre o peito
-                inkTaper(g, W, H, [0.22, 0.10], [0.28, 0.40], [0.36, 0.78], 5);                                                    // dobras longas em torno do corpo
-                inkTaper(g, W, H, [0.34, 0.14], [0.40, 0.48], [0.47, 0.84], 4);
-                inkTaper(g, W, H, [0.60, 0.20], [0.64, 0.52], [0.72, 0.90], 5);
-                inkTaper(g, W, H, [0.52, 0.30], [0.55, 0.56], [0.60, 0.82], 3);
-                inkTaper(g, W, H, [0.08, 0.40], [0.14, 0.62], [0.20, 0.90], 4);
-                inkTaper(g, W, H, [0.20, 0.88], [0.30, 0.94], [0.44, 0.96], 4);                                                    // ponta dobrada embaixo
-                inkTaper(g, W, H, [0.56, 0.90], [0.68, 0.95], [0.80, 0.96], 4);
-            } },
-            swaddleBlue: { w: 512, h: 256, fn: (g, W, H) => {
-                g.fillStyle = BLANKET_B; g.fillRect(0, 0, W, H);
-                inkTaper(g, W, H, [0.10, 0.10], [0.16, 0.50], [0.30, 0.92], 4);                                     // três pregas suaves, em diagonal
-                inkTaper(g, W, H, [0.46, 0.06], [0.52, 0.46], [0.60, 0.90], 5);
-                inkTaper(g, W, H, [0.78, 0.12], [0.84, 0.52], [0.94, 0.88], 4);
-            } },
             babyFace: { w: 512, h: 256, fn: (g, W, H) => {
                 g.fillStyle = '#efc4ad'; g.fillRect(0, 0, W, H);
                 const P = (x, y) => babyFP(x, y, W, H), N = a => [a[0] / W, a[1] / H], C = (pts, lw, col) => inkCurve(g, W, H, pts.map(N), lw, col);
@@ -729,23 +525,8 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
         // ============================================================================
         const OUTLINE_PX = 1.0;                          // espessura do contorno na tela, em pixels
         const OUTLINE_W = { value: 0.012 };              // espessura em unidades locais (atualizada a cada quadro)
-        const OUTLINE_COLOR = 0x1e293b;   // contorno dos passageiros: mesmo azul-marinho técnico dos contornos do avião
         // iluminação "de desenho": a cor mostrada é exatamente a cor do material; só uma sombra dura onde a normal se afasta da luz
-        const FLAT_U = { uLight: { value: new THREE.Vector3(0.40, 0.80, 0.45).normalize() }, uThr: { value: 0.10 }, uShade: { value: new THREE.Vector3(0.80, 0.79, 0.83) } };
-        function flatMaterial(old) {
-            const m = new THREE.MeshBasicMaterial({ color: old.color, map: old.map || null, side: old.side });
-            m.onBeforeCompile = (sh) => {
-                Object.assign(sh.uniforms, FLAT_U);
-                sh.vertexShader = sh.vertexShader
-                    .replace('#include <common>', '#include <common>\nvarying vec3 vVN;')
-                    .replace('#include <begin_vertex>', '#include <begin_vertex>\nvVN = normalize(normalMatrix * normal);');
-                sh.fragmentShader = sh.fragmentShader
-                    .replace('#include <common>', '#include <common>\nvarying vec3 vVN;\nuniform vec3 uLight;\nuniform float uThr;\nuniform vec3 uShade;')
-                    .replace('#include <color_fragment>', '#include <color_fragment>\nvec3 fN = normalize(vVN) * (gl_FrontFacing ? 1.0 : -1.0);\nfloat bandF = smoothstep(uThr - 0.015, uThr + 0.015, dot(fN, normalize(uLight)));\ndiffuseColor.rgb *= mix(uShade, vec3(1.0), bandF);');
-            };
-            m.customProgramCacheKey = () => 'flat2tone';
-            return m;
-        }
+        const FLAT_U = { uLight: { value: new THREE.Vector3(0.40, 0.80, 0.45).normalize() }, uThr: { value: 0.10 } };
         // Contorno de tinta: espessura em unidades locais. Na versão "rica" (viajante) o traço engrossa no lado da sombra e afina no lado da luz,
         // e a cor é um quase-preto tingido pela cor da peça (pele, tecido, jeans, cabelo...), em vez de preto puro.
         // Aparição dos bonecos: dissolve em pontilhado ordenado (Bayer 4x4). uFade = 0 invisível, 1 inteiro. Sem transparência,
@@ -760,19 +541,18 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
                 .replace('#include <common>', '#include <common>' + FADE_GLSL_HEAD)
                 .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + FADE_GLSL_TEST);
         }
-        function outlineMaterial(mul, col, rich, fadeU) {
-            const m = new THREE.MeshBasicMaterial({ color: col === undefined ? OUTLINE_COLOR : col, side: THREE.BackSide });
+        // Active rich-outline shader, kept with identical GLSL and program cache key.
+        function outlineMaterial(mul, col, fadeU) {
+            const m = new THREE.MeshBasicMaterial({ color: col, side: THREE.BackSide });
             m.onBeforeCompile = (sh) => {
                 sh.uniforms.uOutlineW = OUTLINE_W;
-                if (rich) sh.uniforms.uLightO = FLAT_U.uLight;
+                sh.uniforms.uLightO = FLAT_U.uLight;
                 sh.vertexShader = sh.vertexShader
-                    .replace('#include <common>', '#include <common>\nattribute vec3 aOutN;\nuniform float uOutlineW;' + (rich ? '\nuniform vec3 uLightO;' : ''))
-                    .replace('#include <begin_vertex>', rich
-                        ? 'vec3 nvO = normalize(normalMatrix * aOutN);\nfloat shO = clamp(0.5 - 0.5 * dot(nvO, normalize(uLightO)), 0.0, 1.0);\nvec3 transformed = position + normalize(aOutN) * uOutlineW * ' + mul.toFixed(3) + ' * mix(0.62, 1.38, shO);'
-                        : 'vec3 transformed = position + normalize(aOutN) * uOutlineW * ' + mul.toFixed(3) + ';');
+                    .replace('#include <common>', '#include <common>\nattribute vec3 aOutN;\nuniform float uOutlineW;\nuniform vec3 uLightO;')
+                    .replace('#include <begin_vertex>', 'vec3 nvO = normalize(normalMatrix * aOutN);\nfloat shO = clamp(0.5 - 0.5 * dot(nvO, normalize(uLightO)), 0.0, 1.0);\nvec3 transformed = position + normalize(aOutN) * uOutlineW * ' + mul.toFixed(3) + ' * mix(0.62, 1.38, shO);');
                 addFade(sh, fadeU);
             };
-            m.customProgramCacheKey = () => 'inkOutline' + mul + (rich ? 'R' : '') + (fadeU ? 'F' : '');
+            m.customProgramCacheKey = () => 'inkOutline' + mul + 'R' + (fadeU ? 'F' : '');
             return m;
         }
         // Iluminação "rica" do viajante: 3 faixas de luz (luz, meio-tom, sombra) + sombra funda, com sombra fria/saturada e luz quente por tipo de
@@ -849,13 +629,13 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             }
             geo.setAttribute('aOutN', new THREE.BufferAttribute(out, 3));
         }
-        function stylizeCartoon(root, rich, fadeU) {
+        function stylizeCartoon(root, fadeU) {
             const meshes = [], cache = new Map(), inks = new Map();
             root.traverse(o => { if (o.isMesh) meshes.push(o); });
             const inkFor = (sz, mul, cls) => {
-                const key = sz + (rich ? cls : '');
+                const key = sz + cls;
                 let m = inks.get(key);
-                if (!m) { m = rich ? outlineMaterial(mul, (RICH[cls] || RICH.cloth).out, true, fadeU) : outlineMaterial(mul); inks.set(key, m); }
+                if (!m) { m = outlineMaterial(mul, (RICH[cls] || RICH.cloth).out, fadeU); inks.set(key, m); }
                 return m;
             };
             meshes.forEach(mesh => {
@@ -863,14 +643,14 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
                 const cls = old && old.userData && old.userData.lit;
                 if (old && old.isMeshStandardMaterial) {
                     let fm = cache.get(old);
-                    if (!fm) { fm = rich ? richMaterial(old, fadeU) : flatMaterial(old); cache.set(old, fm); }
+                    if (!fm) { fm = richMaterial(old, fadeU); cache.set(old, fm); }
                     mesh.material = fm;
                 }
                 mesh.geometry.computeBoundingSphere();
                 const r = mesh.geometry.boundingSphere.radius * Math.max(mesh.scale.x, mesh.scale.y, mesh.scale.z);
-                if (r < 0.009) return;                    // detalhes minúsculos: sem contorno
+                if (r < 0.009) return;
                 const gt = mesh.geometry.type;
-                if ((gt === 'SphereGeometry' && r < 0.06) || (gt === 'ConeGeometry' && r < 0.04)) return;   // esferas de junta e mechas espetadas: sem contorno
+                if ((gt === 'SphereGeometry' && r < 0.06) || (gt === 'ConeGeometry' && r < 0.04)) return;
                 ensureOutlineNormals(mesh.geometry);
                 const o = new THREE.Mesh(mesh.geometry, r < 0.025 ? inkFor('s', 0.60, cls) : (r < 0.06 ? inkFor('m', 0.85, cls) : inkFor('l', 1.0, cls)));
                 o.castShadow = false; o.receiveShadow = false; o.userData.isOutline = true;
@@ -893,7 +673,11 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             shoe: '#8d939d', shoeSh: '#656b76', sole: '#f1f3f5'
         };
 
-        const tvLit = (m, cls) => { m.userData.lit = cls; return m; };   // classe de iluminação/contorno (ver RICH)
+        const tvLit = (m, cls) => { m.userData.lit = cls; return m; };
+        // Shared factories, retaining each character's own color and shader category.
+        const paxMat = (c, cls) => tvLit(new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, metalness: 0 }), cls);
+        const paxPaintedMat = (P, cls) => tvLit(paintedMat(P), cls);
+        const paxDoublePaintedMat = (P, cls) => { const m = paxPaintedMat(P, cls); m.side = THREE.DoubleSide; return m; };
 
         function tvSgnPow(v, e) { return Math.sign(v) * Math.pow(Math.abs(v), e); }
 
@@ -1157,23 +941,33 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
         });
 
         const TV_CASE_K = 0.74;           // escala do corpo da mala (1 = tamanho anterior); a alça e a mão não mudam
+        // Shared suitcase outline/extrusion (same shape and bevel parameters).
+        function paxRoundedRect(w, h, r) {
+            const sh = new THREE.Shape(), x = -w / 2, y = -h / 2;
+            sh.moveTo(x + r, y); sh.lineTo(x + w - r, y);
+            sh.quadraticCurveTo(x + w, y, x + w, y + r);
+            sh.lineTo(x + w, y + h - r);
+            sh.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            sh.lineTo(x + r, y + h); sh.quadraticCurveTo(x, y + h, x, y + h - r);
+            sh.lineTo(x, y + r); sh.quadraticCurveTo(x, y, x + r, y);
+            return sh;
+        }
+        function paxCaseSlab(w, h, r, depth, mat, bev) {
+            const geo = new THREE.ExtrudeGeometry(paxRoundedRect(w, h, r), { depth, bevelEnabled: bev > 0, bevelThickness: bev, bevelSize: bev, bevelSegments: 4, curveSegments: 10 });
+            geo.translate(0, 0, -depth / 2);
+            const m = new THREE.Mesh(geo, mat); m.rotation.y = Math.PI / 2; m.castShadow = true; m.receiveShadow = true; return m;
+        }
         function tvSuitcase() {
             const g = new THREE.Group(), K = TV_CASE_K;
             const cm = (c, r) => tvLit(new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: 0.1 }), 'case');
             const navy = cm(0x2d2f3b, 0.4), navyHi = cm(0x40445a, 0.4), dark = cm(0x1b1c25, 0.5), strapM = cm(0x5b606e, 0.5);
             const CW = 0.430 * K, CH = 0.690 * K, CD = 0.225 * K, CR = 0.075 * K, top = -0.052, cy = top - CH / 2;
-            const rr = (w, h, r) => { const sh = new THREE.Shape(), x = -w / 2, y = -h / 2; sh.moveTo(x + r, y); sh.lineTo(x + w - r, y); sh.quadraticCurveTo(x + w, y, x + w, y + r); sh.lineTo(x + w, y + h - r); sh.quadraticCurveTo(x + w, y + h, x + w - r, y + h); sh.lineTo(x + r, y + h); sh.quadraticCurveTo(x, y + h, x, y + h - r); sh.lineTo(x, y + r); sh.quadraticCurveTo(x, y, x + r, y); return sh; };
-            const slab = (w, h, r, depth, mat, bev) => {   // placa arredondada: largura ao longo de z, espessura ao longo de x
-                const geo = new THREE.ExtrudeGeometry(rr(w, h, r), { depth, bevelEnabled: bev > 0, bevelThickness: bev, bevelSize: bev, bevelSegments: 4, curveSegments: 10 });
-                geo.translate(0, 0, -depth / 2);
-                const m = new THREE.Mesh(geo, mat); m.rotation.y = Math.PI / 2; m.castShadow = true; m.receiveShadow = true; return m;
-            };
-            const shell = slab(CW, CH, CR, CD - 0.05 * K, navy, 0.025 * K); shell.position.set(0, cy, 0); g.add(shell);
-            const rim = slab(CW + 0.008, CH + 0.008, CR + 0.004, 0.030 * K, navyHi, 0.010 * K); rim.position.set(0, cy, 0); g.add(rim);          // junção das metades da casca
+            const shell = paxCaseSlab(CW, CH, CR, CD - 0.05 * K, navy, 0.025 * K); shell.position.set(0, cy, 0); g.add(shell);
+            const rim = paxCaseSlab(CW + 0.008, CH + 0.008, CR + 0.004, 0.030 * K, navyHi, 0.010 * K); rim.position.set(0, cy, 0); g.add(rim);          // junção das metades da casca
             [-1, 1].forEach(sx => {
                 const x = sx * (CD / 2 + 0.002);
-                const plate = slab(0.150 * K, 0.060 * K, 0.016 * K, 0.008, dark, 0); plate.position.set(x, top - 0.085 * K, 0); g.add(plate);               // caixa do puxador telescópico
-                const bar = slab(0.100 * K, 0.014, 0.006, 0.010, navyHi, 0); bar.position.set(x + sx * 0.003, top - 0.085 * K, 0); g.add(bar);
+                const plate = paxCaseSlab(0.150 * K, 0.060 * K, 0.016 * K, 0.008, dark, 0); plate.position.set(x, top - 0.085 * K, 0); g.add(plate);               // caixa do puxador telescópico
+                const bar = paxCaseSlab(0.100 * K, 0.014, 0.006, 0.010, navyHi, 0); bar.position.set(x + sx * 0.003, top - 0.085 * K, 0); g.add(bar);
                 [-0.060 * K, 0.060 * K].forEach(zo => {                                                                                                // dois sulcos longos das hastes
                     const gl = CH - 0.250 * K;
                     const groove = new THREE.Mesh(new THREE.BoxGeometry(0.006, gl, 0.012), dark);
@@ -1192,6 +986,27 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
         }
 
         const tvBall = (r, mat, sx = 1, sy = 1, sz = 1) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 14), mat); m.scale.set(sx, sy, sz); m.castShadow = true; m.receiveShadow = true; return m; };
+        // Retain independent ear material instances and exact dimensions.
+        function addAdultEars(head, texture, lit) {
+            [-1, 1].forEach(sd => {
+                const ear = new THREE.Mesh(new THREE.SphereGeometry(0.024, 16, 14), paxPaintedMat(texture, lit));
+                ear.scale.set(0.36, 1.18, 0.80);
+                ear.position.set(sd * 0.0715, 0.116, -0.006);
+                ear.rotation.set(0.08, sd * 0.18, sd * -0.10);
+                head.add(ear);
+            });
+        }
+        // Two sizes; no geometry standardization between the elder and mother.
+        function addAdultNose(head, skinM, bridgeR, tipR, wingR, wingX) {
+            const nRoot = new THREE.Vector3(0, 0.136, 0.092), nTip = new THREE.Vector3(0, 0.098, 0.107), nd = nTip.clone().sub(nRoot);
+            const bridge = new THREE.Mesh(new THREE.ConeGeometry(bridgeR, nd.length(), 8), skinM);
+            bridge.position.copy(nRoot).add(nTip).multiplyScalar(0.5);
+            bridge.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), nd.clone().negate().normalize());
+            bridge.scale.set(1.0, 1, 0.95); head.add(bridge);
+            const tip = new THREE.Mesh(new THREE.SphereGeometry(tipR, 14, 12), skinM);
+            tip.scale.set(1.0, 0.85, 1.0); tip.position.set(0, 0.0985, 0.1005); head.add(tip);
+            [-1, 1].forEach(sd => { const wing = new THREE.Mesh(new THREE.SphereGeometry(wingR, 10, 10), skinM); wing.scale.set(0.9, 1.0, 0.85); wing.position.set(sd * wingX, 0.0995, 0.0955); head.add(wing); });
+        }
         // mão com 5 dedos de 3 falanges (palma, dedos articulados prox/mid/tip). grip = punho fechado em volta de uma alça
             function tvBuildHand(side, grip, skinM) {
                 const hand = new THREE.Group();
@@ -1232,11 +1047,7 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             const S = GLTF_S;
             const root = new THREE.Group();
             root.scale.setScalar(0.84);
-            const mk = (c, cls) => tvLit(new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, metalness: 0 }), cls || 'cloth');
-            const skinM = mk(TVC.skin, 'skin'), jeansM = mk(TVC.jeans, 'denim');
-            const pm = (P, cls) => tvLit(paintedMat(P), cls);                                              // textura pintada + classe de iluminação
-            const dsMat = (P, cls) => { const m = pm(P, cls); m.side = THREE.DoubleSide; return m; };
-            const ball = (r, mat, sx = 1, sy = 1, sz = 1) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 14), mat); m.scale.set(sx, sy, sz); m.castShadow = true; m.receiveShadow = true; return m; };
+            const skinM = paxMat(TVC.skin, 'skin'), jeansM = paxMat(TVC.jeans, 'denim');
 
             // ---- pelve (jeans) --------------------------------------------------------------------------------------
             const pelvis = new THREE.Group();
@@ -1245,7 +1056,7 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             pelvis.add(tvLoft([
                 { a: -0.118, w: 0.118, d: 0.092, c: -0.004, p: 2.3 }, { a: -0.085, w: 0.143, d: 0.100, c: -0.006 }, { a: -0.040, w: 0.150, d: 0.104, c: -0.008 },
                 { a: 0.020, w: 0.146, d: 0.100, c: -0.006 }, { a: 0.075, w: 0.139, d: 0.096, c: -0.004 }, { a: 0.118, w: 0.135, d: 0.093, c: -0.003 }
-            ], pm(TVT.pelvis, 'denim'), { seg: 36, capStart: true }));
+            ], paxPaintedMat(TVT.pelvis, 'denim'), { seg: 36, capStart: true }));
 
             // ---- tronco (camiseta folgada) -------------------------------------------------------------------------
             const torsoLen = 15.0 * S;
@@ -1256,27 +1067,21 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
                 { a: -0.075, w: 0.160, d: 0.113, c: -0.004, p: 2.2 }, { a: -0.045, w: 0.153, d: 0.107, c: -0.005 }, { a: 0.040, w: 0.141, d: 0.099, c: -0.004 },
                 { a: 0.140, w: 0.146, d: 0.101, c: -0.002 }, { a: 0.240, w: 0.158, d: 0.106, c: 0 }, { a: 0.315, w: 0.170, d: 0.102, c: 0.002 },
                 { a: 0.365, w: 0.167, d: 0.093, c: 0.001 }, { a: 0.395, w: 0.122, d: 0.079, c: 0.003 }, { a: 0.416, w: 0.073, d: 0.068, c: 0.005 }, { a: 0.426, w: 0.068, d: 0.064, c: 0.006 }
-            ], dsMat(TVT.shirt, 'cloth'), { seg: 44, rings: 48 }));
-            const collar = new THREE.Mesh(new THREE.TorusGeometry(0.066, 0.0095, 10, 28), mk(TVC.collar, 'cloth'));    // gola careca canelada
+            ], paxDoublePaintedMat(TVT.shirt, 'cloth'), { seg: 44, rings: 48 }));
+            const collar = new THREE.Mesh(new THREE.TorusGeometry(0.066, 0.0095, 10, 28), paxMat(TVC.collar, 'cloth'));    // gola careca canelada
             collar.rotation.x = Math.PI / 2 - 0.16; collar.scale.set(1.04, 0.98, 1.0); collar.position.set(0, 0.414, 0.006); collar.castShadow = true;
             thorax.add(collar);
-            thorax.add(tvLoft([{ a: 0.34, w: 0.052, d: 0.056, c: 0.004 }, { a: 0.40, w: 0.050, d: 0.053, c: 0.006 }, { a: 0.475, w: 0.049, d: 0.052, c: 0.008 }], pm(TVT.neck, 'skin'), { seg: 20, capEnd: true }));
+            thorax.add(tvLoft([{ a: 0.34, w: 0.052, d: 0.056, c: 0.004 }, { a: 0.40, w: 0.050, d: 0.053, c: 0.006 }, { a: 0.475, w: 0.049, d: 0.052, c: 0.008 }], paxPaintedMat(TVT.neck, 'skin'), { seg: 20, capEnd: true }));
 
             // ---- cabeça ----------------------------------------------------------------------------------------------
             const head = new THREE.Group();
             head.position.set(0, torsoLen + 0.012, 0.008);
             head.scale.setScalar(1.16);
             thorax.add(head);
-            const cranium = new THREE.Mesh(buildHeadGeometry(), pm(TVT.face, 'skin'));
+            const cranium = new THREE.Mesh(buildHeadGeometry(), paxPaintedMat(TVT.face, 'skin'));
             cranium.castShadow = true; cranium.receiveShadow = true;
             head.add(cranium);
-            [-1, 1].forEach(s => {
-                const ear = new THREE.Mesh(new THREE.SphereGeometry(0.024, 16, 14), pm(PT.earT, 'skin'));
-                ear.scale.set(0.36, 1.18, 0.80);
-                ear.position.set(s * 0.0715, 0.116, -0.006);
-                ear.rotation.set(0.08, s * 0.18, s * -0.10);
-                head.add(ear);
-            });
+            addAdultEars(head, PT.earT, 'skin');
             {   // cabelo: casca que cobre o crânio todo (topo, laterais e nuca), com a linha do cabelo acima da orelha e descendo atrás dela
                 const TL = Math.PI * 0.82, sm = (a0, a1, x) => { const t = Math.min(1, Math.max(0, (x - a0) / (a1 - a0))); return t * t * (3 - 2 * t); };
                 const hg = new THREE.SphereGeometry(1, 72, 40, 0, Math.PI * 2, 0, TL), hp = hg.attributes.position;
@@ -1294,13 +1099,13 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
                     hp.setXYZ(i, hq[0], hq[1], hq[2]);
                 }
                 hg.computeVertexNormals();
-                const hair = new THREE.Mesh(hg, pm(TVT.hair, 'hair'));
+                const hair = new THREE.Mesh(hg, paxPaintedMat(TVT.hair, 'hair'));
                 hair.castShadow = true;
                 head.add(hair);
 
                 // mechas em 3D (cones achatados e curvos que seguem a superfície do crânio): franja varrida para o lado, costeletas e pontas na nuca
                 const hc = new THREE.Vector3(0, HEAD.cy, HEAD.cz);
-                const lockMats = [mk(TVC.hairHi, 'hair'), mk(TVC.hair, 'hair'), mk(TVC.hairSh, 'hair')];
+                const lockMats = [paxMat(TVC.hairHi, 'hair'), paxMat(TVC.hair, 'hair'), paxMat(TVC.hairSh, 'hair')];
                 const addLock = (psi, th, len, wid, sweep, tone, bend) => {
                     const dx = Math.sin(psi) * Math.sin(th), dy = Math.cos(th), dz = Math.cos(psi) * Math.sin(th);
                     const q = headShell(dx, dy, dz, 1.06);
@@ -1335,17 +1140,17 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
                 shoulder.add(tvLoft([                                                                    // manga curta folgada (ombro arredondado)
                     { a: 0.046, w: 0.022, d: 0.026 }, { a: 0.036, w: 0.050, d: 0.054 }, { a: 0.012, w: 0.066, d: 0.069 }, { a: -0.040, w: 0.067, d: 0.067 },
                     { a: -0.100, w: 0.069, d: 0.068 }, { a: -0.138, w: 0.073, d: 0.071 }
-                ], dsMat(TVT.sleeve, 'cloth'), { seg: 28, capStart: true }));
+                ], paxDoublePaintedMat(TVT.sleeve, 'cloth'), { seg: 28, capStart: true }));
                 shoulder.add(tvLoft([                                                                    // braço nu
                     { a: -0.090, w: 0.041, d: 0.043 }, { a: -0.160, w: 0.041, d: 0.043 }, { a: -0.240, w: 0.037, d: 0.039 }, { a: -0.292, w: 0.034, d: 0.036 }
-                ], pm(TVT.upperArm, 'skin'), { seg: 22 }));
+                ], paxPaintedMat(TVT.upperArm, 'skin'), { seg: 22 }));
                 const elbow = new THREE.Group();
                 elbow.position.y = -upperArmLen;
                 shoulder.add(elbow);
-                elbow.add(ball(0.037, skinM));
+                elbow.add(tvBall(0.037, skinM));
                 elbow.add(tvLoft([
                     { a: 0.012, w: 0.036, d: 0.038 }, { a: -0.060, w: 0.041, d: 0.043 }, { a: -0.140, w: 0.035, d: 0.036 }, { a: -0.220, w: 0.027, d: 0.029 }, { a: -0.264, w: 0.025, d: 0.027 }
-                ], pm(TVT.forearm, 'skin'), { seg: 22 }));
+                ], paxPaintedMat(TVT.forearm, 'skin'), { seg: 22 }));
                 const h = buildHand(side, side === -1);
                 h.hand.position.y = -forearmLen - 0.004;
                 elbow.add(h.hand);
@@ -1364,19 +1169,19 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
                 const hip = new THREE.Group();
                 hip.position.set(side * (3.6 * S) * 0.94, -1.2 * S, 0);
                 pelvis.add(hip);
-                hip.add(ball(0.074, jeansM, 1, 1, 1.05));
+                hip.add(tvBall(0.074, jeansM, 1, 1, 1.05));
                 hip.add(tvLoft([
                     { a: 0.030, w: 0.070, d: 0.078 }, { a: -0.020, w: 0.086, d: 0.090 }, { a: -0.120, w: 0.084, d: 0.088 },
                     { a: -0.260, w: 0.074, d: 0.078 }, { a: -0.360, w: 0.066, d: 0.070 }, { a: -femurLen, w: 0.063, d: 0.067 }
-                ], pm(TVT.thigh, 'denim'), { seg: 28 }));
+                ], paxPaintedMat(TVT.thigh, 'denim'), { seg: 28 }));
                 const knee = new THREE.Group();
                 knee.position.y = -femurLen;
                 hip.add(knee);
-                knee.add(ball(0.061, jeansM, 1, 1, 1.05));
+                knee.add(tvBall(0.061, jeansM, 1, 1, 1.05));
                 knee.add(tvLoft([
                     { a: 0.010, w: 0.062, d: 0.066 }, { a: -0.060, w: 0.062, d: 0.068 }, { a: -0.160, w: 0.060, d: 0.066 }, { a: -0.300, w: 0.054, d: 0.058 },
                     { a: -0.375, w: 0.056, d: 0.060, c: -0.004 }, { a: -0.402, w: 0.059, d: 0.063, c: -0.010 }, { a: -tibiaLen - 0.030, w: 0.060, d: 0.064, c: -0.012 }
-                ], dsMat(TVT.calf, 'denim'), { seg: 28 }));
+                ], paxDoublePaintedMat(TVT.calf, 'denim'), { seg: 28 }));
                 const ankle = new THREE.Group();
                 ankle.position.y = -tibiaLen;
                 knee.add(ankle);
@@ -1386,11 +1191,11 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
                 foot.add(tvLoft([
                     { a: -0.060, w: 0.031, d: 0.036, c: -0.036 }, { a: -0.040, w: 0.039, d: 0.046, c: -0.030 }, { a: -0.005, w: 0.040, d: 0.040, c: -0.034 },
                     { a: 0.040, w: 0.043, d: 0.030, c: -0.043 }, { a: 0.095, w: 0.047, d: 0.025, c: -0.050 }, { a: 0.150, w: 0.042, d: 0.021, c: -0.056 }, { a: 0.178, w: 0.027, d: 0.015, c: -0.060 }
-                ], pm(TVT.shoe, 'shoe'), { axis: 'z', seg: 24, capStart: true, capEnd: true }));
+                ], paxPaintedMat(TVT.shoe, 'shoe'), { axis: 'z', seg: 24, capStart: true, capEnd: true }));
                 foot.add(tvLoft([
                     { a: -0.066, w: 0.034, d: 0.016, c: -0.080, p: 2.6 }, { a: -0.045, w: 0.042, d: 0.017, c: -0.080 }, { a: 0.010, w: 0.046, d: 0.017, c: -0.080 },
                     { a: 0.090, w: 0.0495, d: 0.017, c: -0.080 }, { a: 0.150, w: 0.0445, d: 0.017, c: -0.080 }, { a: 0.178, w: 0.031, d: 0.015, c: -0.080 }, { a: 0.188, w: 0.014, d: 0.010, c: -0.080 }
-                ], mk(TVC.sole, 'shoe'), { axis: 'z', seg: 24, capStart: true, capEnd: true }));
+                ], paxMat(TVC.sole, 'shoe'), { axis: 'z', seg: 24, capStart: true, capEnd: true }));
                 return { hip, knee, ankle };
             }
 
@@ -1426,8 +1231,7 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             const lm = (c, r) => tvLit(new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: 0.02 }), 'leather');
             const body = lm(ELD.leather, 0.7), dark = lm(ELD.leatherD, 0.65), hi = lm(ELD.leatherH, 0.7);
             const L = 0.520, H = 0.360, T = 0.150, top = -0.040, cy = top - H / 2, bev = 0.018;
-            const rr = (w, h, r) => { const sh = new THREE.Shape(), x = -w / 2, y = -h / 2; sh.moveTo(x + r, y); sh.lineTo(x + w - r, y); sh.quadraticCurveTo(x + w, y, x + w, y + r); sh.lineTo(x + w, y + h - r); sh.quadraticCurveTo(x + w, y + h, x + w - r, y + h); sh.lineTo(x + r, y + h); sh.quadraticCurveTo(x, y + h, x, y + h - r); sh.lineTo(x, y + r); sh.quadraticCurveTo(x, y, x + r, y); return sh; };
-            const shellGeo = new THREE.ExtrudeGeometry(rr(L - 2 * bev, H - 2 * bev, 0.03), { depth: T - 2 * bev, bevelEnabled: true, bevelThickness: bev, bevelSize: bev, bevelSegments: 4, curveSegments: 10 });
+            const shellGeo = new THREE.ExtrudeGeometry(paxRoundedRect(L - 2 * bev, H - 2 * bev, 0.03), { depth: T - 2 * bev, bevelEnabled: true, bevelThickness: bev, bevelSize: bev, bevelSegments: 4, curveSegments: 10 });
             shellGeo.translate(0, 0, -(T - 2 * bev) / 2);
             const shell = new THREE.Mesh(shellGeo, body); shell.rotation.y = Math.PI / 2; shell.position.set(0, cy, 0); shell.castShadow = true; shell.receiveShadow = true; g.add(shell);
             // tampa: faixa mais clara no topo e costura de metal/couro ao redor
@@ -1458,11 +1262,7 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             const S = GLTF_S;
             const root = new THREE.Group();
             root.scale.setScalar(0.84);
-            const mk = (c, cls) => tvLit(new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, metalness: 0 }), cls);
-            const pm = (P, cls) => tvLit(paintedMat(P), cls);
-            const dsm = (P, cls) => { const m = pm(P, cls); m.side = THREE.DoubleSide; return m; };
-            const skinM = mk(ELD.skin, 'oldskin'), suitM = mk(ELD.suit, 'suit'), shirtM = mk(ELD.shirt, 'white');
-            const ball = tvBall;
+            const skinM = paxMat(ELD.skin, 'oldskin'), suitM = paxMat(ELD.suit, 'suit'), shirtM = paxMat(ELD.shirt, 'white');
 
             // ---- pelve (calça) ---------------------------------------------------------------------------------------
             const pelvis = new THREE.Group();
@@ -1471,7 +1271,7 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             pelvis.add(tvLoft([
                 { a: 0.113, w: 0.140, d: 0.098, c: -0.003, p: 2.3 }, { a: 0.082, w: 0.148, d: 0.101 }, { a: 0.0, w: 0.153, d: 0.104, c: -0.006 },
                 { a: -0.06, w: 0.146, d: 0.100 }, { a: -0.113, w: 0.118, d: 0.086 }
-            ], dsm(ETX.pelvis, 'suit'), { seg: 36, capEnd: true }));
+            ], paxDoublePaintedMat(ETX.pelvis, 'suit'), { seg: 36, capEnd: true }));
 
             // ---- tronco (paletó comprido, folgado) -----------------------------------------------------------------
             const torsoLen = 15.0 * S;
@@ -1483,7 +1283,7 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
                 { a: 0.383, w: 0.172, d: 0.095, c: 0.001 }, { a: 0.340, w: 0.188, d: 0.104 }, { a: 0.250, w: 0.176, d: 0.112, c: -0.001 },
                 { a: 0.140, w: 0.164, d: 0.112 }, { a: 0.040, w: 0.162, d: 0.112 }, { a: -0.050, w: 0.170, d: 0.118, c: -0.004 },
                 { a: -0.120, w: 0.178, d: 0.122, c: -0.006 }, { a: -0.190, w: 0.182, d: 0.124, c: -0.008 }
-            ], dsm(ETX.torso, 'suit'), { seg: 48, rings: 56 }));
+            ], paxDoublePaintedMat(ETX.torso, 'suit'), { seg: 48, rings: 56 }));
             // gola do paletó (atrás do pescoço), colarinho da camisa e pescoço
             thorax.add(tvLoft([{ a: 0.440, w: 0.074, d: 0.060, c: -0.014 }, { a: 0.420, w: 0.080, d: 0.066, c: -0.012 }, { a: 0.396, w: 0.098, d: 0.074, c: -0.008 }], (() => { const m = suitM.clone(); m.side = THREE.DoubleSide; m.userData.lit = 'suit'; return m; })(), { seg: 28 }));
             thorax.add(tvLoft([{ a: 0.446, w: 0.056, d: 0.056, c: 0.006 }, { a: 0.424, w: 0.060, d: 0.060, c: 0.005 }, { a: 0.400, w: 0.064, d: 0.064, c: 0.004 }], (() => { const m = shirtM.clone(); m.side = THREE.DoubleSide; m.userData.lit = 'white'; return m; })(), { seg: 28 }));
@@ -1493,27 +1293,11 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             const head = new THREE.Group();
             head.position.set(0, torsoLen + 0.012, 0.008);
             thorax.add(head);
-            const cranium = new THREE.Mesh(buildHeadGeometry(), pm(PT.faceE, 'oldskin'));
+            const cranium = new THREE.Mesh(buildHeadGeometry(), paxPaintedMat(PT.faceE, 'oldskin'));
             cranium.castShadow = true; cranium.receiveShadow = true;
             head.add(cranium);
-            {   // nariz: ponte que parte da glabela até a ponta arredondada, com as asas
-                const nRoot = new THREE.Vector3(0, 0.136, 0.092), nTip = new THREE.Vector3(0, 0.098, 0.107), nd = nTip.clone().sub(nRoot);
-                const bridge = new THREE.Mesh(new THREE.ConeGeometry(0.0125, nd.length(), 8), skinM);
-                bridge.position.copy(nRoot).add(nTip).multiplyScalar(0.5);
-                bridge.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), nd.clone().negate().normalize());
-                bridge.scale.set(1.0, 1, 0.95);
-                head.add(bridge);
-                const tip = new THREE.Mesh(new THREE.SphereGeometry(0.0118, 14, 12), skinM);
-                tip.scale.set(1.0, 0.85, 1.0); tip.position.set(0, 0.0985, 0.1005); head.add(tip);
-                [-1, 1].forEach(sd => { const wing = new THREE.Mesh(new THREE.SphereGeometry(0.0082, 10, 10), skinM); wing.scale.set(0.9, 1.0, 0.85); wing.position.set(sd * 0.0112, 0.0995, 0.0955); head.add(wing); });
-            }
-            [-1, 1].forEach(sd => {
-                const ear = new THREE.Mesh(new THREE.SphereGeometry(0.024, 16, 14), pm(PT.earE, 'oldskin'));
-                ear.scale.set(0.36, 1.18, 0.80);
-                ear.position.set(sd * 0.0715, 0.116, -0.006);
-                ear.rotation.set(0.08, sd * 0.18, sd * -0.10);
-                head.add(ear);
-            });
+            addAdultNose(head, skinM, 0.0125, 0.0118, 0.0082, 0.0112);
+            addAdultEars(head, PT.earE, 'oldskin');
             {   // cabelo grisalho em ferradura (laterais e nuca); topo da cabeça e testa calvos
                 const PHI0 = Math.PI / 2 + 1.0, PHIL = Math.PI * 2 - 2.0;
                 const hg = new THREE.SphereGeometry(1, 64, 16, PHI0, PHIL, 0, Math.PI);
@@ -1531,7 +1315,7 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
                     hp.setXYZ(i, hq[0], hq[1], hq[2]);
                 }
                 hg.computeVertexNormals();
-                const elderHair = new THREE.Mesh(hg, pm(PT.hairE, 'grey'));
+                const elderHair = new THREE.Mesh(hg, paxPaintedMat(PT.hairE, 'grey'));
                 elderHair.castShadow = true;
                 head.add(elderHair);
             }
@@ -1544,17 +1328,17 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
                 shoulder.rotation.order = 'YXZ';
                 shoulder.position.set(side * (6.2 * S) * 0.92, 13.0 * S, 0);
                 thorax.add(shoulder);
-                shoulder.add(ball(0.040, suitM, 1.1, 0.85, 1.1));
+                shoulder.add(tvBall(0.040, suitM, 1.1, 0.85, 1.1));
                 shoulder.add(tvLoft([
                     { a: 0, w: 0.040, d: 0.044 }, { a: -0.030, w: 0.054, d: 0.057 }, { a: -0.120, w: 0.056, d: 0.057 }, { a: -0.220, w: 0.051, d: 0.053 }, { a: -upperArmLen, w: 0.047, d: 0.050 }
-                ], dsm(ETX.sleeve, 'suit'), { seg: 28, capStart: true }));
+                ], paxDoublePaintedMat(ETX.sleeve, 'suit'), { seg: 28, capStart: true }));
                 const elbow = new THREE.Group();
                 elbow.position.y = -upperArmLen;
                 shoulder.add(elbow);
-                elbow.add(ball(0.047, suitM));
+                elbow.add(tvBall(0.047, suitM));
                 elbow.add(tvLoft([
                     { a: 0, w: 0.047, d: 0.050 }, { a: -0.060, w: 0.047, d: 0.049 }, { a: -0.160, w: 0.043, d: 0.045 }, { a: -(forearmLen - 0.012), w: 0.039, d: 0.041 }
-                ], dsm(ETX.forearm, 'suit'), { seg: 26 }));
+                ], paxDoublePaintedMat(ETX.forearm, 'suit'), { seg: 26 }));
                 elbow.add(tvLoft([{ a: -(forearmLen - 0.034), w: 0.034, d: 0.034 }, { a: -forearmLen + 0.002, w: 0.033, d: 0.033 }], shirtM, { seg: 20 }));   // punho da camisa
                 const h = tvBuildHand(side, side === -1, skinM);
                 h.hand.position.y = -forearmLen - 0.004;
@@ -1574,25 +1358,25 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
                 const hip = new THREE.Group();
                 hip.position.set(side * (3.6 * S) * 0.94, -1.2 * S, 0);
                 pelvis.add(hip);
-                hip.add(ball(0.080, suitM, 1, 1, 1.05));
+                hip.add(tvBall(0.080, suitM, 1, 1, 1.05));
                 hip.add(tvLoft([
                     { a: 0, w: 0.088, d: 0.094 }, { a: -0.050, w: 0.089, d: 0.095 }, { a: -0.120, w: 0.087, d: 0.092 }, { a: -0.260, w: 0.076, d: 0.081 },
                     { a: -0.350, w: 0.069, d: 0.073 }, { a: -femurLen, w: 0.066, d: 0.070 }
-                ], dsm(ETX.thigh, 'suit'), { seg: 30 }));
+                ], paxDoublePaintedMat(ETX.thigh, 'suit'), { seg: 30 }));
                 const knee = new THREE.Group();
                 knee.position.y = -femurLen;
                 hip.add(knee);
-                knee.add(ball(0.063, suitM, 1, 1, 1.05));
+                knee.add(tvBall(0.063, suitM, 1, 1, 1.05));
                 knee.add(tvLoft([
                     { a: 0, w: 0.066, d: 0.070 }, { a: -0.060, w: 0.064, d: 0.070 }, { a: -0.160, w: 0.060, d: 0.066 }, { a: -0.300, w: 0.055, d: 0.060 },
                     { a: -0.360, w: 0.056, d: 0.061 }, { a: -tibiaLen, w: 0.060, d: 0.064 }
-                ], dsm(ETX.calf, 'suit'), { seg: 30 }));
+                ], paxDoublePaintedMat(ETX.calf, 'suit'), { seg: 30 }));
                 const ankle = new THREE.Group();
                 ankle.position.y = -tibiaLen;
                 knee.add(ankle);
                 const foot = new THREE.Group();
                 ankle.add(foot);
-                const shoeM = mk(ELD.shoe, 'dark'), soleM = mk(ELD.sole, 'dark');
+                const shoeM = paxMat(ELD.shoe, 'dark'), soleM = paxMat(ELD.sole, 'dark');
                 foot.add(tvLoft([                                                                       // cabedal de couro escuro, bico arredondado
                     { a: -0.062, w: 0.032, d: 0.034, c: -0.040 }, { a: -0.035, w: 0.038, d: 0.040, c: -0.036 }, { a: 0.0, w: 0.040, d: 0.036, c: -0.040 },
                     { a: 0.050, w: 0.042, d: 0.028, c: -0.046 }, { a: 0.100, w: 0.044, d: 0.024, c: -0.052 }, { a: 0.150, w: 0.040, d: 0.022, c: -0.056 }, { a: 0.185, w: 0.026, d: 0.016, c: -0.060 }
@@ -1736,14 +1520,8 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             const red = rm(MOM.red, 0.48, 'red'), redD = rm(MOM.redD, 0.55, 'red'), blk = rm(0x1b1c25, 0.5, 'case'), blkHi = rm(0x3a3d4a, 0.45, 'case');
             const CW = 0.300, CH = MO_CASE_H, CD = 0.170, CR = 0.050, top = -0.318, cy = top - CH / 2;
             const body = new THREE.Group(); g.add(body); g.userData.body = body; g.userData.wheelBottom = top - CH - 0.042;
-            const rr = (w, h, r) => { const sh = new THREE.Shape(), x = -w / 2, y = -h / 2; sh.moveTo(x + r, y); sh.lineTo(x + w - r, y); sh.quadraticCurveTo(x + w, y, x + w, y + r); sh.lineTo(x + w, y + h - r); sh.quadraticCurveTo(x + w, y + h, x + w - r, y + h); sh.lineTo(x + r, y + h); sh.quadraticCurveTo(x, y + h, x, y + h - r); sh.lineTo(x, y + r); sh.quadraticCurveTo(x, y, x + r, y); return sh; };
-            const slab = (w, h, r, depth, mat, bev) => {
-                const geo = new THREE.ExtrudeGeometry(rr(w, h, r), { depth, bevelEnabled: bev > 0, bevelThickness: bev, bevelSize: bev, bevelSegments: 4, curveSegments: 10 });
-                geo.translate(0, 0, -depth / 2);
-                const m = new THREE.Mesh(geo, mat); m.rotation.y = Math.PI / 2; m.castShadow = true; m.receiveShadow = true; return m;
-            };
-            const shell = slab(CW, CH, CR, CD - 0.04, red, 0.02); shell.position.set(0, cy, 0); body.add(shell);
-            const seam = slab(CW + 0.006, CH + 0.006, CR + 0.003, 0.026, redD, 0.008); seam.position.set(0, cy, 0); body.add(seam);                   // faixa do zíper ao redor
+            const shell = paxCaseSlab(CW, CH, CR, CD - 0.04, red, 0.02); shell.position.set(0, cy, 0); body.add(shell);
+            const seam = paxCaseSlab(CW + 0.006, CH + 0.006, CR + 0.003, 0.026, redD, 0.008); seam.position.set(0, cy, 0); body.add(seam);                   // faixa do zíper ao redor
             [-1, 1].forEach(sx => {                                                                                                                   // sulcos moldados nas faces grandes
                 [-0.068, 0.068].forEach(zo => { const rib = new THREE.Mesh(new THREE.BoxGeometry(0.005, CH - 0.15, 0.012), redD); rib.position.set(sx * (CD / 2 + 0.001), cy, zo); body.add(rib); });
             });
@@ -1763,11 +1541,7 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             const S = GLTF_S;
             const root = new THREE.Group();
             root.scale.set(0.80, 0.81, 0.80);
-            const mk = (c, cls) => tvLit(new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, metalness: 0 }), cls);
-            const pm = (P, cls) => tvLit(paintedMat(P), cls);
-            const dsm = (P, cls) => { const m = pm(P, cls); m.side = THREE.DoubleSide; return m; };
-            const skinM = mk(MOM.skin, 'skin'), coatM = mk(MOM.coat, 'cloth'), pantsM = mk(MOM.pants, 'cloth');
-            const ball = tvBall;
+            const skinM = paxMat(MOM.skin, 'skin'), coatM = paxMat(MOM.coat, 'cloth'), pantsM = paxMat(MOM.pants, 'cloth');
 
             // ---- pelve (calça justa) -------------------------------------------------------------------------------
             const pelvis = new THREE.Group();
@@ -1776,7 +1550,7 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             pelvis.add(tvLoft([
                 { a: 0.113, w: 0.128, d: 0.092, c: -0.003, p: 2.3 }, { a: 0.082, w: 0.138, d: 0.096 }, { a: 0.0, w: 0.148, d: 0.102, c: -0.006 },
                 { a: -0.06, w: 0.143, d: 0.099 }, { a: -0.113, w: 0.116, d: 0.086 }
-            ], dsm(MTX.pelvis, 'cloth'), { seg: 36, capEnd: true }));
+            ], paxDoublePaintedMat(MTX.pelvis, 'cloth'), { seg: 36, capEnd: true }));
 
             // ---- tronco (casaco comprido, caimento reto) -----------------------------------------------------------
             const torsoLen = 15.0 * S;
@@ -1789,33 +1563,24 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
                 { a: 0.140, w: 0.150, d: 0.108 }, { a: 0.040, w: 0.150, d: 0.108 }, { a: -0.060, w: 0.164, d: 0.116, c: -0.004 },
                 { a: -0.140, w: 0.184, d: 0.126, c: -0.008 }, { a: -0.240, w: 0.194, d: 0.136, c: -0.014 },
                 { a: -0.360, w: 0.198, d: 0.144, c: -0.020 }, { a: -0.465, w: 0.200, d: 0.150, c: -0.024 }
-            ], dsm(MTX.torso, 'cloth'), { seg: 64, rings: 72, skip: (u, v) => { const y = 1 - v, du = Math.min(u, 1 - u); return y > MOM_OPEN.y0 && du < MOM_OPEN.hw(y); } }));
-            thorax.add(tvLoft([{ a: 0.440, w: 0.070, d: 0.058, c: -0.014 }, { a: 0.420, w: 0.076, d: 0.064, c: -0.012 }, { a: 0.396, w: 0.094, d: 0.072, c: -0.008 }], (() => { const m = mk(MOM.coatD, 'cloth'); m.side = THREE.DoubleSide; return m; })(), { seg: 28 }));   // gola do casaco
+            ], paxDoublePaintedMat(MTX.torso, 'cloth'), { seg: 64, rings: 72, skip: (u, v) => { const y = 1 - v, du = Math.min(u, 1 - u); return y > MOM_OPEN.y0 && du < MOM_OPEN.hw(y); } }));
+            thorax.add(tvLoft([{ a: 0.440, w: 0.070, d: 0.058, c: -0.014 }, { a: 0.420, w: 0.076, d: 0.064, c: -0.012 }, { a: 0.396, w: 0.094, d: 0.072, c: -0.008 }], (() => { const m = paxMat(MOM.coatD, 'cloth'); m.side = THREE.DoubleSide; return m; })(), { seg: 28 }));   // gola do casaco
             thorax.add(tvLoft([{ a: 0.34, w: 0.050, d: 0.054, c: 0.004 }, { a: 0.40, w: 0.048, d: 0.051, c: 0.006 }, { a: 0.455, w: 0.045, d: 0.048, c: 0.010 }, { a: 0.520, w: 0.040, d: 0.042, c: 0.016 }], skinM, { seg: 20, capEnd: true }));
 
             // ---- cabeça --------------------------------------------------------------------------------------------
             const head = new THREE.Group();
             head.position.set(0, torsoLen + 0.012, 0.008);
             thorax.add(head);
-            const cranium = new THREE.Mesh(buildHeadGeometry(), pm(PT.faceM, 'skin'));
+            const cranium = new THREE.Mesh(buildHeadGeometry(), paxPaintedMat(PT.faceM, 'skin'));
             cranium.castShadow = true; cranium.receiveShadow = true;
             head.add(cranium);
-            {   // nariz
-                const nRoot = new THREE.Vector3(0, 0.136, 0.092), nTip = new THREE.Vector3(0, 0.098, 0.107), nd = nTip.clone().sub(nRoot);
-                const bridge = new THREE.Mesh(new THREE.ConeGeometry(0.0115, nd.length(), 8), skinM);
-                bridge.position.copy(nRoot).add(nTip).multiplyScalar(0.5);
-                bridge.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), nd.clone().negate().normalize());
-                bridge.scale.set(1.0, 1, 0.95); head.add(bridge);
-                const tip = new THREE.Mesh(new THREE.SphereGeometry(0.0108, 14, 12), skinM);
-                tip.scale.set(1.0, 0.85, 1.0); tip.position.set(0, 0.0985, 0.1005); head.add(tip);
-                [-1, 1].forEach(sd => { const wing = new THREE.Mesh(new THREE.SphereGeometry(0.0074, 10, 10), skinM); wing.scale.set(0.9, 1.0, 0.85); wing.position.set(sd * 0.0102, 0.0995, 0.0955); head.add(wing); });
-            }
+            addAdultNose(head, skinM, 0.0115, 0.0108, 0.0074, 0.0102);
             // ---- cabelo longo e liso (orelhas cobertas pelo cabelo): couro cabeludo + duas cortinas laterais + massa das costas -------------------
             // Coordenadas da cabeça (origem no pivô do pescoço). O grupo fica no tronco; tvHairRig faz cada vértice seguir a cabeça conforme o peso.
             const hairGroup = new THREE.Group();
             hairGroup.position.copy(head.position);
             thorax.add(hairGroup);
-            const hairM = pm(MTX.hair, 'hair'), hairParts = [];
+            const hairM = paxPaintedMat(MTX.hair, 'hair'), hairParts = [];
             {   // couro cabeludo: risca de lado, testa à mostra, desce pelas laterais (cobre as orelhas) até a nuca
                 const sm = (a0, a1, x) => { const t = Math.min(1, Math.max(0, (x - a0) / (a1 - a0))); return t * t * (3 - 2 * t); };
                 const TL = Math.PI * 0.82, hg = new THREE.SphereGeometry(1, 72, 40, 0, Math.PI * 2, 0, TL), hp = hg.attributes.position;
@@ -1874,17 +1639,17 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
                 shoulder.rotation.order = 'YXZ';
                 shoulder.position.set(side * (6.2 * S) * 0.92, 13.0 * S, 0);
                 thorax.add(shoulder);
-                shoulder.add(ball(0.040, coatM, 1.1, 0.85, 1.1));
+                shoulder.add(tvBall(0.040, coatM, 1.1, 0.85, 1.1));
                 shoulder.add(tvLoft([
                     { a: 0, w: 0.040, d: 0.044 }, { a: -0.030, w: 0.053, d: 0.056 }, { a: -0.120, w: 0.053, d: 0.054 }, { a: -0.220, w: 0.048, d: 0.050 }, { a: -upperArmLen, w: 0.045, d: 0.047 }
-                ], dsm(MTX.sleeve, 'cloth'), { seg: 28, capStart: true }));
+                ], paxDoublePaintedMat(MTX.sleeve, 'cloth'), { seg: 28, capStart: true }));
                 const elbow = new THREE.Group();
                 elbow.position.y = -upperArmLen;
                 shoulder.add(elbow);
-                elbow.add(ball(0.045, coatM));
+                elbow.add(tvBall(0.045, coatM));
                 elbow.add(tvLoft([
                     { a: 0, w: 0.046, d: 0.048 }, { a: -0.060, w: 0.046, d: 0.047 }, { a: -0.160, w: 0.042, d: 0.044 }, { a: -forearmLen, w: 0.037, d: 0.039 }
-                ], dsm(MTX.forearm, 'cloth'), { seg: 26 }));
+                ], paxDoublePaintedMat(MTX.forearm, 'cloth'), { seg: 26 }));
                 const h = tvBuildHand(side, side === -1, skinM);
                 h.hand.scale.setScalar(0.93);
                 h.hand.position.y = -forearmLen - 0.004;
@@ -1905,25 +1670,25 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
                 const hip = new THREE.Group();
                 hip.position.set(side * (3.6 * S) * 0.94, -1.2 * S, 0);
                 pelvis.add(hip);
-                hip.add(ball(0.074, pantsM, 1, 1, 1.05));
+                hip.add(tvBall(0.074, pantsM, 1, 1, 1.05));
                 hip.add(tvLoft([
                     { a: 0, w: 0.080, d: 0.088 }, { a: -0.050, w: 0.082, d: 0.090 }, { a: -0.120, w: 0.080, d: 0.086 }, { a: -0.260, w: 0.069, d: 0.074 },
                     { a: -0.350, w: 0.060, d: 0.065 }, { a: -femurLen, w: 0.056, d: 0.060 }
-                ], dsm(MTX.thigh, 'cloth'), { seg: 30 }));
+                ], paxDoublePaintedMat(MTX.thigh, 'cloth'), { seg: 30 }));
                 const knee = new THREE.Group();
                 knee.position.y = -femurLen;
                 hip.add(knee);
-                knee.add(ball(0.056, pantsM, 1, 1, 1.05));
+                knee.add(tvBall(0.056, pantsM, 1, 1, 1.05));
                 knee.add(tvLoft([
                     { a: 0, w: 0.056, d: 0.060 }, { a: -0.060, w: 0.056, d: 0.063 }, { a: -0.160, w: 0.053, d: 0.059 }, { a: -0.300, w: 0.048, d: 0.053 },
                     { a: -0.360, w: 0.049, d: 0.054 }, { a: -tibiaLen, w: 0.052, d: 0.056 }
-                ], dsm(MTX.calf, 'cloth'), { seg: 30 }));
+                ], paxDoublePaintedMat(MTX.calf, 'cloth'), { seg: 30 }));
                 const ankle = new THREE.Group();
                 ankle.position.y = -tibiaLen;
                 knee.add(ankle);
                 const foot = new THREE.Group();
                 ankle.add(foot);
-                const bootM = mk(MOM.boot, 'leather'), soleM = mk(MOM.bootD, 'dark');
+                const bootM = paxMat(MOM.boot, 'leather'), soleM = paxMat(MOM.bootD, 'dark');
                 foot.add(tvLoft([                                                                       // bota de cano curto: cano alto, bico arredondado
                     { a: -0.062, w: 0.033, d: 0.044, c: -0.030 }, { a: -0.035, w: 0.040, d: 0.050, c: -0.022 }, { a: 0.0, w: 0.041, d: 0.046, c: -0.026 },
                     { a: 0.050, w: 0.043, d: 0.030, c: -0.044 }, { a: 0.100, w: 0.045, d: 0.025, c: -0.051 }, { a: 0.148, w: 0.040, d: 0.022, c: -0.056 }, { a: 0.180, w: 0.026, d: 0.016, c: -0.060 }
@@ -1954,10 +1719,10 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             r.fadeU = { value: 1 }; r.castOn = true; r.casters = [];
             r.root.traverse(o => { if (o.isMesh && o.castShadow) r.casters.push(o); });
         });
-        stylizeCartoon(rig1.root, true, rig1.fadeU);   // viajante: iluminação em faixas com sombra colorida + contorno de espessura variável
+        stylizeCartoon(rig1.root, rig1.fadeU);   // viajante: iluminação em faixas com sombra colorida + contorno de espessura variável
         // (os três bonecos usam a mesma iluminação em faixas e o mesmo contorno de espessura variável)
-        stylizeCartoon(rig2.root, true, rig2.fadeU);
-        stylizeCartoon(rig3.root, true, rig3.fadeU);
+        stylizeCartoon(rig2.root, rig2.fadeU);
+        stylizeCartoon(rig3.root, rig3.fadeU);
         // Sombra de contato: elipse escura e achatada no piso, sob os pés de cada passageiro. É uma forma fixa (sem luz), em duas camadas
         // como num desenho vetorial: um anel claro e um miolo mais escuro. Fica presa ao boneco, então acompanha a caminhada e o dissolve.
         const CONTACT_SHADOW = { r: 0.25, coreK: 0.58, color: 0x1b2429, opacity: 0.20, coreOpacity: 0.24 };   // raio em unidades do mundo
@@ -2320,13 +2085,8 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             }
         }
 
-        function updateWalk(dt) {
-            elapsed += dt;
-            // Trava o tempo no limite final para evitar sumir ou bugar o ciclo
-            if (elapsed > MAX_ANIMATION_TIME) {
-                elapsed = MAX_ANIMATION_TIME;
-            }
-
+        function updateWalk() {
+            // elapsed is clamped by both callers before updating any character.
             // Atualiza o primeiro boneco (A -> x + para e gira)
             animateCharacter(rig1, elapsed, TOTAL_STEPS_1, TOTAL_PATH_LEN, true, STEP_DURATION_1);
             paxSetFade(rig1, smoothstep(0, PAX_FADE, elapsed));
@@ -2365,7 +2125,7 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             if (paxExporting) return;                    // durante a exportação quem desenha é PAX.renderAt
             const tl = PAX_TIMELINE();
             elapsed = Math.max(0, Math.min(MAX_ANIMATION_TIME, tl - PAX_START));
-            updateWalk(0);
+            updateWalk();
             const z = cssZoom();
             OUTLINE_W.value = OUTLINE_PX * (FRUSTUM_H / camera.zoom) / Math.max(1, renderer.domElement.clientHeight) / rig1.root.scale.x / z;
             renderer.render(scene, camera);
@@ -2374,7 +2134,7 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
         // Exportação de vídeo: desenha os passageiros no instante tl da linha do tempo, com o contorno calculado para o zoom informado
         function renderAt(tl, zoom) {
             elapsed = Math.max(0, Math.min(MAX_ANIMATION_TIME, tl - PAX_START));
-            updateWalk(0);
+            updateWalk();
             OUTLINE_W.value = OUTLINE_PX * (FRUSTUM_H / camera.zoom) / Math.max(1, renderer.domElement.clientHeight) / rig1.root.scale.x / zoom;
             renderer.render(scene, camera);
             return renderer.domElement;

@@ -24,6 +24,10 @@ jobs:
         run: python3 tools/build.py
       - name: Verify assembled file is in sync
         run: python3 tools/build.py --check
+      - name: Check passenger JavaScript syntax
+        run: node --check src/pax/js/passengers.js
+      - name: Check passenger model invariants
+        run: python3 tools/verify_passengers.py
       - name: Check tabs, transitions and five Full HD takes
         run: python3 tools/verify_preservation.py
       - name: Commit the generated HTML only if it changed
@@ -52,5 +56,9 @@ jobs:
         run: python3 tools/build.py
       - name: Verify assembled file
         run: python3 tools/build.py --check
+      - name: Check passenger JavaScript syntax
+        run: node --check src/pax/js/passengers.js
+      - name: Check passenger model invariants
+        run: python3 tools/verify_passengers.py
       - name: Check tabs, transitions and five Full HD takes
         run: python3 tools/verify_preservation.py

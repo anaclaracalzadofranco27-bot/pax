@@ -61,3 +61,27 @@ python tools/verify_preservation.py
 ```
 
 Esses testes não substituem a reprodução visual das oito abas nem a gravação dos takes em navegador.
+
+## Passageiros: limpeza conservadora e testes
+
+A Aba 1 desenha os três passageiros em `src/pax/js/passengers.js`. As receitas
+obsoletas de textura `PT` e as definições sobrescritas foram removidas.
+O primeiro passageiro mantém as texturas ativas `TVT`; `PT` guarda somente
+receitas ainda usadas pelo senhor, pela mãe e pelo bebê. Geometria de malas,
+fábricas de materiais e elementos repetidos de rostos foram consolidados.
+
+**Invariantes preservadas:** cada boneco é criado uma única vez, o senhor e
+a mãe mantêm seus tamanhos próprios de nariz, as cores de base `SUIT_C` e
+`ELD.suit` não foram confundidas, a manta azul conserva o material original
+(`blanket`, `THREE.DoubleSide`), o shader *rich* e suas chaves de cache não
+foram alterados, e as chamadas públicas de reprodução/exportação permanecem.
+
+Além de reconstruir o HTML, o GitHub Actions executa:
+
+```bash
+node --check src/pax/js/passengers.js
+python3 tools/verify_passengers.py
+```
+
+Essas verificações detectam regressões estáticas, mas **não substituem**
+conferir os três passageiros na Aba 1 e no Take 01 com um navegador WebGL.
