@@ -12,3 +12,5 @@ jobs:
         uses: actions/checkout@v4
       - name: Compare HTML output with modular source
         run: python3 tools/build.py --check
+      - name: Check preserved tabs, transitions and take manifest
+        run: python3 tools/verify_preservation.py

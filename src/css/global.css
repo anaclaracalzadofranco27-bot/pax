@@ -65,41 +65,6 @@
         .cad-chip.on{background:#6d90b8;color:#000223;border-color:#6d90b8}
         .cad-btn:focus-visible,.cad-chip:focus-visible{outline:2px solid #6d90b8;outline-offset:2px}
 
-        /* ===== Resultados Biomecânicos (5 cartões em overlay) ===== */
-        #ergo-overlay{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto;
-            background:rgba(15,23,42,0);backdrop-filter:blur(0);visibility:hidden;pointer-events:none;
-            transition:background .6s ease,backdrop-filter .6s ease,visibility 0s linear .65s}
-        #ergo-overlay.cards-on{background:rgba(0,2,35,.55);backdrop-filter:blur(3px);visibility:visible;pointer-events:auto;cursor:pointer;
-            transition:background .6s ease,backdrop-filter .6s ease,visibility 0s}
-        .ergo-card{opacity:0;transform:scale(.92) translateY(16px);transition:opacity .55s ease,transform .55s ease;box-shadow:0 18px 50px -12px rgba(15,23,42,.55)}
-        #ergo-overlay.cards-on .ergo-card{opacity:1;transform:none;transition:opacity .7s ease,transform .9s cubic-bezier(.22,1,.36,1)}
-        #ergo-overlay.cards-on .ergo-card:nth-child(1){transition-delay:0s}
-        #ergo-overlay.cards-on .ergo-card:nth-child(2){transition-delay:.1s}
-        #ergo-overlay.cards-on .ergo-card:nth-child(3){transition-delay:.2s}
-        #ergo-overlay.cards-on .ergo-card:nth-child(4){transition-delay:.3s}
-        #ergo-overlay.cards-on .ergo-card:nth-child(5){transition-delay:.45s}
-        #ergo-overlay.cards-on .ergo-card.ergo-out{opacity:0!important;transition:opacity .5s ease!important}
-        #ergo-overlay.flying{background:rgba(15,23,42,0)!important;backdrop-filter:none!important}
-        /* ===== Cartões de tempo (1,2,3): a fonte cresce junto com a caixa; informações empilham quando falta largura ===== */
-        .gc{container-type:size;min-height:100px;display:flex;flex-direction:column;justify-content:center;gap:6px;overflow:hidden}
-        .gc > *{margin-top:0!important}
-        .gc .gc-t{display:block;line-height:1.2;font-size:clamp(10.5px,min(6.4cqw,11cqh),20px)}
-        .gc .gc-row{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px}
-        .gc .gc-blk{min-width:0}
-        .gc .gc-r{text-align:right}
-        .gc .gc-l{line-height:1.2;font-size:clamp(10px,min(7.2cqw,12cqh),17px)}
-        .gc .gc-v1{line-height:1.1;font-size:clamp(24px,min(24cqw,36cqh),54px)}
-        .gc .gc-v2{line-height:1.1;font-size:clamp(18px,min(17cqw,27cqh),40px)}
-        @media (prefers-reduced-motion: reduce){.ergo-card{transition:none!important;transform:none}}
-        /* ===== Painel final: 2 tempos + redução do pico de torque ===== */
-        .ergo-big{background:rgba(0,2,35,.82)}
-        .ergo-big .eb-t{font:700 clamp(13px,1.3vw,18px)/1.2 'JetBrains Mono',monospace;letter-spacing:.04em}
-        .ergo-big .eb-v{margin-top:10px;font:800 clamp(44px,5.2vw,84px)/1 'JetBrains Mono',monospace;color:#ffffff}
-        .ergo-hero{border:2px solid #22c55e;box-shadow:0 0 40px -6px rgba(34,197,94,.45)}
-        .ergo-hero .eh-v{font:800 clamp(64px,8vw,128px)/1 'Montserrat','Inter',sans-serif;color:#22c55e}
-        .ergo-hero .eh-t{margin-top:8px;font:800 clamp(14px,1.5vw,22px)/1.25 'JetBrains Mono',monospace;color:#d4dce6;letter-spacing:.04em}
-        .ergo-hero .eh-s{margin-top:6px;font:600 clamp(12px,1.1vw,16px)/1.3 'Inter',sans-serif;color:#9ba9b5}
-
         /* ===== Quadro e Moldura da Simulação Completa (Aba 6) ===== */
         .tw-corner{position:absolute;width:22px;height:22px;z-index:4;border:2px solid rgba(91,123,158,0.7);pointer-events:none}
         .tour-frame .c1{top:8px;left:8px;border-right:0;border-bottom:0}.tour-frame .c2{top:8px;right:8px;border-left:0;border-bottom:0}
@@ -356,14 +321,12 @@
         #scene-1 #s1-cam{position:absolute;inset:0;transform-origin:50% 50%}
         #scene-1 svg{display:block;width:100%;height:100%;fill-rule:evenodd;clip-rule:evenodd;shape-rendering:geometricPrecision}
         #scene-1 .fil0{fill:#00B4D8}
-        #scene-1 .fil7{fill:#050C24}
         #scene-1 .fil3{fill:#00B4D8}
         #scene-1 .fil2{fill:#7C8B9E}
         #scene-1 .fil5{fill:#7C8B9E}
         #scene-1 .fil4{fill:#ffffff}
         #scene-1 .fil6{fill:#ffffff}
         #scene-1 .fil1{fill:#FF6B1A}
-        #scene-1 .fil8{fill:#FF6B1A}
         #scene-1 .fil9{fill:url(#s1-id0)}
         #scene-1 .fil11{fill:url(#s1-id1)}
         #scene-1 .fil10{fill:url(#s1-id2)}
@@ -418,112 +381,19 @@
         #scene-2 .fil39{fill:#035767}
         #scene-2 .fil44{fill:#0F5767}
         #scene-2 .fil43{fill:#2C98A8}
-        #scene-2 .fil56{fill:#525669}
-        #scene-2 .fil103{fill:#53586F}
-        #scene-2 .fil100{fill:#535A73}
-        #scene-2 .fil113{fill:#54596D}
-        #scene-2 .fil77{fill:#545971}
-        #scene-2 .fil55{fill:#575B71}
-        #scene-2 .fil58{fill:#585E74}
-        #scene-2 .fil60{fill:#596077}
-        #scene-2 .fil98{fill:#5A6080}
-        #scene-2 .fil115{fill:#5B627A}
-        #scene-2 .fil57{fill:#5B627D}
-        #scene-2 .fil84{fill:#5C6384}
-        #scene-2 .fil13{fill:#5D6268}
-        #scene-2 .fil65{fill:#5D647F}
-        #scene-2 .fil111{fill:#5E6581}
-        #scene-2 .fil74{fill:#5F6682}
-        #scene-2 .fil102{fill:#5F678B}
-        #scene-2 .fil97{fill:#5F678C}
-        #scene-2 .fil120{fill:#606683}
-        #scene-2 .fil69{fill:#606785}
-        #scene-2 .fil72{fill:#60688E}
-        #scene-2 .fil68{fill:#616986}
-        #scene-2 .fil83{fill:#616A91}
-        #scene-2 .fil61{fill:#626A89}
-        #scene-2 .fil106{fill:#626B93}
-        #scene-2 .fil109{fill:#636C95}
-        #scene-2 .fil119{fill:#646B8B}
-        #scene-2 .fil62{fill:#646C8E}
-        #scene-2 .fil95{fill:#646E96}
-        #scene-2 .fil87{fill:#646E99}
-        #scene-2 .fil86{fill:#656F98}
-        #scene-2 .fil89{fill:#65709A}
-        #scene-2 .fil66{fill:#666E91}
-        #scene-2 .fil116{fill:#66709C}
-        #scene-2 .fil110{fill:#67719D}
-        #scene-2 .fil79{fill:#67719E}
-        #scene-2 .fil118{fill:#6873A1}
-        #scene-2 .fil96{fill:#6874A1}
-        #scene-2 .fil117{fill:#697399}
-        #scene-2 .fil105{fill:#6974A4}
-        #scene-2 .fil73{fill:#6976A6}
         #scene-2 .fil28{fill:#69D8E4}
-        #scene-2 .fil67{fill:#6A7395}
-        #scene-2 .fil94{fill:#6A75A5}
-        #scene-2 .fil53{fill:#6B7399}
-        #scene-2 .fil114{fill:#6C759C}
-        #scene-2 .fil121{fill:#6C78AA}
-        #scene-2 .fil59{fill:#6D77A0}
-        #scene-2 .fil70{fill:#6D79AD}
-        #scene-2 .fil104{fill:#6E7AAF}
-        #scene-2 .fil107{fill:#6F79A2}
-        #scene-2 .fil80{fill:#707CB3}
-        #scene-2 .fil93{fill:#717FB6}
-        #scene-2 .fil76{fill:#717FB7}
-        #scene-2 .fil122{fill:#737995}
-        #scene-2 .fil63{fill:#737DA6}
-        #scene-2 .fil18{fill:#74777B}
-        #scene-2 .fil112{fill:#747EA6}
-        #scene-2 .fil82{fill:#7584C0}
-        #scene-2 .fil99{fill:#7685C1}
         #scene-2 .fil27{fill:#768CA6}
-        #scene-2 .fil19{fill:#777C83}
-        #scene-2 .fil75{fill:#7786C3}
         #scene-2 .fil26{fill:#79E3EC}
         #scene-2 .fil4{fill:#7B8A9D}
-        #scene-2 .fil92{fill:#7B8B9E}
-        #scene-2 .fil20{fill:#7C8289}
         #scene-2 .fil5{fill:#7C8B9E}
-        #scene-2 .fil52{fill:#8289A5}
-        #scene-2 .fil45{fill:#848CAB}
-        #scene-2 .fil54{fill:#8491C2}
-        #scene-2 .fil17{fill:#858C95}
-        #scene-2 .fil90{fill:#85A1B1}
-        #scene-2 .fil48{fill:#8793C5}
-        #scene-2 .fil50{fill:#8F96B9}
-        #scene-2 .fil46{fill:#8F9CD0}
-        #scene-2 .fil21{fill:#93969B}
-        #scene-2 .fil49{fill:#939BBB}
-        #scene-2 .fil14{fill:#95A1AD}
-        #scene-2 .fil8{fill:#969CA6}
-        #scene-2 .fil51{fill:#9AA4C9}
         #scene-2 .fil10{fill:#9BA5B3}
-        #scene-2 .fil91{fill:#9CB3C1}
-        #scene-2 .fil71{fill:#A3ABC7}
-        #scene-2 .fil47{fill:#A5AFD8}
-        #scene-2 .fil7{fill:#A5B1BD}
-        #scene-2 .fil15{fill:#A5B9C9}
-        #scene-2 .fil64{fill:#ABBFCB}
-        #scene-2 .fil22{fill:#B4C1CD}
-        #scene-2 .fil12{fill:#B9C5D4}
-        #scene-2 .fil16{fill:#BBC2CB}
         #scene-2 .fil25{fill:#BDD0EA}
         #scene-2 .fil24{fill:#BDD1E8}
         #scene-2 .fil11{fill:#C3C6CB}
-        #scene-2 .fil108{fill:#C7CBDE}
         #scene-2 .fil9{fill:#CBDBEC}
-        #scene-2 .fil81{fill:#CFD3E5}
-        #scene-2 .fil101{fill:#D1D5E7}
-        #scene-2 .fil78{fill:#D2D6E7}
-        #scene-2 .fil23{fill:#D2DDE9}
         #scene-2 .fil6{fill:#FF6B1A!important}
         #scene-2 .fil0{fill:#FF6B1A!important}
         #scene-2 .fil3{fill:white}
-        #scene-2 .fil125{fill:#FEFEFE;fill-rule:nonzero}
-        #scene-2 .fil88{fill:#BDD1EA;fill-opacity:0.600000}
-        #scene-2 .fil85{fill:#9CB3C1;fill-opacity:0.850980}
         #scene-2{--navy:#ffffff;--gray:#7C8B9E;--orange:#FF6B1A;--blue:#00B4D8;--ease:cubic-bezier(.22,1,.36,1)}
         #scene-2 *{box-sizing:border-box}
         #scene-2{margin:0;height:100%;overflow:hidden;font-family:Montserrat,"Segoe UI",Arial,sans-serif;font-weight:500;color:var(--navy);font-synthesis:none}

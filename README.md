@@ -44,3 +44,18 @@ python tools/build.py --check
 - Depois de alterações futuras, valide as oito abas, a Simulação Completa e especialmente o Take 02 (giro CAD → bin Alpha), o Take 03 (seção → manequim) e a exportação Full HD.
 
 O ponto de verdade é o código modular em `src/`. O HTML final é um artefato gerado e deve ser atualizado no mesmo commit de qualquer alteração de fonte.
+
+## Limpeza conservadora de código não utilizado (18/11/2026)
+
+Foram removidas funções sem referência literal, constantes não lidas, seletores SVG `.filNN` sem correspondência fora do CSS e os estilos dos antigos cartões biomecânicos (o overlay não existe mais no HTML). A expressão que desenha os percentis mantém a execução; apenas o array `stats`, que nunca era lido, deixou de ser criado. Funções IIFE e regras potencialmente dinâmicas foram preservadas.
+
+**Intocados nesta limpeza:** as sete estruturas de `src/html/`, `src/js/engine/cad3d.js` (malas, câmera e cotas), `src/js/tour/director-and-recording.js` (cinco takes, suas transições e gravação Full HD) e os demais estilos em uso.
+
+Verificação estática:
+
+```bash
+python tools/build.py --check
+python tools/verify_preservation.py
+```
+
+Esses testes não substituem a reprodução visual das oito abas nem a gravação dos takes em navegador.

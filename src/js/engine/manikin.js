@@ -25,30 +25,6 @@
         const ergoClamp01 = (t) => Math.max(0, Math.min(1, t));
         const ergoSmooth = (t) => { t = ergoClamp01(t); return t * t * (3 - 2 * t); };
 
-        // Interpolação Hermite cardinal (C1) entre keyframes [t, v0, v1, ...]
-        function ergoSampleKeys(keys, t) {
-            const n = keys.length, dim = keys[0].length - 1;
-            if (t <= keys[0][0]) return keys[0].slice(1);
-            if (t >= keys[n - 1][0]) return keys[n - 1].slice(1);
-            let i = 0;
-            while (i < n - 2 && t > keys[i + 1][0]) i++;
-            const k0 = keys[i], k1 = keys[i + 1];
-            const dt = k1[0] - k0[0];
-            const s = (t - k0[0]) / dt;
-            const s2 = s * s, s3 = s2 * s;
-            const h00 = 2 * s3 - 3 * s2 + 1, h10 = s3 - 2 * s2 + s, h01 = -2 * s3 + 3 * s2, h11 = s3 - s2;
-            const out = [];
-            for (let d = 1; d <= dim; d++) {
-                const tan = (a, b) => (b[d] - a[d]) / (b[0] - a[0]);
-                const m0 = (i === 0) ? 0 : tan(keys[i - 1], keys[i + 1]);
-                const m1 = (i + 1 === n - 1) ? 0 : tan(keys[i], keys[i + 2]);
-                // limita a tangente para não haver overshoot entre keyframes consecutivos
-                const sec = (k1[d] - k0[d]) / dt;
-                const lim = (m, sc) => (sc === 0) ? 0 : (Math.sign(m) !== Math.sign(sc) ? 0 : Math.min(Math.abs(m), 3 * Math.abs(sc)) * Math.sign(m));
-                out.push(h00 * k0[d] + h10 * dt * lim(m0, sec) + h01 * k1[d] + h11 * dt * lim(m1, sec));
-            }
-            return out;
-        }
 
 
         // Perfil de apoio da mala: interpola a linha real do contorno CAD
@@ -641,14 +617,6 @@
             requestAnimationFrame(() => updateErgonomics());
         }
 
-        function runResultsSequence() {
-            // A postura final fica estável com o cronômetro congelado; o roteiro encerra após breve pausa.
-            cancelResultsSequence();
-            const id = manikinState.seq;
-            const HOLD = 2500;                                // 2–3 s de cena final estabilizada
-            const t = setTimeout(() => { if (manikinState.seq === id) window.ergoDone = true; }, HOLD);
-            manikinState.seqTimers.push(t);
-        }
 
         // A única fonte do relógio da Aba 6: RAF cancelável, sem setInterval oculto.
         let manikinFrameId = 0;
@@ -722,22 +690,6 @@
             }
         }
 
-        function revealCards() {
-            if (manikinState.cardsShown) return;
-            manikinState.cardsShown = true;
-            const box = document.getElementById('ergo-overlay');
-            if (box) { box.classList.add('cards-on'); box.setAttribute('aria-hidden', 'false'); }
-            const t0 = performance.now(), dur = 1300;
-            const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-            const tick = (now) => {
-                if (!manikinState.cardsShown) return;
-                const k = reduce ? 1 : Math.min(1, Math.max(0, (now - t0 - 250) / dur));
-                manikinState.cardFrac = 1 - Math.pow(1 - k, 3);   // ease-out
-                writeCards(manikinState.cardFrac);
-                if (k < 1) requestAnimationFrame(tick);
-            };
-            requestAnimationFrame(tick);
-        }
 
         function hideCards() {
             if (!manikinState.cardsShown) return;
@@ -825,20 +777,6 @@
             far:  { clip: [406, 84, 31, 70], palm: new Path2D("M 413.09375 129.816406 L 425.570312 134.882812 C 426.664062 129.425781 426.378906 124.566406 427.082031 119.4375 C 427.449219 112.761719 433.109375 107.414062 429.066406 105.945312 C 426.40625 106.78125 427.402344 109.558594 423.441406 114.234375 C 413.023438 114.199219 432.945312 92.425781 430.542969 92.1875 C 423.492188 87.332031 410 118.523438 413.09375 129.816406"), cuff: new Path2D("M 411.824219 140.289062 C 415.183594 142.914062 420 144.324219 424.363281 144.964844 L 425.195312 138.394531 L 413.167969 134.027344 Z M 411.824219 140.289062"), hl: [],
                    contact: [424, 125], wrist: [418, 140], fore: -1.26274 }
         };
-        function pdfOpenHand(ctx, N, M, o) {
-            ctx.save(); ctx.transform(M.a, M.b, M.c, M.d, M.e, M.f);
-            ctx.save(); ctx.beginPath(); ctx.rect(N.clip[0], N.clip[1], N.clip[2], N.clip[3]); ctx.clip();
-            // 1) toda a silhueta (palma e dedos) em cor clara; 2) por cima, o traço do PDF (contorno e vãos entre os dedos) em escuro
-            const lw = (o.ow || 3) / (Math.hypot(M.a, M.b) || 1);
-            ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = PDFM.edge;
-            ctx.lineWidth = 1.6 * lw; ctx.stroke(PDFN_SIL);                       // contorno escuro (inclui os vãos entre os dedos)
-            ctx.fillStyle = o.fill; ctx.fill(PDFN_SIL, 'nonzero'); ctx.restore();  // dedos e palma em cor clara
-            ctx.lineJoin = 'round'; ctx.strokeStyle = PDFM.edge; ctx.lineWidth = 0.8 * lw; ctx.stroke(N.palm);   // borda do dorso da mão
-            ctx.fillStyle = o.fill; ctx.fill(N.palm);
-            ctx.fillStyle = o.gray; ctx.fill(N.cuff);
-            ctx.fillStyle = 'rgba(238, 240, 241, 0.55)'; N.hl.forEach(h => ctx.fill(h));   // brilho suave nos dedos
-            ctx.restore();
-        }
         // Pontos de ancoragem no PDF (centros das juntas e pontos de contato da mão)
         const PDFA = {
             hip: [211.34, 432.25], knee: [226.37, 567.87], ankle: [215.29, 703.03],
@@ -933,37 +871,8 @@
             ctx.restore();
         }
 
-        // Alvo de esforço no ombro: 3 círculos concêntricos (anel colorido, anel cinza, miolo colorido) — proporções do PDF
-        function pdfRing(ctx, x, y, kpx, color) {
-            ctx.save();
-            const RS = 0.8;                                   // alvo do ombro menor (80% do tamanho do PDF)
-            ctx.lineWidth = 2.83 * kpx * RS; ctx.strokeStyle = PDFM.edge;
-            [[34.3, color], [25.85, PDFM.fill], [15.3, color]].forEach(([r, f]) => {
-                ctx.beginPath(); ctx.arc(x, y, r * kpx * RS, 0, Math.PI * 2);
-                ctx.fillStyle = f; ctx.fill(); ctx.stroke();
-            });
-            ctx.restore();
-        }
 
-        // Seta em bloco (haste + ponta triangular). (tx,ty) = cauda em cm; (dx,dy) = direção (y para cima)
-        function pdfArrow(ctx, toX, toY, scale, tx, ty, dx, dy, lenCm, color) {
-            const l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = -dy / l, nx = -uy, ny = ux;
-            const x0 = toX(tx), y0 = toY(ty), len = lenCm * scale;
-            const sw = 1.9 * scale, hw = 5.2 * scale, hl = Math.min(8.5 * scale, len * 0.6), bl = len - hl;
-            const P = (a, b) => [x0 + ux * a + nx * b, y0 + uy * a + ny * b];
-            ctx.save();
-            ctx.beginPath();
-            [P(0, -sw), P(bl, -sw), P(bl, -hw), P(len, 0), P(bl, hw), P(bl, sw), P(0, sw)].forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
-            ctx.closePath(); ctx.fillStyle = color; ctx.fill();
-            ctx.restore();
-        }
 
-        // Desenha com as cores exatas (sem o remapeamento por luminância da paleta escura): usado no contorno/fundo escuro dos textos
-        function rawCanvasColors(fn) {
-            const a = window.ERGO_DARK, b = window.BIN_SOLID, c = window.BIN_DARK;
-            window.ERGO_DARK = false; window.BIN_SOLID = false; window.BIN_DARK = false;
-            try { fn(); } finally { window.ERGO_DARK = a; window.BIN_SOLID = b; window.BIN_DARK = c; }
-        }
 
         window.ergoManikinRect = (W, H) => {   // onde o manequim (170 cm) fica no canvas: base dos pés, centro do corpo e altura em px
             const scale = Math.min((W - 34) / 172, (H - 96) / 207), offX = Math.max(26, (W - 172 * scale) / 2 + 10);
@@ -1455,7 +1364,7 @@
             const Tmax = Math.max(...times.map(t => t.tA1 + t.tA2));
             const panelW = W / ERGO_PERCENTILES.length;
             const camera = cinematicFrame(phase);
-            const stats = ERGO_PERCENTILES.map((p, i) => {
+            ERGO_PERCENTILES.forEach((p, i) => {
                 const t = times[i];
                 const localPhase = Math.min(1, phase * Tmax / (t.tA1 + t.tA2));
                 ctx.save();

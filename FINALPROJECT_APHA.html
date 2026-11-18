@@ -212,41 +212,6 @@
         .cad-chip.on{background:#6d90b8;color:#000223;border-color:#6d90b8}
         .cad-btn:focus-visible,.cad-chip:focus-visible{outline:2px solid #6d90b8;outline-offset:2px}
 
-        /* ===== Resultados Biomecânicos (5 cartões em overlay) ===== */
-        #ergo-overlay{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto;
-            background:rgba(15,23,42,0);backdrop-filter:blur(0);visibility:hidden;pointer-events:none;
-            transition:background .6s ease,backdrop-filter .6s ease,visibility 0s linear .65s}
-        #ergo-overlay.cards-on{background:rgba(0,2,35,.55);backdrop-filter:blur(3px);visibility:visible;pointer-events:auto;cursor:pointer;
-            transition:background .6s ease,backdrop-filter .6s ease,visibility 0s}
-        .ergo-card{opacity:0;transform:scale(.92) translateY(16px);transition:opacity .55s ease,transform .55s ease;box-shadow:0 18px 50px -12px rgba(15,23,42,.55)}
-        #ergo-overlay.cards-on .ergo-card{opacity:1;transform:none;transition:opacity .7s ease,transform .9s cubic-bezier(.22,1,.36,1)}
-        #ergo-overlay.cards-on .ergo-card:nth-child(1){transition-delay:0s}
-        #ergo-overlay.cards-on .ergo-card:nth-child(2){transition-delay:.1s}
-        #ergo-overlay.cards-on .ergo-card:nth-child(3){transition-delay:.2s}
-        #ergo-overlay.cards-on .ergo-card:nth-child(4){transition-delay:.3s}
-        #ergo-overlay.cards-on .ergo-card:nth-child(5){transition-delay:.45s}
-        #ergo-overlay.cards-on .ergo-card.ergo-out{opacity:0!important;transition:opacity .5s ease!important}
-        #ergo-overlay.flying{background:rgba(15,23,42,0)!important;backdrop-filter:none!important}
-        /* ===== Cartões de tempo (1,2,3): a fonte cresce junto com a caixa; informações empilham quando falta largura ===== */
-        .gc{container-type:size;min-height:100px;display:flex;flex-direction:column;justify-content:center;gap:6px;overflow:hidden}
-        .gc > *{margin-top:0!important}
-        .gc .gc-t{display:block;line-height:1.2;font-size:clamp(10.5px,min(6.4cqw,11cqh),20px)}
-        .gc .gc-row{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px}
-        .gc .gc-blk{min-width:0}
-        .gc .gc-r{text-align:right}
-        .gc .gc-l{line-height:1.2;font-size:clamp(10px,min(7.2cqw,12cqh),17px)}
-        .gc .gc-v1{line-height:1.1;font-size:clamp(24px,min(24cqw,36cqh),54px)}
-        .gc .gc-v2{line-height:1.1;font-size:clamp(18px,min(17cqw,27cqh),40px)}
-        @media (prefers-reduced-motion: reduce){.ergo-card{transition:none!important;transform:none}}
-        /* ===== Painel final: 2 tempos + redução do pico de torque ===== */
-        .ergo-big{background:rgba(0,2,35,.82)}
-        .ergo-big .eb-t{font:700 clamp(13px,1.3vw,18px)/1.2 'JetBrains Mono',monospace;letter-spacing:.04em}
-        .ergo-big .eb-v{margin-top:10px;font:800 clamp(44px,5.2vw,84px)/1 'JetBrains Mono',monospace;color:#ffffff}
-        .ergo-hero{border:2px solid #22c55e;box-shadow:0 0 40px -6px rgba(34,197,94,.45)}
-        .ergo-hero .eh-v{font:800 clamp(64px,8vw,128px)/1 'Montserrat','Inter',sans-serif;color:#22c55e}
-        .ergo-hero .eh-t{margin-top:8px;font:800 clamp(14px,1.5vw,22px)/1.25 'JetBrains Mono',monospace;color:#d4dce6;letter-spacing:.04em}
-        .ergo-hero .eh-s{margin-top:6px;font:600 clamp(12px,1.1vw,16px)/1.3 'Inter',sans-serif;color:#9ba9b5}
-
         /* ===== Quadro e Moldura da Simulação Completa (Aba 6) ===== */
         .tw-corner{position:absolute;width:22px;height:22px;z-index:4;border:2px solid rgba(91,123,158,0.7);pointer-events:none}
         .tour-frame .c1{top:8px;left:8px;border-right:0;border-bottom:0}.tour-frame .c2{top:8px;right:8px;border-left:0;border-bottom:0}
@@ -503,14 +468,12 @@
         #scene-1 #s1-cam{position:absolute;inset:0;transform-origin:50% 50%}
         #scene-1 svg{display:block;width:100%;height:100%;fill-rule:evenodd;clip-rule:evenodd;shape-rendering:geometricPrecision}
         #scene-1 .fil0{fill:#00B4D8}
-        #scene-1 .fil7{fill:#050C24}
         #scene-1 .fil3{fill:#00B4D8}
         #scene-1 .fil2{fill:#7C8B9E}
         #scene-1 .fil5{fill:#7C8B9E}
         #scene-1 .fil4{fill:#ffffff}
         #scene-1 .fil6{fill:#ffffff}
         #scene-1 .fil1{fill:#FF6B1A}
-        #scene-1 .fil8{fill:#FF6B1A}
         #scene-1 .fil9{fill:url(#s1-id0)}
         #scene-1 .fil11{fill:url(#s1-id1)}
         #scene-1 .fil10{fill:url(#s1-id2)}
@@ -565,112 +528,19 @@
         #scene-2 .fil39{fill:#035767}
         #scene-2 .fil44{fill:#0F5767}
         #scene-2 .fil43{fill:#2C98A8}
-        #scene-2 .fil56{fill:#525669}
-        #scene-2 .fil103{fill:#53586F}
-        #scene-2 .fil100{fill:#535A73}
-        #scene-2 .fil113{fill:#54596D}
-        #scene-2 .fil77{fill:#545971}
-        #scene-2 .fil55{fill:#575B71}
-        #scene-2 .fil58{fill:#585E74}
-        #scene-2 .fil60{fill:#596077}
-        #scene-2 .fil98{fill:#5A6080}
-        #scene-2 .fil115{fill:#5B627A}
-        #scene-2 .fil57{fill:#5B627D}
-        #scene-2 .fil84{fill:#5C6384}
-        #scene-2 .fil13{fill:#5D6268}
-        #scene-2 .fil65{fill:#5D647F}
-        #scene-2 .fil111{fill:#5E6581}
-        #scene-2 .fil74{fill:#5F6682}
-        #scene-2 .fil102{fill:#5F678B}
-        #scene-2 .fil97{fill:#5F678C}
-        #scene-2 .fil120{fill:#606683}
-        #scene-2 .fil69{fill:#606785}
-        #scene-2 .fil72{fill:#60688E}
-        #scene-2 .fil68{fill:#616986}
-        #scene-2 .fil83{fill:#616A91}
-        #scene-2 .fil61{fill:#626A89}
-        #scene-2 .fil106{fill:#626B93}
-        #scene-2 .fil109{fill:#636C95}
-        #scene-2 .fil119{fill:#646B8B}
-        #scene-2 .fil62{fill:#646C8E}
-        #scene-2 .fil95{fill:#646E96}
-        #scene-2 .fil87{fill:#646E99}
-        #scene-2 .fil86{fill:#656F98}
-        #scene-2 .fil89{fill:#65709A}
-        #scene-2 .fil66{fill:#666E91}
-        #scene-2 .fil116{fill:#66709C}
-        #scene-2 .fil110{fill:#67719D}
-        #scene-2 .fil79{fill:#67719E}
-        #scene-2 .fil118{fill:#6873A1}
-        #scene-2 .fil96{fill:#6874A1}
-        #scene-2 .fil117{fill:#697399}
-        #scene-2 .fil105{fill:#6974A4}
-        #scene-2 .fil73{fill:#6976A6}
         #scene-2 .fil28{fill:#69D8E4}
-        #scene-2 .fil67{fill:#6A7395}
-        #scene-2 .fil94{fill:#6A75A5}
-        #scene-2 .fil53{fill:#6B7399}
-        #scene-2 .fil114{fill:#6C759C}
-        #scene-2 .fil121{fill:#6C78AA}
-        #scene-2 .fil59{fill:#6D77A0}
-        #scene-2 .fil70{fill:#6D79AD}
-        #scene-2 .fil104{fill:#6E7AAF}
-        #scene-2 .fil107{fill:#6F79A2}
-        #scene-2 .fil80{fill:#707CB3}
-        #scene-2 .fil93{fill:#717FB6}
-        #scene-2 .fil76{fill:#717FB7}
-        #scene-2 .fil122{fill:#737995}
-        #scene-2 .fil63{fill:#737DA6}
-        #scene-2 .fil18{fill:#74777B}
-        #scene-2 .fil112{fill:#747EA6}
-        #scene-2 .fil82{fill:#7584C0}
-        #scene-2 .fil99{fill:#7685C1}
         #scene-2 .fil27{fill:#768CA6}
-        #scene-2 .fil19{fill:#777C83}
-        #scene-2 .fil75{fill:#7786C3}
         #scene-2 .fil26{fill:#79E3EC}
         #scene-2 .fil4{fill:#7B8A9D}
-        #scene-2 .fil92{fill:#7B8B9E}
-        #scene-2 .fil20{fill:#7C8289}
         #scene-2 .fil5{fill:#7C8B9E}
-        #scene-2 .fil52{fill:#8289A5}
-        #scene-2 .fil45{fill:#848CAB}
-        #scene-2 .fil54{fill:#8491C2}
-        #scene-2 .fil17{fill:#858C95}
-        #scene-2 .fil90{fill:#85A1B1}
-        #scene-2 .fil48{fill:#8793C5}
-        #scene-2 .fil50{fill:#8F96B9}
-        #scene-2 .fil46{fill:#8F9CD0}
-        #scene-2 .fil21{fill:#93969B}
-        #scene-2 .fil49{fill:#939BBB}
-        #scene-2 .fil14{fill:#95A1AD}
-        #scene-2 .fil8{fill:#969CA6}
-        #scene-2 .fil51{fill:#9AA4C9}
         #scene-2 .fil10{fill:#9BA5B3}
-        #scene-2 .fil91{fill:#9CB3C1}
-        #scene-2 .fil71{fill:#A3ABC7}
-        #scene-2 .fil47{fill:#A5AFD8}
-        #scene-2 .fil7{fill:#A5B1BD}
-        #scene-2 .fil15{fill:#A5B9C9}
-        #scene-2 .fil64{fill:#ABBFCB}
-        #scene-2 .fil22{fill:#B4C1CD}
-        #scene-2 .fil12{fill:#B9C5D4}
-        #scene-2 .fil16{fill:#BBC2CB}
         #scene-2 .fil25{fill:#BDD0EA}
         #scene-2 .fil24{fill:#BDD1E8}
         #scene-2 .fil11{fill:#C3C6CB}
-        #scene-2 .fil108{fill:#C7CBDE}
         #scene-2 .fil9{fill:#CBDBEC}
-        #scene-2 .fil81{fill:#CFD3E5}
-        #scene-2 .fil101{fill:#D1D5E7}
-        #scene-2 .fil78{fill:#D2D6E7}
-        #scene-2 .fil23{fill:#D2DDE9}
         #scene-2 .fil6{fill:#FF6B1A!important}
         #scene-2 .fil0{fill:#FF6B1A!important}
         #scene-2 .fil3{fill:white}
-        #scene-2 .fil125{fill:#FEFEFE;fill-rule:nonzero}
-        #scene-2 .fil88{fill:#BDD1EA;fill-opacity:0.600000}
-        #scene-2 .fil85{fill:#9CB3C1;fill-opacity:0.850980}
         #scene-2{--navy:#ffffff;--gray:#7C8B9E;--orange:#FF6B1A;--blue:#00B4D8;--ease:cubic-bezier(.22,1,.36,1)}
         #scene-2 *{box-sizing:border-box}
         #scene-2{margin:0;height:100%;overflow:hidden;font-family:Montserrat,"Segoe UI",Arial,sans-serif;font-weight:500;color:var(--navy);font-synthesis:none}
@@ -1915,7 +1785,6 @@ function mp4Box(type, ...parts) {
 function mp4Full(type, version, flags, ...parts) { return mp4Box(type, new Uint8Array([version, flags >> 16 & 255, flags >> 8 & 255, flags & 255]), ...parts); }
 function u32(...v) { const a = new Uint8Array(v.length * 4), dv = new DataView(a.buffer); v.forEach((x, i) => dv.setUint32(i * 4, x)); return a; }
 function u16(...v) { const a = new Uint8Array(v.length * 2), dv = new DataView(a.buffer); v.forEach((x, i) => dv.setUint16(i * 2, x)); return a; }
-function bytes(...v) { return new Uint8Array(v); }
 const MP4_MATRIX = u32(0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x40000000);
 // samples: [{ data: Uint8Array, key: bool }], todos com a mesma duração (1 / fps)
 function buildMp4(samples, avcC, width, height, fps) {
@@ -2197,16 +2066,11 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
         const skinShadowMat = new THREE.MeshStandardMaterial({ color: 0xc98c72, roughness: 0.60, metalness: 0.0 });
         const shirtMat = new THREE.MeshStandardMaterial({ color: 0x767a46, roughness: 0.80, metalness: 0.0 });
         const shirtTorsoMat = new THREE.MeshStandardMaterial({ color: 0x767a46, roughness: 0.92, metalness: 0.0, side: THREE.DoubleSide });
-        const collarMat = new THREE.MeshStandardMaterial({ color: 0x5d6136, roughness: 0.85, metalness: 0.0 });
         const jeansMat = new THREE.MeshStandardMaterial({ color: 0x446282, roughness: 0.95, metalness: 0.0 });
-        const jeansSeamMat = new THREE.MeshStandardMaterial({ color: 0x30485f, roughness: 0.85, metalness: 0.0 });
         const shoeMat = new THREE.MeshStandardMaterial({ color: 0x6f7176, roughness: 0.65, metalness: 0.05 });
         const soleMat = new THREE.MeshStandardMaterial({ color: 0xdfe1e2, roughness: 0.70, metalness: 0.0 });
         const hairMat = new THREE.MeshStandardMaterial({ color: 0x58382e, roughness: 0.86, metalness: 0.0 });
         const featureMat = new THREE.MeshStandardMaterial({ color: 0x36241c, roughness: 0.80, metalness: 0.0 });
-        const suitcaseMat = new THREE.MeshStandardMaterial({ color: 0x76828e, roughness: 0.46, metalness: 0.15 });
-        const suitcaseSideMat = new THREE.MeshStandardMaterial({ color: 0x5d6772, roughness: 0.50, metalness: 0.15 });
-        const suitcaseTrimMat = new THREE.MeshStandardMaterial({ color: 0x3d4650, roughness: 0.58, metalness: 0.12 });
         const suitcaseWellMat = new THREE.MeshStandardMaterial({ color: 0x1e262e, roughness: 0.65, metalness: 0.10 });
 
         // Paleta fiel à ilustração de referência do Senhor de Idade (Personagem 2)
@@ -2216,7 +2080,6 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
         const suitShadowMat = new THREE.MeshStandardMaterial({ color: 0x9c826c, roughness: 0.84, metalness: 0.02 });
         const dressShirtMat = new THREE.MeshStandardMaterial({ color: 0xf2f0eb, roughness: 0.65, metalness: 0.0 });
         const tieMat = new THREE.MeshStandardMaterial({ color: 0x5e493b, roughness: 0.70, metalness: 0.05 });
-        const greyHairMat = new THREE.MeshStandardMaterial({ color: 0xb0b5ba, roughness: 0.82, metalness: 0.04 });
         const dressShoeMat = new THREE.MeshStandardMaterial({ color: 0x3d3836, roughness: 0.45, metalness: 0.12 });
         const vintageCaseMat = new THREE.MeshStandardMaterial({ color: 0x8d583e, roughness: 0.55, metalness: 0.08 });
         const vintageCornerMat = new THREE.MeshStandardMaterial({ color: 0x663b26, roughness: 0.50, metalness: 0.12 });
@@ -2879,16 +2742,6 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             return mesh;
         }
 
-        // Cabelo em mechas: desloca a malha com ruído suave (calota deixa de ser uma esfera lisa)
-        function clumpHair(geo, amp) {
-            const p = geo.attributes.position;
-            for (let i = 0; i < p.count; i++) {
-                const x = p.getX(i), y = p.getY(i), z = p.getZ(i), l = Math.hypot(x, y, z) || 1;
-                const n = (Math.sin(x * 95 + y * 40) + Math.sin(z * 110 - x * 60 + 1.3) + Math.sin(y * 120 + z * 70 + 2.1)) / 3;
-                p.setXYZ(i, x + (x / l) * amp * n, y + (y / l) * amp * n, z + (z / l) * amp * n);
-            }
-            geo.computeVertexNormals();
-        }
 
         const HAND_K = 1.18;
         const HANDLE_X = 0.000;   // deslocamento lateral da mala em relação à mão (m); negativo = para fora do corpo
@@ -2921,1066 +2774,6 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             joint: 0.90
         };
 
-        function createMannequin(charType = 'mannequin') {
-            const isTraveler = charType === 'traveler';
-            const isElder = charType === 'elder';
-            const isMother = charType === 'mother';
-            const isClothed = isTraveler || isElder || isMother;
-            const PR = isTraveler ? PROP_TRAVELER : PROP;
-            // Viajante: esferas de junta menores e achatadas como o membro, para ficarem embutidas no tecido (sem "bolas" saindo da roupa)
-            const jS = isTraveler ? 0.22 : 1;
-            const JX = a => isTraveler ? a[0] : 1, JZ = a => isTraveler ? a[1] : 1;
-            const sculpt = isClothed ? createOrganicSegment : createSculptedSegment;
-            // Perfis anatômicos do viajante (raio em m; t=0 no topo do segmento) e caimento do tecido
-            const TP = {
-                torso: [[0, 0.052], [0.04, 0.078], [0.10, 0.136], [0.17, 0.156], [0.33, 0.150], [0.55, 0.138], [0.78, 0.145], [0.93, 0.157], [1, 0.162]],
-                sleeve: [[0, 0.004], [0.025, 0.030], [0.09, 0.055], [0.30, 0.058], [0.62, 0.055], [0.90, 0.059], [1, 0.050]],
-                forearm: [[0, 0.036], [0.14, 0.043], [0.42, 0.038], [0.76, 0.030], [0.93, 0.025], [1, 0.023]],
-                thigh: [[0, 0.076], [0.14, 0.082], [0.40, 0.077], [0.70, 0.065], [0.92, 0.056], [1, 0.054]],
-                calf: [[0, 0.055], [0.12, 0.059], [0.28, 0.062], [0.55, 0.054], [0.84, 0.047], [0.95, 0.052], [1, 0.057]]
-            };
-            const DR = {
-                shirt:  { amp: 0.0070, k: 6, k2: 11, f: 7,  phase: 0.4, env: u => 0.35 + 0.65 * Math.sin(Math.PI * Math.min(1, u * 1.1)) },
-                sleeve: { amp: 0.0040, k: 5, k2: 9,  f: 6,  phase: 1.3, env: u => 0.5 + 0.5 * Math.sin(Math.PI * u) },
-                jeans:  { amp: 0.0058, k: 5, k2: 9,  f: 9,  phase: 2.1, crumple: 0.7, env: u => 0.45 + 0.55 * Math.sin(Math.PI * u) }
-            };
-
-            const root = new THREE.Group();
-            if (isMother) {
-                root.scale.set(0.80, 0.81, 0.80);
-            } else {
-                root.scale.setScalar(0.84);
-            }
-
-            function getMat(part) {
-                if (isTraveler) {
-                    if (part === 'pelvis' || part === 'leg') return { main: jeansMat, joint: jeansMat };
-                    if (part === 'shoe') return { main: shoeMat, joint: shoeMat };
-                    if (part === 'thorax') return { main: shirtTorsoMat, joint: shirtMat };
-                    if (part === 'sleeve') return { main: shirtMat, joint: shirtMat };
-                    return { main: skinMat, joint: skinMat };
-                }
-                if (isElder) {
-                    if (part === 'pelvis' || part === 'leg' || part === 'thorax' || part === 'sleeve') {
-                        return { main: suitMat, joint: suitMat };
-                    }
-                    if (part === 'shoe') return { main: dressShoeMat, joint: dressShoeMat };
-                    return { main: elderSkinMat, joint: elderWrinkleMat };
-                }
-                if (isMother) {
-                    if (part === 'pelvis' || part === 'leg') return { main: motherPantsMat, joint: motherPantsMat };
-                    if (part === 'thorax' || part === 'sleeve') return { main: motherCoatMat, joint: motherCoatMat };
-                    if (part === 'shoe') return { main: motherBootMat, joint: motherBootMat };
-                    return { main: motherSkinMat, joint: motherLipsMat };
-                }
-                return { main: defaultBodyMat, joint: defaultJointMat };
-            }
-
-            function createJointSphere(r, mat, scaleX = 1, scaleY = 1, scaleZ = 1) {
-                const mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 20), mat);
-                mesh.scale.set(scaleX, scaleY, scaleZ);
-                mesh.castShadow = true;
-                mesh.receiveShadow = true;
-                return mesh;
-            }
-
-            // ------------------------------------------------------------------------
-            // PELVE E QUADRIL (Medidas exatas do glTF: min[-5.15,-4,-5] max[1.5,4,5])
-            // ------------------------------------------------------------------------
-            const pelvisMats = getMat('pelvis');
-            const pelvis = new THREE.Group();
-            pelvis.position.y = 33.6 * GLTF_S; // ~0.95m (altura exata da soma femur 15 + tibia 14 + ankle 4.6)
-            root.add(pelvis);
-
-            const pelvisProfile = isClothed ? [
-                [0.00, 0.115],
-                [0.20, 0.136],
-                [0.52, 0.141],
-                [0.84, 0.122],
-                [1.00, 0.090]
-            ] : [
-                [0.00, 0.098],
-                [0.15, 0.126],
-                [0.45, 0.138],
-                [0.75, 0.108],
-                [0.92, 0.060],
-                [1.00, 0.034]
-            ];
-            const pelvisMesh = sculpt(pelvisProfile, 8.0 * GLTF_S, pelvisMats.main, 1.12 * PR.pelvis[0], 0.82 * PR.pelvis[1], undefined, isTraveler ? PT.pelvis : (isElder ? PT.suitPelvis : (isMother ? PT.pantsPelvis : undefined)), isClothed);
-            pelvisMesh.position.set(0, 4.0 * GLTF_S, -0.008);
-            pelvis.add(pelvisMesh);
-
-            // Eixo articulado da cintura (conexão pelvis -> torso no glTF em Y = 4*S)
-            const waistPivotMat = isTraveler ? shirtMat : (isElder ? suitMat : (isMother ? motherPantsMat : defaultJointMat));
-            const waistJoint = createJointSphere(2.8 * GLTF_S * PR.joint * (isTraveler ? 0.01 : 1), waistPivotMat, 1.18, 0.85, 0.88);
-            waistJoint.position.set(0, 4.0 * GLTF_S, -0.005);
-            pelvis.add(waistJoint);
-
-            // ------------------------------------------------------------------------
-            // TÓRAX / TORSO (Offset glTF: [0, 4*S, 0], comprimento até pescoço = 15*S)
-            // ------------------------------------------------------------------------
-            const thoraxMats = getMat('thorax');
-            const thorax = new THREE.Group();
-            thorax.position.set(0, 4.0 * GLTF_S, 0);
-            pelvis.add(thorax);
-
-            const torsoLen = 15.0 * GLTF_S; // 0.424m exatos do glTF
-            const thoraxProfile = isMother ? [
-                [0.00, 0.054],
-                [0.09, 0.145],
-                [0.26, 0.148],
-                [0.48, 0.138],
-                [0.72, 0.152],
-                [0.96, 0.160],
-                [1.00, 0.154]
-            ] : (isElder ? [
-                [0.00, 0.050],
-                [0.05, 0.090],
-                [0.13, 0.152],
-                [0.30, 0.158],
-                [0.56, 0.141],
-                [0.78, 0.150],
-                [0.95, 0.162],
-                [1.00, 0.154]
-            ] : (isTraveler ? [
-                [0.00, 0.054],
-                [0.11, 0.154],
-                [0.32, 0.151],
-                [0.62, 0.138],
-                [0.82, 0.146],
-                [0.95, 0.158],
-                [1.00, 0.160]
-            ] : [
-                [0.00, 0.048],
-                [0.13, 0.152],
-                [0.36, 0.146],
-                [0.68, 0.116],
-                [0.92, 0.098],
-                [1.00, 0.080]
-            ]));
-            const chestMesh = sculpt(
-                isTraveler ? TP.torso : thoraxProfile,
-                isMother ? 0.64 : (isElder ? 0.525 : (isTraveler ? 0.445 : torsoLen)),
-                thoraxMats.main,
-                (isMother ? 1.12 : (isElder ? 1.20 : 1.18)) * PR.torso[0],
-                (isMother ? 0.80 : (isElder ? 0.80 : 0.76)) * PR.torso[1],
-                undefined,
-                isTraveler ? PT.shirt : (isElder ? PT.suitTorso : (isMother ? PT.coatTorso : undefined))
-            );
-            chestMesh.position.y = torsoLen;
-            thorax.add(chestMesh);
-
-
-            if (isMother) {
-                // Decote em V mostrando o colo/pescoço e lapelas verde-oliva escuras do casaco
-                const chestSkinV = new THREE.Mesh(new THREE.ConeGeometry(0.046, 0.17, 4), motherSkinMat);
-                chestSkinV.rotation.x = Math.PI;
-                chestSkinV.rotation.y = Math.PI / 4;
-                chestSkinV.scale.set(0.92, 1, 0.35);
-                chestSkinV.position.set(0, 0.32, 0.098 * PR.torso[1]);
-                thorax.add(chestSkinV);
-
-                [-1, 1].forEach(s => {
-                    const coatLapel = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.24, 0.016), motherCoatDarkMat);
-                    coatLapel.position.set(s * 0.042, 0.275, 0.105 * PR.torso[1]);
-                    coatLapel.rotation.z = s * -0.18;
-                    coatLapel.rotation.y = s * 0.15;
-                    thorax.add(coatLapel);
-                });
-
-                // Abertura frontal inferior do casaco longo revelando a calça cinza-escura
-                const frontCoatOpening = new THREE.Mesh(new THREE.BoxGeometry(0.068, 0.30, 0.025), motherPantsMat);
-                frontCoatOpening.position.set(0, -0.08, 0.105 * PR.torso[1]);
-                thorax.add(frontCoatOpening);
-
-                // --------------------------------------------------------------------
-                // BEBÊ DORMINDO DE PERFIL, ENROLADO NA MANTA (bege e azul-clara), aninhado no braço esquerdo da mãe
-                // Eixo local: +y = cabeça do bebê; o rosto olha para o centro do peito da mãe (-x).
-                // --------------------------------------------------------------------
-                const babyGroup = new THREE.Group();
-                babyGroup.position.set(0.030, 0.150, 0.150 * PR.torso[1]);
-                babyGroup.rotation.set(0.12, -0.14, -0.62);
-
-                // Corpo enrolado: casulo macio, mais cheio no peito/quadril e afinando nos pés (perfil de spline)
-                const swaddleBody = createOrganicSegment([
-                    [0.00, 0.052], [0.07, 0.078], [0.26, 0.092], [0.52, 0.086], [0.78, 0.064], [0.93, 0.040], [1.00, 0.020]
-                ], 0.32, swaddleBeigeMat, 1.10, 0.86, undefined, PT.swaddle);
-                swaddleBody.position.y = 0.135;
-                swaddleBody.rotation.x = 0.06;
-                babyGroup.add(swaddleBody);
-
-                // Aba azul-clara dobrada por cima do peito e do ombro (volume extra de tecido, com pregas)
-                const blueFold = createOrganicSegment([
-                    [0.00, 0.056], [0.18, 0.090], [0.55, 0.096], [0.88, 0.078], [1.00, 0.060]
-                ], 0.082, swaddleBlueMat, 1.06, 0.88, undefined, PT.swaddleBlue);
-                blueFold.position.set(0.004, 0.172, 0.008);
-                blueFold.rotation.set(0.05, 0, 0.12);
-                babyGroup.add(blueFold);
-
-                // Borda enrolada da manta em volta do pescoço (gola fofa)
-                const collarRoll = createOrganicSegment([[0.00, 0.036], [0.35, 0.058], [0.70, 0.060], [1.00, 0.040]], 0.040, swaddleBlueMat, 1.06, 0.92, undefined, PT.swaddleBlue);
-                collarRoll.position.set(0.004, 0.226, -0.004);
-                babyGroup.add(collarRoll);
-
-                // Ponta inferior da manta dobrada para cima, cobrindo os pezinhos
-                const footTuck = createOrganicSegment([[0.00, 0.030], [0.35, 0.052], [0.75, 0.048], [1.00, 0.016]], 0.070, swaddleBlueMat, 1.0, 0.8, undefined, PT.swaddleBlue);
-                footTuck.position.set(-0.010, 0.010, 0.020);
-                footTuck.rotation.set(0.20, 0, 0.16);
-                babyGroup.add(footTuck);
-
-                // Cabeça de bebê: crânio redondo, bochechas cheias, olho fechado, boquinha (rosto pintado), de perfil
-                const babyHead = new THREE.Mesh(buildBabyHeadGeometry(), paintedMat(PT.babyFace));
-                babyHead.scale.setScalar(1.22);
-                babyHead.position.set(0.010, 0.290, 0.020);
-                babyHead.rotation.set(0.10, -1.25, 0.20);
-                babyHead.castShadow = true;
-                babyGroup.add(babyHead);
-
-                // Cabelo claro e finíssimo: casca fina sobre o alto da cabeça, descendo até a têmpora e a nuca
-                {
-                    const BTL = Math.PI * 0.66, bg = new THREE.SphereGeometry(1, 36, 22, 0, Math.PI * 2, 0, BTL), bp = bg.attributes.position;
-                    for (let k = 0; k < bp.count; k++) {
-                        const x = bp.getX(k), y = bp.getY(k), z = bp.getZ(k);
-                        const th = Math.acos(Math.max(-1, Math.min(1, y))), ph = Math.atan2(z, -x);
-                        let psi = ph - Math.PI / 2; psi = Math.atan2(Math.sin(psi), Math.cos(psi));
-                        const ap = Math.abs(psi), thMax = Math.PI * (0.24 + 0.26 * hsm(0.5, 2.6, ap) + 0.025 * Math.sin(psi * 9 + 2));       // testa livre na frente, nuca coberta atrás
-                        const th2 = (th / BTL) * thMax, st = Math.sin(th2);
-                        const q = babyHeadPoint(-Math.cos(ph) * st, Math.cos(th2), Math.sin(ph) * st);
-                        const ctr = [0, 0, 0], kk = 1.035;
-                        bp.setXYZ(k, q[0] * kk, q[1] * kk, q[2] * kk);
-                    }
-                    bg.computeVertexNormals();
-                    const babyHairCap = new THREE.Mesh(bg, paintedMat(PT.hairB));
-                    babyHairCap.position.copy(babyHead.position); babyHairCap.rotation.copy(babyHead.rotation); babyHairCap.scale.copy(babyHead.scale);
-                    babyHairCap.castShadow = true;
-                    babyGroup.add(babyHairCap);
-                    // um cacho fino no topo, curvado
-                    const curl = createOrganicSegment([[0, 0.006], [0.4, 0.0075], [1, 0.0008]], 0.030, babyHairMat, 1, 1);
-                    curl.position.set(0.012, 0.290 + 0.072, 0.020); curl.rotation.set(0.5, 0, -0.9);
-                    babyGroup.add(curl);
-                }
-
-                // Orelhas visíveis (uma de cada lado; de perfil aparece a do lado da câmera)
-                [-1, 1].forEach(sd => {
-                    const babyEar = new THREE.Mesh(new THREE.SphereGeometry(0.014, 14, 12), paintedMat(PT.earB));
-                    babyEar.scale.set(0.34, 1.12, 0.78);
-                    babyEar.position.set(0.010, 0.284, 0.020);
-                    // lado da cabeça (o rosto aponta para -x, então as orelhas ficam em ±z do local do bebê)
-                    babyEar.position.z += sd * 0.066; babyEar.position.x += 0.004; babyEar.position.y -= 0.002; babyEar.scale.multiplyScalar(1.25);
-                    babyEar.rotation.set(0, Math.PI / 2, sd * -0.10);
-                    babyGroup.add(babyEar);
-                });
-
-                // Mãozinha fechada saindo da manta, junto ao queixo
-                const babyFist = new THREE.Mesh(new THREE.SphereGeometry(0.017, 14, 12), motherSkinMat);
-                babyFist.scale.set(1.0, 0.85, 0.9);
-                babyFist.position.set(-0.048, 0.226, 0.058);
-                babyGroup.add(babyFist);
-                const babyWrist = createOrganicSegment([[0, 0.012], [0.5, 0.0145], [1, 0.0128]], 0.040, swaddleBlueMat, 1, 1);
-                babyWrist.position.set(-0.044, 0.217, 0.054); babyWrist.rotation.set(0, 0, 0.9);
-                babyGroup.add(babyWrist);
-
-                thorax.add(babyGroup);
-            }
-
-            if (isTraveler) {
-                // Gola careca canelada verde-escura da camiseta
-            }
-
-            if (isElder) {
-                // Colarinho branco da camisa social por dentro do paletó bege
-                const shirtCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.058, 0.055, 20), dressShirtMat);
-                shirtCollar.scale.set(1.02, 1, 0.92);
-                shirtCollar.position.set(0, 0.382, 0.004);
-                thorax.add(shirtCollar);
-
-            }
-
-            // ------------------------------------------------------------------------
-            // PESCOÇO E CABEÇA ESCULPIDA (Proporções e inclinação do nó 'neck' e 'head' do glTF)
-            // ------------------------------------------------------------------------
-            const skinMats = getMat('head');
-            const neckGroup = new THREE.Group();
-            neckGroup.position.set(0, torsoLen, 0.006);
-            thorax.add(neckGroup);
-
-            const neckMesh = new THREE.Mesh(
-                new THREE.CylinderGeometry(1.10 * GLTF_S, 1.25 * GLTF_S, 4.0 * GLTF_S, 20),
-                skinMats.main
-            );
-            neckMesh.position.set(0, 1.5 * GLTF_S, 0);
-            neckMesh.rotation.x = 0.087; // Inclinação anatômica de 5° do glTF (sin = 0.087155)
-            neckMesh.castShadow = true;
-            neckGroup.add(neckMesh);
-
-            const head = new THREE.Group();
-            head.position.set(0, torsoLen + 0.012, 0.008);
-            thorax.add(head);
-            if (isTraveler) head.scale.setScalar(1.16);   // cabeça levemente maior, como no desenho de referência
-
-            // Cabeça: uma única malha com crânio, bochechas, mandíbula e queixo (buildHeadGeometry); rosto pintado na textura
-            const cranium = new THREE.Mesh(buildHeadGeometry(), isTraveler ? paintedMat(PT.face) : (isElder ? paintedMat(PT.faceE) : (isMother ? paintedMat(PT.faceM) : skinMats.main)));
-            cranium.castShadow = true;
-            cranium.receiveShadow = true;
-            head.add(cranium);
-
-            // Nariz: ponte que parte da glabela e afunila até a ponta arredondada, com as asas do nariz
-            {
-                const nRoot = new THREE.Vector3(0, 0.136, 0.092), nTip = new THREE.Vector3(0, 0.098, 0.107), nd = nTip.clone().sub(nRoot);
-                const bridge = new THREE.Mesh(new THREE.ConeGeometry(0.0125, nd.length(), 8), skinMats.main);
-                bridge.position.copy(nRoot).add(nTip).multiplyScalar(0.5);
-                bridge.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), nd.clone().negate().normalize());   // vértice do cone na raiz do nariz, base larga na ponta
-                bridge.scale.set(1.0, 1, 0.95);
-                head.add(bridge);
-                const tip = new THREE.Mesh(new THREE.SphereGeometry(0.0118, 14, 12), skinMats.main);
-                tip.scale.set(1.0, 0.85, 1.0);
-                tip.position.set(0, 0.0985, 0.1005);
-                head.add(tip);
-                [-1, 1].forEach(s => {
-                    const wing = new THREE.Mesh(new THREE.SphereGeometry(0.0082, 10, 10), skinMats.main);
-                    wing.scale.set(0.9, 1.0, 0.85);
-                    wing.position.set(s * 0.0112, 0.0995, 0.0955);
-                    head.add(wing);
-                });
-            }
-
-            // Orelhas: entre a linha da sobrancelha e a da base do nariz, logo atrás da articulação da mandíbula
-            [-1, 1].forEach(s => {
-                const ear = new THREE.Mesh(new THREE.SphereGeometry(0.024, 16, 14), isTraveler ? paintedMat(PT.earT) : (isElder ? paintedMat(PT.earE) : (isMother ? paintedMat(PT.earM) : skinMats.main)));
-                ear.scale.set(0.36, 1.18, 0.80);
-                ear.position.set(s * 0.0715, 0.116, -0.006);
-                ear.rotation.set(0.08, s * 0.18, s * -0.10);
-                head.add(ear);
-            });
-
-            if (isTraveler) {
-                // Sobrancelhas franzidas e olhos fechados de exaustão/preocupação
-                [-1, 1].forEach(s => {
-                    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.007, 0.010), featureMat);
-                    brow.position.set(s * 0.028, 0.136, 0.092);
-                    brow.rotation.z = s * 0.22;
-                    brow.rotation.y = s * 0.20;
-                    
-
-                    const closedEye = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.005, 0.008), featureMat);
-                    closedEye.position.set(s * 0.027, 0.118, 0.092);
-                    closedEye.rotation.y = s * 0.18;
-                    
-                });
-
-                const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.005, 0.008), skinShadowMat);
-                mouth.position.set(0, 0.065, 0.085);
-                
-
-                // Cabelo castanho curto repicado em mechas (fiel ao vetor)
-                // Cabelo: casca com volume (maior que o crânio). A borda desce até a nuca atrás e nas laterais; só na testa ela sobe, em pontas.
-                const HAIR_TL = Math.PI * 0.80;
-                const hairGeo = new THREE.SphereGeometry(1, 56, 32, 0, Math.PI * 2, 0, HAIR_TL);
-                {
-                    const hp = hairGeo.attributes.position, sm = (a0, a1, x) => { const t = Math.min(1, Math.max(0, (x - a0) / (a1 - a0))); return t * t * (3 - 2 * t); };
-                    for (let i = 0; i < hp.count; i++) {
-                        const x = hp.getX(i), y = hp.getY(i), z = hp.getZ(i);
-                        const th = Math.acos(Math.max(-1, Math.min(1, y))), ph = Math.atan2(z, -x);
-                        let psi = ph - Math.PI / 2; psi = Math.atan2(Math.sin(psi), Math.cos(psi));       // 0 = frente (+z)
-                        const ap = Math.abs(psi), frontW = 1 - sm(0.5, 1.1, ap);
-                        const tri = Math.abs(((psi * 5.2 + 100) % 1) - 0.5) * 2;                          // 0..1 (pontas da franja)
-                        const thMax = Math.PI * (0.42 + 0.34 * sm(0.7, 2.6, ap)) + Math.PI * 0.055 * (1 - tri) * frontW;
-                        const th2 = (th / HAIR_TL) * thMax, st = Math.sin(th2);
-                        const n = (Math.sin(x * 10 + y * 4.4) + Math.sin(z * 12 - x * 6.6 + 1.3) + Math.sin(y * 13 + z * 7.7 + 2.1)) / 3;   // mechas em relevo
-                        const k = 1.02 + (0.13 + 0.05 * n) * (1 - hsm(0.55, 1.0, th / HAIR_TL));
-                        const hq = headShell(-Math.cos(ph) * st, Math.cos(th2), Math.sin(ph) * st, k);
-                        hp.setXYZ(i, hq[0], hq[1], hq[2]);
-                    }
-                    hairGeo.computeVertexNormals();
-                }
-                const hairCap = new THREE.Mesh(hairGeo, paintedMat(PT.hair));
-                hairCap.castShadow = true;
-                head.add(hairCap);
-
-                // mechas espetadas na coroa (saem da superfície da casca, voltadas para cima/trás)
-                const tuftSeed = [0.9, 1.15, 0.8, 1.2, 1.0, 0.85, 1.25, 0.95, 1.1];
-                for (let k = 0; k < 9; k++) {
-                    const ang = (k / 9) * Math.PI * 2, dir = new THREE.Vector3(Math.cos(ang) * 0.62, 1.0, Math.sin(ang) * 0.62 - 0.10).normalize();
-                    const sp = new THREE.Mesh(new THREE.ConeGeometry(0.020 * tuftSeed[k], 0.060 * tuftSeed[(k + 4) % 9], 7), hairMat);
-                    sp.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-                    { const hq = headShell(dir.x, dir.y, dir.z, 1.12); sp.position.set(hq[0], hq[1], hq[2]); }
-                    sp.castShadow = true;
-                    head.add(sp);
-                }
-            }
-
-            if (isElder) {
-                // Rosto do senhor (sobrancelhas grisalhas, olhos, rugas e boca) está pintado na textura do crânio (PT.faceE).
-                // Cabelo grisalho em ferradura (laterais e nuca); topo da cabeça e testa calvos como no PDF. Casca com mechas pintadas.
-                {
-                    const PHI0 = Math.PI / 2 + 1.0, PHIL = Math.PI * 2 - 2.0;
-                    const hg = new THREE.SphereGeometry(1, 64, 16, PHI0, PHIL, 0, Math.PI);
-                    const hp = hg.attributes.position, huv = hg.attributes.uv, sm = (a0, a1, x) => { const t = Math.min(1, Math.max(0, (x - a0) / (a1 - a0))); return t * t * (3 - 2 * t); };
-                    for (let i = 0; i < hp.count; i++) {
-                        const ph = PHI0 + huv.getX(i) * PHIL, t = 1 - huv.getY(i);
-                        let psi = ph - Math.PI / 2; psi = Math.atan2(Math.sin(psi), Math.cos(psi));
-                        const ap = Math.abs(psi);
-                        const thMin = Math.PI * (0.45 - 0.08 * sm(1.0, 2.0, ap) + 0.022 * Math.sin(psi * 11 + 1)), thMax = Math.PI * (0.58 + 0.20 * sm(1.0, 2.2, ap) + 0.030 * Math.sin(psi * 7));
-                        const th2 = thMin + t * (thMax - thMin), st = Math.sin(th2);
-                        const x0 = -Math.cos(ph) * st, y0 = Math.cos(th2), z0 = Math.sin(ph) * st;
-                        const n = (Math.sin(x0 * 10 + y0 * 4.4) + Math.sin(z0 * 12 - x0 * 6.6 + 1.3) + Math.sin(y0 * 13 + z0 * 7.7 + 2.1)) / 3;
-                        const k = 1.02 + (0.055 + 0.04 * n) * Math.pow(Math.sin(Math.PI * Math.min(1, Math.max(0, t))), 0.5);
-                        const hq = headShell(x0, y0, z0, k);
-                        hp.setXYZ(i, hq[0], hq[1], hq[2]);
-                    }
-                    hg.computeVertexNormals();
-                    const elderHair = new THREE.Mesh(hg, paintedMat(PT.hairE));
-                    elderHair.castShadow = true;
-                    head.add(elderHair);
-                }
-            }
-
-            if (isMother) {
-                // Rosto da mãe (sobrancelhas preocupadas, olhos, nariz e lábios) está pintado na textura do crânio (PT.faceM).
-
-                // Cabelo castanho-escuro longo e ondulado (caindo nas costas e sobre o ombro direito)
-                const motherHairGroup = new THREE.Group();
-
-                // Topo volumoso com repartição lateral
-                const crownGeo = new THREE.SphereGeometry(1, 56, 28, 0, Math.PI * 2, 0, Math.PI * 0.66);
-                {
-                    const hp = crownGeo.attributes.position, CTL = Math.PI * 0.66, sm = (a0, a1, x) => { const t = Math.min(1, Math.max(0, (x - a0) / (a1 - a0))); return t * t * (3 - 2 * t); };
-                    for (let i = 0; i < hp.count; i++) {
-                        const x = hp.getX(i), y = hp.getY(i), z = hp.getZ(i);
-                        const th = Math.acos(Math.max(-1, Math.min(1, y))), ph = Math.atan2(z, -x);
-                        let psi = ph - Math.PI / 2; psi = Math.atan2(Math.sin(psi), Math.cos(psi));       // 0 = frente (+z)
-                        const ap = Math.abs(psi), frontW = 1 - sm(0.6, 1.3, ap);
-                        const tri = Math.abs(((psi * 4.0 + 100) % 1) - 0.5) * 2;
-                        const thMax = Math.PI * (0.41 + 0.19 * sm(0.8, 2.4, ap)) + Math.PI * 0.035 * (1 - tri) * frontW;   // franja termina na testa; atrás desce até a nuca
-                        const th2 = (th / CTL) * thMax, st = Math.sin(th2);
-                        const n = (Math.sin(x * 10 + y * 4.4) + Math.sin(z * 12 - x * 6.6 + 1.3) + Math.sin(y * 13 + z * 7.7 + 2.1)) / 3;
-                        const k = 1.02 + (0.10 + 0.04 * n) * (1 - hsm(0.55, 1.0, th / CTL));
-                        const hq = headShell(-Math.cos(ph) * st, Math.cos(th2), Math.sin(ph) * st, k);
-                        hp.setXYZ(i, hq[0], hq[1], hq[2]);
-                    }
-                    crownGeo.computeVertexNormals();
-                }
-                const crownHair = new THREE.Mesh(crownGeo, paintedMat(PT.hairM));
-                crownHair.castShadow = true;
-                motherHairGroup.add(crownHair);
-
-                // Comprimento longo caindo pelas costas
-                const backLongHairProfile = [
-                    [0.00, 0.082],
-                    [0.25, 0.096],
-                    [0.55, 0.105],
-                    [0.82, 0.092],
-                    [1.00, 0.055]
-                ];
-                const backHairCascade = sculpt(backLongHairProfile, 0.36, motherHairMat, 1.08, 0.62, undefined, PT.hairM);
-                backHairCascade.position.set(0, 0.145, -0.048);
-                backHairCascade.rotation.x = 0.14;
-                motherHairGroup.add(backHairCascade);
-
-                // Mecha espessa ondulada caindo pela frente sobre o ombro direito (como na referência)
-                const frontRightWave = sculpt([
-                    [0.00, 0.032],
-                    [0.35, 0.042],
-                    [0.72, 0.036],
-                    [1.00, 0.015]
-                ], 0.26, motherHairMat, 0.95, 0.72, undefined, PT.hairM);
-                frontRightWave.position.set(-0.076, 0.115, 0.028);
-                frontRightWave.rotation.set(-0.22, 0, -0.12);
-                motherHairGroup.add(frontRightWave);
-
-                // Mecha lateral esquerda indo em direção ao ombro esquerdo
-                const leftShoulderWave = sculpt([
-                    [0.00, 0.034],
-                    [0.45, 0.040],
-                    [0.85, 0.030],
-                    [1.00, 0.014]
-                ], 0.24, motherHairMat, 0.90, 0.75, undefined, PT.hairM);
-                leftShoulderWave.position.set(0.078, 0.118, 0.005);
-                leftShoulderWave.rotation.set(0.08, 0, 0.16);
-                motherHairGroup.add(leftShoulderWave);
-
-                head.add(motherHairGroup);
-            }
-
-            // ------------------------------------------------------------------------
-            // BRAÇOS, PUNHOS E MÃOS COM 5 DEDOS DE 3 FALANGES (Estrutura l_arm -> l_elbow -> l_wrist -> finger/mid/tip do glTF)
-            // ------------------------------------------------------------------------
-            let suitcaseGroup = null;
-
-            function buildArm(side) {
-                const lowMats = getMat('arm');
-                const shoulder = new THREE.Group();
-                shoulder.rotation.order = 'YXZ';
-                // Posição exata do glTF: [0, 14*S, ±6*S] -> X = side * 0.175, Y = 0.365
-                shoulder.position.set(side * (6.2 * GLTF_S) * PR.shoulderX, 13.0 * GLTF_S, 0);
-                thorax.add(shoulder);
-
-                const shoulderBallMat = isTraveler ? shirtMat : (isElder ? suitMat : (isMother ? motherCoatMat : defaultJointMat));
-                shoulder.add(createJointSphere(1.75 * GLTF_S * PR.joint * (isTraveler ? 0.30 : jS), shoulderBallMat, 0.98 * JX(PR.upperArm), 1.02, 0.98 * JZ(PR.upperArm)));
-
-                const upperArmLen = 10.2 * GLTF_S; // ~0.288m (11 unidades no glTF)
-                const forearmLen = 9.2 * GLTF_S;   // ~0.260m
-
-                if (isElder || isMother) {
-                    const upperSleeveProfile = isElder ? [
-                        [0.00, 0.006],
-                        [0.03, 0.042],
-                        [0.10, 0.059],
-                        [0.38, 0.058],
-                        [0.76, 0.053],
-                        [1.00, 0.050]
-                    ] : [
-                        [0.00, 0.055],
-                        [0.35, 0.054],
-                        [0.80, 0.050],
-                        [1.00, 0.046]
-                    ];
-                    shoulder.add(sculpt(upperSleeveProfile, upperArmLen, isMother ? motherCoatMat : suitMat, 0.98 * PR.upperArm[0], 1.02 * PR.upperArm[1], undefined, isMother ? PT.coatSleeve : PT.suitSleeve));
-                } else if (isTraveler) {
-                    const sleeveProfile = [
-                        [0.00, 0.053],
-                        [0.35, 0.056],
-                        [0.88, 0.058],
-                        [0.96, 0.060],
-                        [1.00, 0.046]
-                    ];
-                    const sleeveMesh = sculpt(TP.sleeve, 0.185, shirtMat, 0.98 * PR.upperArm[0], 1.02 * PR.upperArm[1], undefined, PT.sleeve);
-                    shoulder.add(sleeveMesh);
-
-
-                    const lowerBicepProfile = [
-                        [0.00, 0.043],
-                        [0.50, 0.041],
-                        [0.90, 0.037],
-                        [1.00, 0.034]
-                    ];
-                    const bicepSkin = sculpt(lowerBicepProfile, 0.125, skinMat, 0.94 * PR.upperArm[0], 0.96 * PR.upperArm[1]);
-                    bicepSkin.position.y = -0.165;
-                    shoulder.add(bicepSkin);
-                } else {
-                    const upperArmProfile = [
-                        [0.00, 0.045],
-                        [0.25, 0.048],
-                        [0.58, 0.043],
-                        [0.88, 0.036],
-                        [1.00, 0.032]
-                    ];
-                    shoulder.add(sculpt(upperArmProfile, upperArmLen, defaultBodyMat, 0.92 * PR.upperArm[0], 0.98 * PR.upperArm[1]));
-                }
-
-                // Cotovelo (nó l_elbow / r_elbow do glTF)
-                const elbow = new THREE.Group();
-                elbow.position.y = -upperArmLen;
-                shoulder.add(elbow);
-
-                elbow.add(createJointSphere(((isElder || isMother) ? 0.045 : 0.036) * PR.joint * jS, isElder ? suitMat : (isMother ? motherCoatMat : lowMats.joint), 0.95 * JX(PR.forearm), 1, 0.95 * JZ(PR.forearm)));
-
-                if (isMother) {
-                    const motherLowerSleeve = [
-                        [0.00, 0.046],
-                        [0.50, 0.048],
-                        [0.92, 0.052],
-                        [1.00, 0.044]
-                    ];
-                    elbow.add(sculpt(motherLowerSleeve, forearmLen, motherCoatMat, 0.96 * PR.forearm[0], 1.04 * PR.forearm[1], undefined, PT.coatForearm));
-                } else if (isElder) {
-                    const lowerSleeveProfile = [
-                        [0.00, 0.050],
-                        [0.18, 0.047],
-                        [0.55, 0.043],
-                        [0.93, 0.040],
-                        [0.965, 0.043],
-                        [1.00, 0.036]
-                    ];
-                    elbow.add(sculpt(lowerSleeveProfile, forearmLen - 0.012, suitMat, 0.96 * PR.forearm[0], 1.04 * PR.forearm[1], undefined, PT.suitForearm));
-
-                    const shirtCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.035, 0.026, 18), dressShirtMat);
-                    shirtCuff.scale.set(0.92 * PR.forearm[0], 1, 1.04 * PR.forearm[1]);
-                    shirtCuff.position.y = -forearmLen + 0.008;
-                    elbow.add(shirtCuff);
-
-                    [-0.185, -0.202, -0.219].forEach(btnY => {
-                        const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.004, 10), tieMat);
-                        btn.rotation.z = Math.PI / 2;
-                        btn.position.set(side * 0.042 * PR.forearm[0], btnY, -0.008 * PR.forearm[1]);
-                        elbow.add(btn);
-                    });
-                } else {
-                    const forearmProfile = [
-                        [0.00, 0.034],
-                        [0.22, 0.042],
-                        [0.55, 0.035],
-                        [0.88, 0.027],
-                        [1.00, 0.023]
-                    ];
-                    elbow.add(sculpt(isTraveler ? TP.forearm : forearmProfile, forearmLen, lowMats.main, 0.90 * PR.forearm[0], 1.02 * PR.forearm[1]));
-                }
-
-                // Punho (l_wrist / r_wrist do glTF)
-                const wristJoint = createJointSphere(0.024, lowMats.main, 1.05, 0.85, 0.82);
-                wristJoint.position.y = -forearmLen;
-                elbow.add(wristJoint);
-
-                // Mão com palma esculpida e 5 dedos com 3 falanges cada (finger_0..4 -> mid_0..4 -> tip_0..4 do glTF)
-                const hand = new THREE.Group();
-                hand.position.y = -forearmLen - 0.004;
-                if (isTraveler) hand.scale.setScalar(HAND_K);   // mãos maiores (estilo desenho)
-                elbow.add(hand);
-
-                const palmLen = 2.2 * GLTF_S; // ~0.062m exatos do glTF
-                const palmProfile = [
-                    [0.00, 0.022],
-                    [0.30, 0.028],
-                    [0.75, 0.029],
-                    [1.00, 0.025]
-                ];
-                const palmMesh = sculpt(palmProfile, palmLen, lowMats.main, 0.48, 1.02, undefined, undefined, true);
-                hand.add(palmMesh);
-
-                // Especificações exatas dos 5 dedos extraídas dos accessors do glTF (finger_0 = polegar, 1..4 = indicador ao mínimo)
-                const fingerSpecs = [
-                    { zOff:  0.021, yOff: -0.018, l1: 1.15 * GLTF_S, l2: 0.82 * GLTF_S, l3: 0.68 * GLTF_S, r: 0.0072, isThumb: true },
-                    { zOff:  0.019, yOff: -palmLen, l1: 0.76 * GLTF_S, l2: 0.66 * GLTF_S, l3: 0.56 * GLTF_S, r: 0.0064, spread:  0.10 },
-                    { zOff:  0.006, yOff: -palmLen - 0.003, l1: 0.80 * GLTF_S, l2: 0.70 * GLTF_S, l3: 0.60 * GLTF_S, r: 0.0066, spread:  0.03 },
-                    { zOff: -0.007, yOff: -palmLen, l1: 0.76 * GLTF_S, l2: 0.66 * GLTF_S, l3: 0.56 * GLTF_S, r: 0.0062, spread: -0.03 },
-                    { zOff: -0.019, yOff: -palmLen + 0.003, l1: 0.64 * GLTF_S, l2: 0.56 * GLTF_S, l3: 0.48 * GLTF_S, r: 0.0054, spread: -0.10 }
-                ];
-
-                const fingers = [];
-                const isHoldingHandle = (isTraveler || isElder || isMother) && side === -1;
-
-                fingerSpecs.forEach((spec, idx) => {
-                    const prox = new THREE.Group();
-                    prox.position.set(0, spec.yOff, spec.zOff);
-
-                    const fingerSeg = (r0, r1, len, tipEnd) => createOrganicSegment([[0, 0.0025], [0.03, r0 * 0.80], [0.10, r0 * 1.04], [0.70, (r0 + r1) * 0.5], [tipEnd ? 0.90 : 0.95, r1 * 0.96], [tipEnd ? 0.97 : 0.985, r1 * 0.70], [1, 0.0025]], len, lowMats.main, 1, 1);
-                    const p1Mesh = fingerSeg(spec.r, spec.r * 0.92, spec.l1, false);
-                    p1Mesh.position.y = 0;
-                    p1Mesh.castShadow = true;
-                    prox.add(p1Mesh);
-
-                    const mid = new THREE.Group();
-                    mid.position.y = -spec.l1;
-                    prox.add(mid);
-                    mid.add(createJointSphere(spec.r * 0.88, lowMats.joint));
-
-                    const p2Mesh = fingerSeg(spec.r * 0.90, spec.r * 0.80, spec.l2, false);
-                    p2Mesh.position.y = 0;
-                    p2Mesh.castShadow = true;
-                    mid.add(p2Mesh);
-
-                    const tip = new THREE.Group();
-                    tip.position.y = -spec.l2;
-                    mid.add(tip);
-                    tip.add(createJointSphere(spec.r * 0.78, lowMats.joint));
-
-                    const p3Mesh = fingerSeg(spec.r * 0.78, spec.r * 0.62, spec.l3, true);
-                    p3Mesh.position.y = 0;
-                    p3Mesh.castShadow = true;
-                    tip.add(p3Mesh);
-
-                    if (spec.isThumb) {
-                        prox.rotation.x = 0.52;
-                        prox.rotation.z = side * 0.35;
-                        mid.rotation.z = side * -0.22;
-                        tip.rotation.z = side * -0.18;
-                    } else if (isHoldingHandle) {
-                        // Dedos fechados envolvendo a alça da mala com as 3 falanges
-                        prox.rotation.z = side * 1.15;      // fecham em direção ao corpo (palma voltada para a coxa)
-                        mid.rotation.z = side * 1.10;
-                        tip.rotation.z = side * 0.85;
-                    } else {
-                        prox.rotation.x = spec.spread;
-                        // Curvatura natural de repouso (10° do glTF: sin = 0.173648)
-                        prox.rotation.z = side * -0.17;
-                        mid.rotation.z = side * -0.22;
-                        tip.rotation.z = side * -0.15;
-                    }
-
-                    hand.add(prox);
-                    fingers.push({ prox, mid, tip, isThumb: !!spec.isThumb, spread: spec.spread || 0 });
-                });
-
-                // --------------------------------------------------------------------
-                // MALA DE RODINHAS MODERNA (Viajante - Personagem 1)
-                // --------------------------------------------------------------------
-                if (isTraveler && side === -1) {
-                    suitcaseGroup = new THREE.Group();
-                    suitcaseGroup.position.set(HANDLE_X / HAND_K, -0.065 / HAND_K, 0.00);   // afastada da perna (sem atravessar)
-                    suitcaseGroup.scale.setScalar(1.14 / HAND_K);   // mala um pouco maior, como no vídeo
-                    suitcaseGroup.rotation.set(0.18, 0.08, 0.04);
-
-                    // Mala rígida de viagem do desenho: casca azul-marinho, borda cinza-clara, rebaixo oval da pegada e rodinhas duplas
-                    const caseNavy = new THREE.MeshStandardMaterial({ color: 0x363a43, roughness: 0.40, metalness: 0.12 });
-                    const caseNavyDark = new THREE.MeshStandardMaterial({ color: 0x27272b, roughness: 0.50, metalness: 0.10 });
-                    const caseGrey = new THREE.MeshStandardMaterial({ color: 0x4b505b, roughness: 0.38, metalness: 0.14 });
-                    const CW = 0.335, CH = 0.450, CD = 0.172, CR = 0.052;
-                    const bodyCenterY = -0.255, bodyCenterZ = -0.035;
-
-                    function roundedRectShape(w, h, r) {
-                        const sh = new THREE.Shape(), x = -w / 2, y = -h / 2;
-                        sh.moveTo(x + r, y); sh.lineTo(x + w - r, y); sh.quadraticCurveTo(x + w, y, x + w, y + r);
-                        sh.lineTo(x + w, y + h - r); sh.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-                        sh.lineTo(x + r, y + h); sh.quadraticCurveTo(x, y + h, x, y + h - r);
-                        sh.lineTo(x, y + r); sh.quadraticCurveTo(x, y, x + r, y);
-                        return sh;
-                    }
-                    function slab(w, h, r, depth, mat, bevel) {   // placa arredondada com espessura em X (face grande voltada para ±X)
-                        const g = new THREE.ExtrudeGeometry(roundedRectShape(w, h, r), { depth, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 8 });
-                        g.translate(0, 0, -depth / 2);
-                        const m = new THREE.Mesh(g, mat);
-                        m.rotation.y = Math.PI / 2;
-                        m.castShadow = true; m.receiveShadow = true;
-                        return m;
-                    }
-
-                    const shell = slab(CW, CH, CR, CD - 0.03, caseNavy, 0.015);
-                    shell.position.set(0, bodyCenterY, bodyCenterZ);
-                    suitcaseGroup.add(shell);
-
-                    // faixa/borda cinza-clara da junção das duas metades da casca (aparece no contorno)
-                    const rim = slab(CW + 0.006, CH + 0.006, CR + 0.003, 0.050, caseGrey, 0.006);
-                    rim.position.set(0.014, bodyCenterY, bodyCenterZ);
-                    suitcaseGroup.add(rim);
-
-                    // nervuras verticais moldadas nas duas faces grandes
-                    [-1, 1].forEach(sx => [-0.075, 0.075].forEach(zo => {
-                        const rib = new THREE.Mesh(new THREE.BoxGeometry(0.004, CH - 0.130, 0.007), caseNavyDark);
-                        rib.position.set(sx * (CD / 2 + 0.0015), bodyCenterY - 0.005, bodyCenterZ + zo);
-                        suitcaseGroup.add(rib);
-                    }));
-
-                    // rebaixo oval da pegada lateral (placa cinza + abertura escura)
-                    [-1, 1].forEach(sx => {
-                        const gripFrame = slab(0.112, 0.050, 0.020, 0.006, caseNavyDark, 0);
-                        gripFrame.position.set(sx * (CD / 2 + 0.002), bodyCenterY + 0.150, bodyCenterZ + 0.010);
-                        suitcaseGroup.add(gripFrame);
-                        const gripWell = slab(0.092, 0.032, 0.014, 0.008, suitcaseWellMat, 0);
-                        gripWell.position.set(sx * (CD / 2 + 0.004), bodyCenterY + 0.150, bodyCenterZ + 0.010);
-                        suitcaseGroup.add(gripWell);
-                    });
-
-                    // alça de mão no topo (a mão segura aqui) + base da haste telescópica
-                    const topStrap = new THREE.Mesh(new THREE.TorusGeometry(0.048, 0.010, 10, 20, Math.PI), caseGrey);
-                    topStrap.rotation.y = Math.PI / 2;
-                    topStrap.scale.set(1.25, 0.55, 1.0);
-                    topStrap.position.set(0, -0.012, 0.0);
-                    suitcaseGroup.add(topStrap);
-                    const topBase = new THREE.Mesh(new THREE.BoxGeometry(0.060, 0.016, 0.110), caseNavyDark);
-                    topBase.position.set(0, bodyCenterY + CH / 2 + 0.004, bodyCenterZ);
-                    suitcaseGroup.add(topBase);
-
-                    // 4 rodinhas giratórias (duplas) nos cantos inferiores
-                    [[-0.052, -0.125], [0.052, -0.125], [-0.052, 0.125], [0.052, 0.125]].forEach(([wx, wz]) => {
-                        const mount = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.022, 0.034), suitcaseWellMat);
-                        mount.position.set(wx, bodyCenterY - CH / 2 - 0.004, bodyCenterZ + wz);
-                        suitcaseGroup.add(mount);
-                        [-1, 1].forEach(w => {
-                            const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.021, 0.021, 0.014, 14), suitcaseWellMat);
-                            wheel.rotation.z = Math.PI / 2;
-                            wheel.position.set(wx + w * 0.012, bodyCenterY - CH / 2 - 0.026, bodyCenterZ + wz);
-                            wheel.castShadow = true;
-                            suitcaseGroup.add(wheel);
-                        });
-                    });
-
-                    hand.add(suitcaseGroup);
-                }
-
-                // --------------------------------------------------------------------
-                // MALETA VINTAGE MARROM COM CANTONEIRAS (Idoso - Personagem 2)
-                // --------------------------------------------------------------------
-                if (isElder && side === -1) {
-                    suitcaseGroup = new THREE.Group();
-                    suitcaseGroup.position.set(-0.02, -0.068, 0.01);
-
-                    const leatherHandle = new THREE.Mesh(
-                        new THREE.TorusGeometry(0.044, 0.009, 10, 20, Math.PI),
-                        vintageCornerMat
-                    );
-                    leatherHandle.rotation.y = Math.PI / 2;
-                    leatherHandle.scale.set(1.15, 0.65, 1.0);
-                    leatherHandle.position.set(0, -0.008, 0);
-                    suitcaseGroup.add(leatherHandle);
-
-                    const caseY = -0.195;
-                    const caseW = 0.125;
-                    const caseH = 0.335;
-                    const caseL = 0.445;
-
-                    const vintageBody = new THREE.Mesh(new THREE.BoxGeometry(caseW, caseH, caseL), vintageCaseMat);
-                    vintageBody.position.set(0, caseY, 0);
-                    vintageBody.castShadow = true;
-                    vintageBody.receiveShadow = true;
-                    suitcaseGroup.add(vintageBody);
-
-                    const centerDivider = new THREE.Mesh(new THREE.BoxGeometry(0.016, caseH + 0.005, caseL + 0.005), vintageCornerMat);
-                    centerDivider.position.set(0, caseY, 0);
-                    suitcaseGroup.add(centerDivider);
-
-                    // Cantoneiras escuras arredondadas nos 8 vértices da maleta
-                    [-1, 1].forEach(sy => {
-                        [-1, 1].forEach(sz => {
-                            const corner = new THREE.Mesh(new THREE.BoxGeometry(caseW + 0.010, 0.055, 0.055), vintageCornerMat);
-                            corner.position.set(0, caseY + sy * (caseH * 0.5 - 0.024), sz * (caseL * 0.5 - 0.024));
-                            suitcaseGroup.add(corner);
-                        });
-                    });
-
-                    hand.add(suitcaseGroup);
-                }
-
-                // --------------------------------------------------------------------
-                // MALA VERMELHA DE RODINHAS COM HASTE RETRÁTIL ESTENDIDA (Mãe - Personagem 3)
-                // --------------------------------------------------------------------
-                if (isMother && side === -1) {
-                    suitcaseGroup = new THREE.Group();
-                    suitcaseGroup.position.set(-0.045, -0.055, 0.02);
-
-                    // Pegador preto superior da haste retrátil (na mão direita)
-                    const handleGrip = createOrganicSegment([[0, 0.0035], [0.06, 0.0125], [0.5, 0.0135], [0.94, 0.0125], [1, 0.0035]], 0.135, suitcaseWellMat, 1, 1);
-                    handleGrip.rotation.x = Math.PI / 2;                 // barra ao longo de z (frente-trás), arredondada
-                    handleGrip.position.set(0.045, 0, 0.0675);           // no punho: os dedos fecham em torno dela
-                    suitcaseGroup.add(handleGrip);
-                    const handleBridge = new THREE.Mesh(new THREE.BoxGeometry(0.056, 0.016, 0.100), suitcaseWellMat);   // suporte que liga a barra às hastes
-                    handleBridge.position.set(0.020, 0.003, 0);
-                    handleBridge.castShadow = true;
-                    suitcaseGroup.add(handleBridge);
-
-                    // Duas hastes metálicas pretas descendo até o corpo da mala vermelha
-                    [-0.048, 0.048].forEach(zRod => {
-                        const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.29, 10), suitcaseWellMat);
-                        rod.position.set(0, -0.145, zRod);
-                        rod.castShadow = true;
-                        suitcaseGroup.add(rod);
-                    });
-
-                    // Corpo retangular vertical da mala vermelha com cantos arredondados
-                    const redBoxY = -0.495;
-                    const redBoxW = 0.175;
-                    const redBoxH = 0.435;
-                    const redBoxL = 0.295;
-
-                    const redShell = new THREE.Mesh(new THREE.BoxGeometry(redBoxW, redBoxH, redBoxL), redSuitcaseMat);
-                    redShell.position.set(-0.025, redBoxY, 0);
-                    redShell.castShadow = true;
-                    redShell.receiveShadow = true;
-                    suitcaseGroup.add(redShell);
-
-                    // Faixa central de zíper e frisos vermelhos escuros
-                    const redSeam = new THREE.Mesh(new THREE.BoxGeometry(0.022, redBoxH + 0.006, redBoxL + 0.006), redSuitcaseTrimMat);
-                    redSeam.position.set(-0.015, redBoxY, 0);
-                    suitcaseGroup.add(redSeam);
-
-                    // 4 rodinhas pretas na base da mala vermelha
-                    [
-                        [-0.075, -0.105],
-                        [ 0.025, -0.105],
-                        [-0.075,  0.105],
-                        [ 0.025,  0.105]
-                    ].forEach(([wx, wz]) => {
-                        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.022, 14), suitcaseWellMat);
-                        wheel.rotation.z = Math.PI / 2;
-                        wheel.position.set(wx, redBoxY - redBoxH * 0.5 - 0.018, wz);
-                        wheel.castShadow = true;
-                        suitcaseGroup.add(wheel);
-                    });
-
-                    hand.add(suitcaseGroup);
-                }
-
-                return { shoulder, elbow, hand, fingers };
-            }
-
-            // ------------------------------------------------------------------------
-            // PERNAS, JOELHOS E TORNOZELOS (Proporções l_leg=15*S, l_knee=14*S, l_ankle do glTF)
-            // ------------------------------------------------------------------------
-            function buildLeg(side) {
-                const legMats = getMat('leg');
-                const shoeMats = getMat('shoe');
-
-                const femurLen = 15.0 * GLTF_S; // ~0.424m exatos do glTF
-                const tibiaLen = 14.0 * GLTF_S; // ~0.396m exatos do glTF
-
-                const hip = new THREE.Group();
-                // Offset do quadril no glTF: [-1*S, -3*S, ±4*S] -> X = side * 0.102
-                hip.position.set(side * (3.6 * GLTF_S) * PR.hipX, -1.2 * GLTF_S, 0);
-                pelvis.add(hip);
-
-                hip.add(createJointSphere((isClothed ? 0.068 : 0.058) * PR.joint * (isTraveler ? 0.86 : jS), legMats.joint, 0.98 * JX(PR.thigh), 1.0, 0.98 * JZ(PR.thigh)));
-
-                const thighProfile = isElder ? [
-                    [0.00, 0.088],
-                    [0.14, 0.090],
-                    [0.45, 0.080],
-                    [0.80, 0.068],
-                    [1.00, 0.062]
-                ] : isClothed ? [
-                    [0.00, 0.074],
-                    [0.22, 0.078],
-                    [0.55, 0.071],
-                    [0.88, 0.062],
-                    [1.00, 0.057]
-                ] : [
-                    [0.00, 0.066],
-                    [0.20, 0.074],
-                    [0.52, 0.065],
-                    [0.85, 0.050],
-                    [1.00, 0.044]
-                ];
-                hip.add(sculpt(isTraveler ? TP.thigh : thighProfile, femurLen, legMats.main, 0.96 * PR.thigh[0], 1.04 * PR.thigh[1], undefined, isTraveler ? PT.thigh : (isElder ? PT.suitThigh : (isMother ? PT.pantsThigh : undefined))));
-
-                const knee = new THREE.Group();
-                knee.position.y = -femurLen;
-                hip.add(knee);
-
-                knee.add(createJointSphere((isClothed ? 0.055 : 0.045) * PR.joint * (isTraveler ? 0.88 : jS), legMats.joint, 0.95 * JX(PR.calf), 1.0, 1.02 * JZ(PR.calf)));
-
-                const calfProfile = isElder ? [
-                    [0.00, 0.062],
-                    [0.22, 0.060],
-                    [0.55, 0.054],
-                    [0.88, 0.052],
-                    [0.955, 0.063],
-                    [1.00, 0.064]
-                ] : isClothed ? [
-                    [0.00, 0.056],
-                    [0.18, 0.058],
-                    [0.45, 0.060],
-                    [0.78, 0.056],
-                    [0.94, 0.058],
-                    [1.00, 0.054]
-                ] : [
-                    [0.00, 0.043],
-                    [0.12, 0.042],
-                    [0.32, 0.054],
-                    [0.58, 0.042],
-                    [0.85, 0.031],
-                    [1.00, 0.029]
-                ];
-                knee.add(sculpt(isTraveler ? TP.calf : calfProfile, tibiaLen + (isTraveler ? 0.022 : 0), legMats.main, 0.95 * PR.calf[0], 1.05 * PR.calf[1], undefined, isTraveler ? PT.calf : (isElder ? PT.suitCalf : (isMother ? PT.pantsCalf : undefined))));
-
-
-                if (isElder) {
-                    const sideSeam = new THREE.Mesh(new THREE.BoxGeometry(0.005, tibiaLen * 0.95, 0.007), suitShadowMat);
-                    sideSeam.position.set(side * 0.054 * PR.calf[0], -tibiaLen * 0.5, 0);
-                    knee.add(sideSeam);
-                }
-
-                const ankle = new THREE.Group();
-                ankle.position.y = -tibiaLen;
-                knee.add(ankle);
-
-                ankle.add(createJointSphere(isTraveler ? 0.004 : 0.032, isTraveler ? jeansMat : shoeMats.joint, 0.95, 0.95, 1.0));   // viajante: tornozelo na cor da calça (sem 'buraco' cinza no tênis)
-
-                const foot = new THREE.Group();
-                ankle.add(foot);
-
-                if (isTraveler) {
-                    // Tênis: silhueta lateral extrudada (calcanhar, colarinho, peito do pé e bico arredondado)
-                    const sideGeo = (shape, width, bev) => {
-                        const g = new THREE.ExtrudeGeometry(shape, { depth: width, bevelEnabled: true, bevelThickness: bev, bevelSize: bev * 0.8, bevelOffset: -bev * 0.8, bevelSegments: 4, curveSegments: 14 });
-                        g.translate(0, 0, -width / 2); g.rotateY(-Math.PI / 2); g.computeVertexNormals();
-                        return g;
-                    };
-                    const upperShape = new THREE.Shape();
-                    upperShape.moveTo(-0.050, -0.044);
-                    upperShape.lineTo(-0.056, 0.002);
-                    upperShape.quadraticCurveTo(-0.056, 0.022, -0.034, 0.022);
-                    upperShape.quadraticCurveTo(-0.004, 0.022, 0.012, 0.008);
-                    upperShape.quadraticCurveTo(0.044, -0.004, 0.080, -0.010);
-                    upperShape.quadraticCurveTo(0.124, -0.016, 0.136, -0.034);
-                    upperShape.lineTo(0.134, -0.044);
-                    upperShape.lineTo(-0.050, -0.044);
-                    const sneakerUpper = new THREE.Mesh(sideGeo(upperShape, 0.056, 0.014), shoeMats.main);
-                    sneakerUpper.castShadow = true;
-                    foot.add(sneakerUpper);
-
-                    const toeCap = new THREE.Mesh(new THREE.SphereGeometry(0.036, 20, 14), soleMat);
-                    toeCap.scale.set(1.05, 0.62, 1.15);
-                    toeCap.position.set(0, -0.034, 0.110);
-                    toeCap.castShadow = true;
-                    foot.add(toeCap);
-
-                    const soleShape = new THREE.Shape();
-                    soleShape.moveTo(-0.054, -0.070);
-                    soleShape.lineTo(0.128, -0.070);
-                    soleShape.quadraticCurveTo(0.152, -0.068, 0.150, -0.054);
-                    soleShape.quadraticCurveTo(0.148, -0.040, 0.130, -0.040);
-                    soleShape.lineTo(-0.048, -0.040);
-                    soleShape.quadraticCurveTo(-0.066, -0.042, -0.062, -0.058);
-                    soleShape.lineTo(-0.054, -0.070);
-                    const sole = new THREE.Mesh(sideGeo(soleShape, 0.064, 0.009), soleMat);
-                    sole.castShadow = true;
-                    foot.add(sole);
-                } else if (isElder) {
-                    // Sapato social clássico escuro com bico arredondado e salto baixo
-                    const dressUpper = new THREE.Mesh(new THREE.BoxGeometry(0.076, 0.038, 0.140), dressShoeMat);
-                    dressUpper.position.set(0, -0.024, 0.022);
-                    dressUpper.castShadow = true;
-                    foot.add(dressUpper);
-
-                    const dressToe = new THREE.Mesh(new THREE.SphereGeometry(0.039, 16, 14), dressShoeMat);
-                    dressToe.scale.set(0.96, 0.52, 1.25);
-                    dressToe.position.set(0, -0.030, 0.088);
-                    dressToe.castShadow = true;
-                    foot.add(dressToe);
-
-                    const dressHeel = new THREE.Mesh(new THREE.BoxGeometry(0.074, 0.016, 0.055), suitcaseWellMat);
-                    dressHeel.position.set(0, -0.042, -0.020);
-                    foot.add(dressHeel);
-                } else if (isMother) {
-                    // Bota feminina marrom de cano curto (ankle boot) fiel à referência
-                    const bootShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.044, 0.040, 0.085, 16), motherBootMat);
-                    bootShaft.scale.set(0.92, 1, 1.05);
-                    bootShaft.position.set(0, 0.012, 0.005);
-                    bootShaft.castShadow = true;
-                    foot.add(bootShaft);
-
-                    const bootUpper = new THREE.Mesh(new THREE.BoxGeometry(0.074, 0.040, 0.135), motherBootMat);
-                    bootUpper.position.set(0, -0.024, 0.022);
-                    bootUpper.castShadow = true;
-                    foot.add(bootUpper);
-
-                    const bootToe = new THREE.Mesh(new THREE.SphereGeometry(0.037, 16, 14), motherBootMat);
-                    bootToe.scale.set(0.95, 0.54, 1.22);
-                    bootToe.position.set(0, -0.030, 0.086);
-                    bootToe.castShadow = true;
-                    foot.add(bootToe);
-
-                    const bootHeel = new THREE.Mesh(new THREE.BoxGeometry(0.070, 0.018, 0.052), vintageCornerMat);
-                    bootHeel.position.set(0, -0.042, -0.018);
-                    foot.add(bootHeel);
-                } else {
-                    const heel = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.030, 0.042, 14), shoeMats.main);
-                    heel.position.set(0, -0.029, -0.012);
-                    heel.castShadow = true;
-                    foot.add(heel);
-
-                    const instep = new THREE.Mesh(new THREE.BoxGeometry(0.068, 0.032, 0.135), shoeMats.main);
-                    instep.position.set(0, -0.030, 0.045);
-                    instep.rotation.x = 0.10;
-                    instep.castShadow = true;
-                    foot.add(instep);
-
-                    const toes = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.036, 0.020, 14), shoeMats.main);
-                    toes.scale.set(1.02, 1.0, 0.85);
-                    toes.position.set(0, -0.040, 0.112);
-                    toes.castShadow = true;
-                    foot.add(toes);
-                }
-
-                return { hip, knee, ankle };
-            }
-
-            const rightArm = buildArm(-1);
-            const leftArm = buildArm(1);
-            const rightLeg = buildLeg(-1);
-            const leftLeg = buildLeg(1);
-
-            scene.add(root);
-            return { root, pelvis, thorax, head, rightArm, leftArm, rightLeg, leftLeg, suitcaseGroup, isTraveler, isElder, isMother };
-        }
 
         // ============================================================================
         // ESTILO DESENHO ANIMADO DO 1º BONECO: sombreamento em faixas (toon) + contorno de tinta (casca invertida)
@@ -5297,11 +4090,6 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             return x * x * (3 - 2 * x);
         }
 
-        function resetWalk() {
-            elapsed = 0;
-            rig2.root.visible = false;
-            rig3.root.visible = false;
-        }
 
 
         function animateCharacter(targetRig, localTime, totalSteps, targetDist, shouldTurn, stepDuration, pauseDuration = PAUSE_DURATION) {
@@ -7568,9 +6356,6 @@ const CABIN_R = 137.00;
             animDir: 1
         };
 
-        function fmtBr(val, dec = 2) {
-            return Number(val).toFixed(dec).replace('.', ',');
-        }
 
         function getFuselageX(yMm) {
             const dy = yMm - CABIN_YC;
@@ -8167,56 +6952,9 @@ function alphaTransformPoint(fx, fy, thetaDeg) {
             return { ...alpha, floorPts };
         };
 
-        function buildStaticLeftBinPath(g) {
-            // Closed fuselage-facing seam shares the oval outer door's exact
-            // geometry, so the upper join never reintroduces a vertical step.
-            const e = g.doorClosed.outCurve, xy = p =>
-                `${p.x.toFixed(2)} ${(-p.y).toFixed(2)}`;
-            return [
-                `M ${xy(g.wallFix)}`,
-                `A ${CABIN_R} ${CABIN_R} 0 0 1 ${xy(g.fuseTop)}`,
-                `C ${xy(e[1])} ${xy(e[2])} ${xy(e[3])}`,
-                `C ${xy(e[4])} ${xy(e[5])} ${xy(e[6])}`,
-                `L ${xy(g.doorLipBot)}`,
-                `Q ${xy(g.bellyCtrl)} ${xy(g.psuBotCorner)}`,
-                `L ${xy(g.wallFix)}`,
-                'Z'
-            ].join(' ');
-        }
 
-        function buildDoorBladePath(dObj) {
-            const a = dObj.outCurve, b = dObj.inCurve;
-            const xy = p => `${p.x.toFixed(2)} ${(-p.y).toFixed(2)}`;
-            return [
-                `M ${xy(a[0])}`,
-                `C ${xy(a[1])} ${xy(a[2])} ${xy(a[3])}`,
-                `C ${xy(a[4])} ${xy(a[5])} ${xy(a[6])}`,
-                `L ${xy(b[6])}`,
-                `C ${xy(b[5])} ${xy(b[4])} ${xy(b[3])}`,
-                `C ${xy(b[2])} ${xy(b[1])} ${xy(b[0])}`,
-                'Z'
-            ].join(' ');
-        }
 
-        function buildBracket32aPath(dObj) {
-            return [
-                `M ${dObj.bHubL.x.toFixed(2)} ${(-dObj.bHubL.y).toFixed(2)}`,
-                `L ${dObj.bJoinT.x.toFixed(2)} ${(-dObj.bJoinT.y).toFixed(2)}`,
-                `L ${dObj.bJoinB.x.toFixed(2)} ${(-dObj.bJoinB.y).toFixed(2)}`,
-                `L ${dObj.bHubB.x.toFixed(2)} ${(-dObj.bHubB.y).toFixed(2)}`,
-                `Z`
-            ].join(' ');
-        }
 
-        function buildLatchTipPath(dObj) {
-            return [
-                `M ${dObj.lTopOut.x.toFixed(2)} ${(-dObj.lTopOut.y).toFixed(2)}`,
-                `L ${dObj.tip.x.toFixed(2)} ${(-dObj.tip.y).toFixed(2)}`,
-                `L ${dObj.lHook.x.toFixed(2)} ${(-dObj.lHook.y).toFixed(2)}`,
-                `L ${dObj.lTopIn.x.toFixed(2)} ${(-dObj.lTopIn.y).toFixed(2)}`,
-                `Z`
-            ].join(' ');
-        }
 
         
 const ALPHA_DOOR_FRACTION = 0.6;
@@ -8246,7 +6984,6 @@ const ALPHA_DOOR_FRACTION = 0.6;
         }
 
         
-const ALPHA_SOURCE_BODY = "M657.53 7388.66c0,3034.42 -3.61,7463.26 -10.96,10567.31 -1.14,472.23 -63.95,689.79 707.72,734.77 2025.42,118.07 5064.69,478.02 5149.82,482.41 321.65,16.5 7074.61,2087.51 7957.45,2398.24 0,0 4545.1,0 4545.1,0 173.77,-44.2 952.1,-436.95 1494.58,-688.69 146.4,-67.95 135.32,-51.95 43.68,-199.35 -5053.42,-8127.37 -12986.36,-12136.67 -19720.14,-13425.78 -176.67,-33.83 -164.13,-61.46 -167.25,131.09zm2224.57 1962.58c1471.11,-22.74 4303.84,34.27 4303.84,34.27 1742.73,656.48 5627.94,3009.22 6802.31,4120.07 175.53,166.05 14.14,240.82 -147.23,79.85 -507.4,-506.07 -3977.45,-3048.69 -6694.76,-4074.36 -59.29,-22.4 -2723.79,-46.73 -4233.04,0.86 -1154.02,36.42 -1896.4,1192.08 -1896.4,1783.58 0,1746.41 -58.67,5060.39 -38.39,6756.2 3.77,313.68 -38.88,276.35 222.11,291.91 1887.62,112.47 5444.52,436 5645.85,466.34 172.44,25.99 4783.24,1463.75 7441.86,2269.76 269.03,81.56 231.15,65.99 285.95,-107.55 867.86,-2748.09 1097.4,-3491.21 1673.69,-5248.79 9.76,-29.72 8.14,-61.41 -43.86,-76.54 -3492.18,-1015.29 -5023.72,-1471.37 -8593.64,-2591.54 -298.02,-93.52 -290.92,-64.93 -279.94,-201.24 19.86,-246.45 151.82,-1535.56 254.99,-2560.26 1.47,-14.72 22.97,-108.97 -36.06,-111.59 -833.01,-36.88 -1440.65,-102.86 -2879.78,-226.66 0,0 5.88,-158.3 5.88,-158.3 11.2,-6.04 2848.99,230.4 3015.73,241.72 63.52,4.29 56.53,-14.46 51.51,82.93 -18.81,365.43 -184,2151.79 -238.28,2677.37 -4.76,46.03 36.17,45.22 106.55,65.91 1478.52,434.85 6375.85,1955.86 8715.62,2705.52 52.8,16.93 49.88,85.26 45.52,101 -733.13,2632.16 -1148.11,3891.35 -1703.23,5603.78 -31.64,97.6 -83.69,127.7 -151.77,98.02 -1555.27,-677.8 -7558.08,-2410.6 -7736.53,-2430.97 -1417.27,-161.82 -3663.68,-335.71 -6042.78,-517.78 -13.84,-1.07 -14.41,-118.86 -15.94,-135.27 0,0 108.03,-0.5 108.03,-0.5 -36.12,-1095.34 -8.39,-2118.83 -6.04,-3681.79 0,-8.97 -53.02,-2138.4 27.41,-3461.37 50.33,-827.95 1110.61,-1780.35 2030.82,-1794.58zm-1854.6 -1622.68c-16,119.92 -18.41,1194.82 -15.03,1296.15 3.03,90.69 5.13,197.82 245.31,203.09 1524.04,33.41 1656.84,12.16 4148.17,-19.87 357.22,-4.59 220.49,-358.68 -1.78,-428.79 -684.77,-216.07 -1461.52,-476.13 -4182.27,-1174.08 -115.02,-29.5 -188.87,67.22 -194.4,123.5zm12378.07 5769.11c-1656.87,-1199.06 -2789.01,-2087.61 -5117.75,-3233.97 -201.23,-99.06 -380.8,-117.55 -430.12,80.57 0,645.17 -89.61,1182.36 -138.58,1810.46 -19.12,245.2 -81.62,582.04 232.61,611.73 300.78,28.41 4171.35,1255.33 5722.32,1749.8 700.02,223.16 1887.1,541.37 -268.48,-1018.59zm1556.42 7260.98c-85.66,309.78 -127.08,449.15 360.07,447.47 1362.33,-4.67 2677.83,-3.44 3513.63,0.33 172.07,0.78 116.56,12.2 736.9,-266.11 705.95,-316.68 688.93,-298.46 270.73,-866.8 -233.47,-317.27 -642.53,-992.86 -1173.19,-1641.87 -739.72,-904.66 -1116,-1320.04 -1917,-2193.68 -120.31,-131.22 -283.21,-194.03 -391.35,31.97 -314.52,657.26 -1345.16,4291.15 -1399.79,4488.69z";
 const ALPHA_SOURCE_INNER = "M4718.42 9485.38c-214.12,0.81 -429.94,2.25 -641.83,4.41l352.14 -29.41 289.69 25zm2127.97 9324.57c173.23,20.07 4783.24,1463.75 7441.85,2269.76 269.04,81.57 231.16,66 285.96,-107.54 867.87,-2748.09 1097.41,-3491.21 1673.7,-5248.79 9.74,-29.73 8.13,-61.42 -43.87,-76.53 -3492.18,-1015.29 -5023.73,-1471.38 -8593.64,-2591.56 -298.02,-93.51 -290.91,-64.93 -279.93,-201.23 19.85,-246.45 151.82,-1535.56 254.98,-2560.26 1.48,-14.72 22.96,-108.98 -36.07,-111.59 -832.99,-36.88 -1440.65,-102.86 -2879.76,-226.66 0,0 5.86,-158.31 5.86,-158.31 8.83,-4.76 1771.35,140.94 2600.82,208.54 0,0 300.69,24.27 389.9,31.35 109.36,8.67 74.66,-29.11 71,174.4 -34.48,504.83 -182.03,2096.64 -232.75,2587.73 -4.75,46.04 36.17,45.22 106.54,65.92 1478.53,434.84 6375.86,1955.86 8715.62,2705.53 52.81,16.93 49.9,85.26 45.52,100.98 -733.13,2632.17 -1148.1,3891.36 -1703.23,5603.79 -31.63,97.59 -83.68,127.7 -151.76,98.03 -1555.27,-677.82 -7558.09,-2410.61 -7736.53,-2430.98 -1417.28,-161.82 -3663.67,-335.71 -6042.78,-517.78 -13.85,-1.06 -14.42,-118.86 -15.94,-135.27l108.03 -0.5c3195.42,265.29 4073.69,295.85 6016.48,520.97z";
 const ALPHA_LOWER_TRIANGLE = "M14961.99 20758.65c-85.66,309.78 -127.08,449.15 360.07,447.47 1362.33,-4.67 2677.83,-3.44 3513.63,0.33 172.07,0.78 116.56,12.2 736.9,-266.11 705.95,-316.68 688.93,-298.46 270.73,-866.8 -233.47,-317.27 -642.53,-992.86 -1173.19,-1641.87 -739.72,-904.66 -1116,-1320.04 -1917,-2193.68 -120.31,-131.22 -283.21,-194.03 -391.35,31.97 -314.52,657.26 -1345.16,4291.15 -1399.79,4488.69z";
 const ALPHA_UPPER_DETAIL = "M1027.50 7728.56c-16,119.92 -18.41,1194.82 -15.03,1296.15 3.03,90.69 5.13,197.82 245.31,203.09 1524.04,33.41 1656.84,12.16 4148.17,-19.87 357.22,-4.59 220.49,-358.68 -1.78,-428.79 -684.77,-216.07 -1461.52,-476.13 -4182.27,-1174.08 -115.02,-29.5 -188.87,67.22 -194.4,123.5z";
@@ -8402,7 +7139,6 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             return {x:v*v*v*a.x+3*v*v*t*b.x+3*v*t*t*c.x+t*t*t*d.x,
                     y:v*v*v*a.y+3*v*v*t*b.y+3*v*t*t*c.y+t*t*t*d.y};
         };
-        const toArray = p => [p.x,p.y];
         const P0=[31351.74,17756.88];
         const B1=[35439.76,15651.22],B2=[34920.23,14193.14],B3=[34102.58,10805.54];
         const dt=.713, a01=mix(P0,B1,dt),a12=mix(B1,B2,dt),a23=mix(B2,B3,dt);
@@ -9042,30 +7778,6 @@ window.drawUniReferenceBins = drawReferenceBins;
         const ergoClamp01 = (t) => Math.max(0, Math.min(1, t));
         const ergoSmooth = (t) => { t = ergoClamp01(t); return t * t * (3 - 2 * t); };
 
-        // Interpolação Hermite cardinal (C1) entre keyframes [t, v0, v1, ...]
-        function ergoSampleKeys(keys, t) {
-            const n = keys.length, dim = keys[0].length - 1;
-            if (t <= keys[0][0]) return keys[0].slice(1);
-            if (t >= keys[n - 1][0]) return keys[n - 1].slice(1);
-            let i = 0;
-            while (i < n - 2 && t > keys[i + 1][0]) i++;
-            const k0 = keys[i], k1 = keys[i + 1];
-            const dt = k1[0] - k0[0];
-            const s = (t - k0[0]) / dt;
-            const s2 = s * s, s3 = s2 * s;
-            const h00 = 2 * s3 - 3 * s2 + 1, h10 = s3 - 2 * s2 + s, h01 = -2 * s3 + 3 * s2, h11 = s3 - s2;
-            const out = [];
-            for (let d = 1; d <= dim; d++) {
-                const tan = (a, b) => (b[d] - a[d]) / (b[0] - a[0]);
-                const m0 = (i === 0) ? 0 : tan(keys[i - 1], keys[i + 1]);
-                const m1 = (i + 1 === n - 1) ? 0 : tan(keys[i], keys[i + 2]);
-                // limita a tangente para não haver overshoot entre keyframes consecutivos
-                const sec = (k1[d] - k0[d]) / dt;
-                const lim = (m, sc) => (sc === 0) ? 0 : (Math.sign(m) !== Math.sign(sc) ? 0 : Math.min(Math.abs(m), 3 * Math.abs(sc)) * Math.sign(m));
-                out.push(h00 * k0[d] + h10 * dt * lim(m0, sec) + h01 * k1[d] + h11 * dt * lim(m1, sec));
-            }
-            return out;
-        }
 
 
         // Perfil de apoio da mala: interpola a linha real do contorno CAD
@@ -9658,14 +8370,6 @@ window.drawUniReferenceBins = drawReferenceBins;
             requestAnimationFrame(() => updateErgonomics());
         }
 
-        function runResultsSequence() {
-            // A postura final fica estável com o cronômetro congelado; o roteiro encerra após breve pausa.
-            cancelResultsSequence();
-            const id = manikinState.seq;
-            const HOLD = 2500;                                // 2–3 s de cena final estabilizada
-            const t = setTimeout(() => { if (manikinState.seq === id) window.ergoDone = true; }, HOLD);
-            manikinState.seqTimers.push(t);
-        }
 
         // A única fonte do relógio da Aba 6: RAF cancelável, sem setInterval oculto.
         let manikinFrameId = 0;
@@ -9739,22 +8443,6 @@ window.drawUniReferenceBins = drawReferenceBins;
             }
         }
 
-        function revealCards() {
-            if (manikinState.cardsShown) return;
-            manikinState.cardsShown = true;
-            const box = document.getElementById('ergo-overlay');
-            if (box) { box.classList.add('cards-on'); box.setAttribute('aria-hidden', 'false'); }
-            const t0 = performance.now(), dur = 1300;
-            const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-            const tick = (now) => {
-                if (!manikinState.cardsShown) return;
-                const k = reduce ? 1 : Math.min(1, Math.max(0, (now - t0 - 250) / dur));
-                manikinState.cardFrac = 1 - Math.pow(1 - k, 3);   // ease-out
-                writeCards(manikinState.cardFrac);
-                if (k < 1) requestAnimationFrame(tick);
-            };
-            requestAnimationFrame(tick);
-        }
 
         function hideCards() {
             if (!manikinState.cardsShown) return;
@@ -9842,20 +8530,6 @@ window.drawUniReferenceBins = drawReferenceBins;
             far:  { clip: [406, 84, 31, 70], palm: new Path2D("M 413.09375 129.816406 L 425.570312 134.882812 C 426.664062 129.425781 426.378906 124.566406 427.082031 119.4375 C 427.449219 112.761719 433.109375 107.414062 429.066406 105.945312 C 426.40625 106.78125 427.402344 109.558594 423.441406 114.234375 C 413.023438 114.199219 432.945312 92.425781 430.542969 92.1875 C 423.492188 87.332031 410 118.523438 413.09375 129.816406"), cuff: new Path2D("M 411.824219 140.289062 C 415.183594 142.914062 420 144.324219 424.363281 144.964844 L 425.195312 138.394531 L 413.167969 134.027344 Z M 411.824219 140.289062"), hl: [],
                    contact: [424, 125], wrist: [418, 140], fore: -1.26274 }
         };
-        function pdfOpenHand(ctx, N, M, o) {
-            ctx.save(); ctx.transform(M.a, M.b, M.c, M.d, M.e, M.f);
-            ctx.save(); ctx.beginPath(); ctx.rect(N.clip[0], N.clip[1], N.clip[2], N.clip[3]); ctx.clip();
-            // 1) toda a silhueta (palma e dedos) em cor clara; 2) por cima, o traço do PDF (contorno e vãos entre os dedos) em escuro
-            const lw = (o.ow || 3) / (Math.hypot(M.a, M.b) || 1);
-            ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = PDFM.edge;
-            ctx.lineWidth = 1.6 * lw; ctx.stroke(PDFN_SIL);                       // contorno escuro (inclui os vãos entre os dedos)
-            ctx.fillStyle = o.fill; ctx.fill(PDFN_SIL, 'nonzero'); ctx.restore();  // dedos e palma em cor clara
-            ctx.lineJoin = 'round'; ctx.strokeStyle = PDFM.edge; ctx.lineWidth = 0.8 * lw; ctx.stroke(N.palm);   // borda do dorso da mão
-            ctx.fillStyle = o.fill; ctx.fill(N.palm);
-            ctx.fillStyle = o.gray; ctx.fill(N.cuff);
-            ctx.fillStyle = 'rgba(238, 240, 241, 0.55)'; N.hl.forEach(h => ctx.fill(h));   // brilho suave nos dedos
-            ctx.restore();
-        }
         // Pontos de ancoragem no PDF (centros das juntas e pontos de contato da mão)
         const PDFA = {
             hip: [211.34, 432.25], knee: [226.37, 567.87], ankle: [215.29, 703.03],
@@ -9950,37 +8624,8 @@ window.drawUniReferenceBins = drawReferenceBins;
             ctx.restore();
         }
 
-        // Alvo de esforço no ombro: 3 círculos concêntricos (anel colorido, anel cinza, miolo colorido) — proporções do PDF
-        function pdfRing(ctx, x, y, kpx, color) {
-            ctx.save();
-            const RS = 0.8;                                   // alvo do ombro menor (80% do tamanho do PDF)
-            ctx.lineWidth = 2.83 * kpx * RS; ctx.strokeStyle = PDFM.edge;
-            [[34.3, color], [25.85, PDFM.fill], [15.3, color]].forEach(([r, f]) => {
-                ctx.beginPath(); ctx.arc(x, y, r * kpx * RS, 0, Math.PI * 2);
-                ctx.fillStyle = f; ctx.fill(); ctx.stroke();
-            });
-            ctx.restore();
-        }
 
-        // Seta em bloco (haste + ponta triangular). (tx,ty) = cauda em cm; (dx,dy) = direção (y para cima)
-        function pdfArrow(ctx, toX, toY, scale, tx, ty, dx, dy, lenCm, color) {
-            const l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = -dy / l, nx = -uy, ny = ux;
-            const x0 = toX(tx), y0 = toY(ty), len = lenCm * scale;
-            const sw = 1.9 * scale, hw = 5.2 * scale, hl = Math.min(8.5 * scale, len * 0.6), bl = len - hl;
-            const P = (a, b) => [x0 + ux * a + nx * b, y0 + uy * a + ny * b];
-            ctx.save();
-            ctx.beginPath();
-            [P(0, -sw), P(bl, -sw), P(bl, -hw), P(len, 0), P(bl, hw), P(bl, sw), P(0, sw)].forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
-            ctx.closePath(); ctx.fillStyle = color; ctx.fill();
-            ctx.restore();
-        }
 
-        // Desenha com as cores exatas (sem o remapeamento por luminância da paleta escura): usado no contorno/fundo escuro dos textos
-        function rawCanvasColors(fn) {
-            const a = window.ERGO_DARK, b = window.BIN_SOLID, c = window.BIN_DARK;
-            window.ERGO_DARK = false; window.BIN_SOLID = false; window.BIN_DARK = false;
-            try { fn(); } finally { window.ERGO_DARK = a; window.BIN_SOLID = b; window.BIN_DARK = c; }
-        }
 
         window.ergoManikinRect = (W, H) => {   // onde o manequim (170 cm) fica no canvas: base dos pés, centro do corpo e altura em px
             const scale = Math.min((W - 34) / 172, (H - 96) / 207), offX = Math.max(26, (W - 172 * scale) / 2 + 10);
@@ -10472,7 +9117,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             const Tmax = Math.max(...times.map(t => t.tA1 + t.tA2));
             const panelW = W / ERGO_PERCENTILES.length;
             const camera = cinematicFrame(phase);
-            const stats = ERGO_PERCENTILES.map((p, i) => {
+            ERGO_PERCENTILES.forEach((p, i) => {
                 const t = times[i];
                 const localPhase = Math.min(1, phase * Tmax / (t.tA1 + t.tA2));
                 ctx.save();

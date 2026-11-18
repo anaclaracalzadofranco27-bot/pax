@@ -375,7 +375,6 @@ function mp4Box(type, ...parts) {
 function mp4Full(type, version, flags, ...parts) { return mp4Box(type, new Uint8Array([version, flags >> 16 & 255, flags >> 8 & 255, flags & 255]), ...parts); }
 function u32(...v) { const a = new Uint8Array(v.length * 4), dv = new DataView(a.buffer); v.forEach((x, i) => dv.setUint32(i * 4, x)); return a; }
 function u16(...v) { const a = new Uint8Array(v.length * 2), dv = new DataView(a.buffer); v.forEach((x, i) => dv.setUint16(i * 2, x)); return a; }
-function bytes(...v) { return new Uint8Array(v); }
 const MP4_MATRIX = u32(0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x40000000);
 // samples: [{ data: Uint8Array, key: bool }], todos com a mesma duração (1 / fps)
 function buildMp4(samples, avcC, width, height, fps) {
