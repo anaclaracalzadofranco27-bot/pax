@@ -365,9 +365,14 @@
         #pax-frame{display:block;width:100%;height:100%;border:0;background:transparent;color-scheme:dark}
         #tour-stage #module-pax .sim-card{border:0;border-radius:0;box-shadow:none;background:transparent}
         #tour-stage #module-pax .sim-card > div:first-child{display:none}   /* roteiro: sem a barra do viewport */
+        /* A aba do avião e a Simulação Geral compartilham o mesmo palco 16:9. */
+        #module-pax #pax-host{height:auto;aspect-ratio:16/9}
         #tour-stage #pax-host{height:auto;aspect-ratio:16/9}
         #tour-stage.rec #module-pax{position:absolute !important;inset:0 !important;margin:0 !important}
-        #tour-stage.rec #module-pax .sim-card,#tour-stage.rec #pax-host{height:100%;aspect-ratio:auto}
+        #tour-stage.rec #module-pax .sim-card,#tour-stage.rec #pax-host{height:100% !important;aspect-ratio:auto}
+        #tour-stage.rec > #module-pax,#tour-stage.rec > #module-cad3d,#tour-stage.rec > #module-nova,
+        #tour-stage.rec > #module-topview,#tour-stage.rec > #module-unified,
+        #tour-stage.rec > #module-closing{max-width:100%;box-sizing:border-box}
 
 
         /* Fullscreen only for Tab 6. Keep the full presentation in its original centered 16:9 layout. */
@@ -916,11 +921,11 @@ body {
   gap: 12px;
 }
 
-/* Palco 575 x 425 proporcional ao viewBox do SVG */
+/* Quadro Full HD 16:9; o desenho 575x425 continua sem deformação em um palco interno centrado. */
 #viewport {
   width: 94vw;
-  max-width: calc(88vh * (575 / 425));
-  aspect-ratio: 575 / 425;
+  max-width: calc(88vh * (16 / 9));
+  aspect-ratio: 16 / 9;
   position: relative;
   overflow: hidden;
   border: 1px solid #232030;
@@ -930,8 +935,10 @@ body {
 }
 
 #camera-rig {
-  width: 100%;
+  /* 575/425 dentro de 16/9: mantém o SVG, passageiros 3D e balões perfeitamente alinhados. */
+  width: 76.10294%;
   height: 100%;
+  margin-inline: auto;
   position: relative;
   transition: transform 1.8s cubic-bezier(0.45, 0, 0.25, 1);   /* abertura da câmera suave do começo ao fim (antes quase todo o movimento ficava no 1º quadro) */
   will-change: transform;
@@ -940,7 +947,7 @@ body {
 
 /* Zoom inicial focado na ponte de embarque inferior */
 #camera-rig.zoom-bridge {
-  transform: scale(2.35) translate(-4.5%, -24%);
+  transform: scale(1.68) translate(-4.5%, -24%);
 }
 
 #camera-rig > svg {
@@ -1035,11 +1042,11 @@ button:disabled { opacity: 0.55; cursor: default; }
 :root { color-scheme: dark; }
 html, body { background: transparent !important; }
 body { gap: 10px; }
-#viewport { width: min(98vw, calc((100vh - 52px) * 575 / 425)); max-width: none; border: 0; border-radius: 0; background: transparent; box-shadow: none;
-  overflow: visible; clip-path: inset(0 -100vw); }   /* com zoom, o resto do avião (nariz, sanfona, asa) aparece nas laterais em vez de ser cortado */
+#viewport { width: min(98vw, calc((100vh - 52px) * 16 / 9)); max-width: none; border: 0; border-radius: 0; background: transparent; box-shadow: none;
+  overflow: hidden; }   /* o limite da cena coincide com o vídeo 1920x1080; conteúdo essencial fica na safe area */
 body.no-ctl { gap: 0; }
 body.no-ctl #controls { display: none; }
-body.no-ctl #viewport { width: min(100vw, calc(100vh * 575 / 425)); }
+body.no-ctl #viewport { width: min(100vw, calc(100vh * 16 / 9)); }
 #controls { color: #9ba9b5; font-family: 'JetBrains Mono', 'Segoe UI', system-ui, -apple-system, sans-serif; }
 button { background: transparent; color: #d4dce6; border: 1px solid #5b7b9e; font-family: 'JetBrains Mono', 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 12px; }
 button:hover { background: rgba(91,123,158,.14); }
@@ -1620,13 +1627,13 @@ scrubber.oninput = (e) => {
 };
 
 // ============================================================================
-// EXPORTAR VÍDEO: a animação é redesenhada quadro a quadro num canvas próprio (1920 x 1420, a proporção do palco, 30 quadros/s)
+// EXPORTAR VÍDEO: a animação é redesenhada em Full HD 1920 x 1080 (16:9, 30 quadros/s), sem deformar o SVG 575x425
 // e codificada em MP4 (H.264) com o codificador do navegador; sem ele, é gravada em tempo real com o MediaRecorder. Cada quadro tem o fundo, o desenho
 // do avião, os passageiros, o pórtico por cima deles, o zoom da câmera, os bagageiros em laranja, os passageiros sentados escurecidos e os balões, nos mesmos tempos do Play.
 // Os valores abaixo repetem o CSS: #camera-rig.zoom-bridge, a transição do #camera-rig e o pulso dos bagageiros.
 // ============================================================================
-const EXPORT_W = 1920, EXPORT_H = 1420, EXPORT_FPS = 30;
-const CAM_ZOOM = { s: 2.35, tx: -0.045, ty: -0.24, dur: 1.8 };   // scale(2.35) translate(-4.5%, -24%); transição de 1,5 s
+const EXPORT_W = 1920, EXPORT_H = 1080, EXPORT_FPS = 30;
+const CAM_ZOOM = { s: 1.68, tx: -0.045, ty: -0.24, dur: 1.8 };   // scale(2.35) translate(-4.5%, -24%); transição de 1,5 s
 const CABIN_DIM = { '#91999c': '#808283', '#8d8d8b': '#797979', '#758185': '#6a6d6e' };   // mesmas cores do CSS .bin-active .cabin-pax
 const BIN_ORANGE = { top: [242, 106, 42], front: [207, 83, 28], detail: [247, 140, 85] };     // mesmas cores do CSS .bin-active .bag-* (#f26a2a, #cf531c, #f78c55)
 const exportBtn = document.getElementById('exportBtn');
@@ -1764,7 +1771,11 @@ function unionBBox(els, pad) {
 // prepara as camadas uma única vez por exportação
 async function buildExportLayers(W, H) {
   const mainSvg = document.querySelector('#camera-rig > svg'), frontSvg = document.getElementById('pax-front');
-  const VB = mainSvg.viewBox.baseVal, ppu = W / VB.width * CAM_ZOOM.s;              // resolução suficiente para o zoom
+  const VB = mainSvg.viewBox.baseVal;
+  const stageW = Math.min(W, H * VB.width / VB.height);
+  const stageH = Math.min(H, W * VB.height / VB.width);
+  const stageX = (W - stageW) / 2, stageY = (H - stageH) / 2;
+  const ppu = stageW / VB.width * CAM_ZOOM.s;   // pixels por unidade no palco, sem esticar o SVG
   const main = await rasterSvg(svgCloneText(mainSvg, [VB.x, VB.y, VB.width, VB.height], ppu), [VB.x, VB.y, VB.width, VB.height], ppu);
   const fb = unionBBox([...frontSvg.querySelectorAll('path')], 1);
   const front = await rasterSvg(svgCloneText(frontSvg, fb, ppu), fb, ppu);
@@ -1808,20 +1819,24 @@ async function buildExportLayers(W, H) {
   // balões (o mesmo SVG da página), rasterizados com folga de resolução para o zoom
   const bp = ppu * 1.25, rasterBalloon = async b => ({ box: b.box, img: await rasterSvg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${b.box.join(' ')}" width="${Math.ceil(b.box[2] * bp)}" height="${Math.ceil(b.box[3] * bp)}">${b.inner}</svg>`, b.box, bp) });
   const balloons = { names: await Promise.all(NAME_BALLOONS.map(n => rasterBalloon(balloonSvg(n, NAME_STYLE)))), bin: await rasterBalloon(binBadgeSvg(BIN_BADGE)) };
-  return { W, H, VB, main, front, fb, red, dim, balloons, bg };
+  return { W, H, VB, stageW, stageH, stageX, stageY, main, front, fb, red, dim, balloons, bg };
 }
 
 // desenha o quadro do instante t
 function drawExportFrame(ctx, t, L) {
-  const { W, H, VB } = L;
-  const X = x => (x - VB.x) / VB.width * W, Y = y => (y - VB.y) / VB.height * H;
+  const { W, H, VB, stageW, stageH, stageX, stageY } = L;
+  const X = x => (x - VB.x) / VB.width * stageW;
+  const Y = y => (y - VB.y) / VB.height * stageH;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1;
   ctx.fillStyle = L.bg; ctx.fillRect(0, 0, W, H);
   const cam = cameraAt(t);
-  ctx.setTransform(cam.s, 0, 0, cam.s, W / 2 + cam.s * (cam.tx * W - W / 2), H / 2 + cam.s * (cam.ty * H - H / 2));
+  // A câmera opera somente no palco proporcional 575:425, centralizado no 16:9.
+  ctx.setTransform(cam.s, 0, 0, cam.s,
+    stageX + stageW / 2 + cam.s * (cam.tx * stageW - stageW / 2),
+    stageY + stageH / 2 + cam.s * (cam.ty * stageH - stageH / 2));
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(L.main, 0, 0, W, H);
+  ctx.drawImage(L.main, 0, 0, stageW, stageH);
   if (L.dim && t >= BIN_ON) {                       // .bin-active: passageiros sentados escurecem em 0,5 s
     const b = L.dim.bb;
     ctx.globalAlpha = easeCss(Math.min(1, (t - BIN_ON) / 0.5));
@@ -1993,7 +2008,7 @@ async function exportVideo({ width = EXPORT_W, height = EXPORT_H, fps = EXPORT_F
   const ctx = canvas.getContext('2d', { alpha: false });   // vídeo sem canal alfa
   try {
     const L = await buildExportLayers(width, height);
-    PAX.beginExport(Math.round(175 / L.VB.width * width * CAM_ZOOM.s));
+    PAX.beginExport(Math.round(175 / L.VB.width * L.stageW * CAM_ZOOM.s));
     for (const t of [0, 4, ZOOM_END + 0.7, TOTAL_TIME, 0]) drawExportFrame(ctx, t, L);   // aquecimento: compila os shaders e prepara as imagens
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     const blob = h264
@@ -13346,11 +13361,22 @@ window.drawUniReferenceBins = drawReferenceBins;
         }
 
         function fxClear() {}
-        // encaixe no quadro fixo (igual ao fadeIn): módulos mais altos que o quadro são reduzidos a partir do topo
+        // Enquadra cada módulo no palco 16:9 sem cortar conteúdo horizontal ou vertical.
+        // O tempo de cada etapa e a geometria interna permanecem inalterados.
         function fitRec(sec, step) {
             if (!stage.classList.contains('rec') || step.key === 'sim' || step.noFit) return;
-            const cs = getComputedStyle(stage), availH = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom), sh = sec.scrollHeight;
-            if (sh > availH && availH > 200) { sec.style.transformOrigin = 'top center'; sec.style.transform = `scale(${(availH / sh).toFixed(3)})`; }
+            const cs = getComputedStyle(stage);
+            const availW = stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+            const availH = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+            sec.style.transform = '';
+            const sw = Math.max(sec.scrollWidth, sec.offsetWidth), sh = Math.max(sec.scrollHeight, sec.offsetHeight);
+            if (availW > 200 && availH > 200 && sw > 0 && sh > 0) {
+                const k = Math.min(1, availW / sw, availH / sh);
+                if (k < .999) {
+                    sec.style.transformOrigin = 'top center';
+                    sec.style.transform = `scale(${k.toFixed(5)})`;
+                }
+            }
         }
         // posição real da coluna ALPHA da vista de cima (módulo 3) no quadro, medida com o módulo invisível no lugar em que vai entrar
         function measureNovaCol() {
