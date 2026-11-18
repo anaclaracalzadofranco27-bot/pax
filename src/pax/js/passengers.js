@@ -108,61 +108,8 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             }
         }
 
-        // ============================================================================
-        // CONSTRUÇÃO DO MANEQUIM ARTICULADO 3D (CÂNONE ANATÔMICO E VIAJANTE REALISTA)
-        // ============================================================================
-        const defaultBodyMat = new THREE.MeshStandardMaterial({ color: 0xd4dae3, roughness: 0.44, metalness: 0.08 });
-        const defaultJointMat = new THREE.MeshStandardMaterial({ color: 0x3b4454, roughness: 0.52, metalness: 0.16 });
-
-        // Paleta fiel à ilustração de referência do Viajante (Personagem 1)
-        const skinMat = new THREE.MeshStandardMaterial({ color: 0xe9a684, roughness: 0.55, metalness: 0.0 });
-        const skinShadowMat = new THREE.MeshStandardMaterial({ color: 0xc98c72, roughness: 0.60, metalness: 0.0 });
-        const shirtMat = new THREE.MeshStandardMaterial({ color: 0x767a46, roughness: 0.80, metalness: 0.0 });
-        const shirtTorsoMat = new THREE.MeshStandardMaterial({ color: 0x767a46, roughness: 0.92, metalness: 0.0, side: THREE.DoubleSide });
-        const jeansMat = new THREE.MeshStandardMaterial({ color: 0x446282, roughness: 0.95, metalness: 0.0 });
-        const shoeMat = new THREE.MeshStandardMaterial({ color: 0x6f7176, roughness: 0.65, metalness: 0.05 });
-        const soleMat = new THREE.MeshStandardMaterial({ color: 0xdfe1e2, roughness: 0.70, metalness: 0.0 });
-        const hairMat = new THREE.MeshStandardMaterial({ color: 0x58382e, roughness: 0.86, metalness: 0.0 });
-        const featureMat = new THREE.MeshStandardMaterial({ color: 0x36241c, roughness: 0.80, metalness: 0.0 });
-        const suitcaseWellMat = new THREE.MeshStandardMaterial({ color: 0x1e262e, roughness: 0.65, metalness: 0.10 });
-
-        // Paleta fiel à ilustração de referência do Senhor de Idade (Personagem 2)
-        const elderSkinMat = new THREE.MeshStandardMaterial({ color: 0xf0baa3, roughness: 0.58, metalness: 0.0 });
-        const elderWrinkleMat = new THREE.MeshStandardMaterial({ color: 0xb87d65, roughness: 0.65, metalness: 0.0 });
-        const suitMat = new THREE.MeshStandardMaterial({ color: 0xbfa58e, roughness: 0.78, metalness: 0.02 });
-        const suitShadowMat = new THREE.MeshStandardMaterial({ color: 0x9c826c, roughness: 0.84, metalness: 0.02 });
-        const dressShirtMat = new THREE.MeshStandardMaterial({ color: 0xf2f0eb, roughness: 0.65, metalness: 0.0 });
-        const tieMat = new THREE.MeshStandardMaterial({ color: 0x5e493b, roughness: 0.70, metalness: 0.05 });
-        const dressShoeMat = new THREE.MeshStandardMaterial({ color: 0x3d3836, roughness: 0.45, metalness: 0.12 });
-        const vintageCaseMat = new THREE.MeshStandardMaterial({ color: 0x8d583e, roughness: 0.55, metalness: 0.08 });
-        const vintageCornerMat = new THREE.MeshStandardMaterial({ color: 0x663b26, roughness: 0.50, metalness: 0.12 });
-
-        // Paleta fiel à ilustração de referência da Mulher com Bebê (Personagem 3)
-        const motherSkinMat = new THREE.MeshStandardMaterial({ color: 0xe5b299, roughness: 0.55, metalness: 0.0 });
-        const motherLipsMat = new THREE.MeshStandardMaterial({ color: 0xa66553, roughness: 0.60, metalness: 0.0 });
-        const motherHairMat = new THREE.MeshStandardMaterial({ color: 0x3d231a, roughness: 0.85, metalness: 0.0 });
-        const motherCoatMat = new THREE.MeshStandardMaterial({ color: 0x5d6943, roughness: 0.80, metalness: 0.0 });
-        const motherCoatDarkMat = new THREE.MeshStandardMaterial({ color: 0x495334, roughness: 0.85, metalness: 0.0 });
-        const motherPantsMat = new THREE.MeshStandardMaterial({ color: 0x474f57, roughness: 0.78, metalness: 0.0 });
-        const motherBootMat = new THREE.MeshStandardMaterial({ color: 0x5c3a27, roughness: 0.62, metalness: 0.05 });
-        const swaddleBeigeMat = new THREE.MeshStandardMaterial({ color: 0xd8cbb8, roughness: 0.75, metalness: 0.0 });
+        // Material de manta ainda utilizado pelo modelo ativo do bebê.
         const swaddleBlueMat = new THREE.MeshStandardMaterial({ color: 0xc2d5e3, roughness: 0.72, metalness: 0.0 });
-        const babyHairMat = new THREE.MeshStandardMaterial({ color: 0xdec083, roughness: 0.80, metalness: 0.0 });
-        const redSuitcaseMat = new THREE.MeshStandardMaterial({ color: 0xb83b32, roughness: 0.48, metalness: 0.12 });
-        const redSuitcaseTrimMat = new THREE.MeshStandardMaterial({ color: 0x8c2720, roughness: 0.55, metalness: 0.12 });
-
-        // Cria segmento anatômico esculpido com perfil orgânico (panturrilha, coxa, antebraço, tórax)
-        function createSculptedSegment(profilePoints, len, mat, scaleX = 1, scaleZ = 1) {
-            const lathePts = profilePoints.map(([t, r]) => new THREE.Vector2(r, -t * len)).reverse();   // do fundo ao topo: faces voltadas para fora (necessário ao contorno de tinta)
-            const geo = new THREE.LatheGeometry(lathePts, 28);
-            geo.scale(scaleX, 1, scaleZ);
-            geo.computeVertexNormals();
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            return mesh;
-        }
-
         // ----------------------------------------------------------------------------
         // SEGMENTO ORGÂNICO (1º boneco): perfil por spline, amostrado uniformemente em t (v da textura = 1 - t) e
         // textura PINTADA com as linhas de desenho (dobras, barra, gola). u = ângulo (frente +z em u=0), canvas y = t * altura.
@@ -771,62 +718,11 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
                 for (let k = 0; k < 44; k++) { const u0 = k / 44 + 0.003; inkTaper(g, W, H, [u0, 0.03], [u0 + 0.012 * Math.sin(k * 1.7), 0.5], [u0 + 0.008 * Math.cos(k), 0.96], 2.2, k % 2 ? '#8a5c33' : '#c49463'); }
             } }
         });
-        function createOrganicSegment(profilePoints, len, mat, scaleX = 1, scaleZ = 1, drape, paint, caps) {
-            const spl = new THREE.SplineCurve(profilePoints.map(([t, r]) => new THREE.Vector2(t, r)));
-            const dense = spl.getPoints(600);
-            for (let i = 1; i < dense.length; i++) if (dense[i].x < dense[i - 1].x) dense[i].x = dense[i - 1].x;
-            const rAt = tt => {
-                let lo = 0, hi = dense.length - 1;
-                while (hi - lo > 1) { const m = (lo + hi) >> 1; if (dense[m].x <= tt) lo = m; else hi = m; }
-                const a = dense[lo], b = dense[hi], k = b.x > a.x ? (tt - a.x) / (b.x - a.x) : 0;
-                return a.y + (b.y - a.y) * Math.min(1, Math.max(0, k));
-            };
-            const N = 36, lathePts = [];
-            for (let i = N; i >= 0; i--) { const tt = i / N; lathePts.push(new THREE.Vector2(Math.max(0.0008, rAt(tt)), -tt * len)); }   // do fundo (t=1) ao topo (t=0): faces para fora
-            if (caps) { lathePts.unshift(new THREE.Vector2(0.0008, -len)); lathePts.push(new THREE.Vector2(0.0008, 0)); }   // fecha as pontas (palma: sem tubo aberto)
-            const geo = new THREE.LatheGeometry(lathePts, 40);
-            let useMat = mat;
-            if (paint) { useMat = mat.clone(); useMat.color = new THREE.Color(1, 1, 1); useMat.map = paintTexture(paint); }
-            geo.scale(scaleX, 1, scaleZ);
-            geo.computeVertexNormals();
-            const mesh = new THREE.Mesh(geo, useMat);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            return mesh;
-        }
 
 
-        const HAND_K = 1.18;
-        const HANDLE_X = 0.000;   // deslocamento lateral da mala em relação à mão (m); negativo = para fora do corpo
 
         // Constante de escala exata extraída da matriz raiz do glTF (Mannequin.js)
         const GLTF_S = 0.028275117561022346;
-
-        // ----------------------------------------------------------------------------
-        // PROPORÇÃO DOS MANEQUINS ARTICULADOS DO PROJETO PRINCIPAL (ultimaversao..., drawDummyFrontFigure
-        // com fator "slim" 0.74 + peças de perfil do PDF). Os COMPRIMENTOS dos segmentos já coincidiam;
-        // estes fatores afinam a ESPESSURA. Cada par é [largura (X), profundidade (Z)] multiplicando a escala original.
-        // ----------------------------------------------------------------------------
-        const PROP = {
-            shoulderX: 0.774,       // vão dos ombros / estatura: 0.203 -> 0.157
-            hipX: 0.754,            // vão dos quadris / estatura: 0.118 -> 0.089
-            torso: [0.72, 0.80],    // tórax: largura 0.21 -> 0.151 (profundidade 0.14 -> 0.112)
-            pelvis: [0.77, 0.82],   // pelve: 0.183 -> 0.141
-            thigh: [0.82, 0.85],    // coxa: 0.087 -> 0.071
-            calf: [0.80, 0.80],     // canela: 0.066 -> 0.053
-            upperArm: [0.70, 0.75], // braço: 0.068 -> 0.046
-            forearm: [0.80, 0.72],  // antebraço: ~0.05 -> 0.0385
-            joint: 0.82             // raio das esferas de articulação acompanha os membros mais finos
-        };
-        // Viajante (1º boneco): segue o desenho de referência (PDF) - corpo de jovem adulto, mais realista que o manequim magro.
-        const PROP_TRAVELER = {
-            shoulderX: 0.92, hipX: 0.94,
-            torso: [0.92, 0.95], pelvis: [0.94, 0.97],
-            thigh: [0.94, 0.96], calf: [0.93, 0.93],
-            upperArm: [0.94, 0.96], forearm: [0.96, 0.96],
-            joint: 0.90
-        };
-
 
         // ============================================================================
         // ESTILO DESENHO ANIMADO DO 1º BONECO: sombreamento em faixas (toon) + contorno de tinta (casca invertida)
