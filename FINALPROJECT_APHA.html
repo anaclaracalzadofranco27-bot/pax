@@ -5997,7 +5997,7 @@ function xrayRun(ms) {
                 <button type="button" class="tour-segment-export" data-tour-video="ergonomics" title="Export Scenes 5 and 6: integrated cabin and baggage loading">⬇ 5–6 · Cabin & Baggage</button>
                 <button type="button" class="tour-segment-export" data-tour-video="closing" title="Export only the closing sequence">⬇ Closing · Conclusion</button>
             </div>
-            <p id="tour-video-help" class="text-center text-[11px] font-mono text-slate-600">4 independent Full HD exports · 1920×1080 · 30 FPS · select this browser tab when prompted to share.</p>
+            <p id="tour-video-help" class="text-center text-[11px] font-mono text-slate-600">1920×1080 · 30 FPS · when sharing, select <strong>This Tab / Esta guia</strong>, not Window or Entire Screen. Keep the tab visible until the download finishes.</p>
             <div id="tour-stage" class="tour-frame"><i class="tw-corner c1"></i><i class="tw-corner c2"></i><i class="tw-corner c3"></i><i class="tw-corner c4"></i></div>
         </section>
     </main>
@@ -13224,6 +13224,15 @@ window.drawUniReferenceBins = drawReferenceBins;
                 stream.getTracks().forEach(t => t.stop());
                 recStarting = false; resetExportButtons(); return;
             }
+            // A window/monitor capture often points at the wrong surface or an occluded
+            // window. Only a browser-tab source can be reliably cropped to #tour-stage.
+            const sourceSurface = track.getSettings?.().displaySurface || '';
+            if (sourceSurface && sourceSurface !== 'browser') {
+                stream.getTracks().forEach(t => t.stop());
+                recStarting = false; resetExportButtons();
+                alert('Please share THIS browser tab (Esta guia), not a window or the whole screen. The other options can produce black video.');
+                return;
+            }
             // Stop any preview BEFORE applying fixed-size recording layout.
             if (live || active) abort();
 
@@ -13241,18 +13250,11 @@ window.drawUniReferenceBins = drawReferenceBins;
             stage.classList.add('rec');
             await sleep(250); // stabilize the screen-share layout before beginning the clip
 
-            // Tenta recortar apenas o #tour-stage via Region Capture (funciona ao compartilhar Guia);
-            // se estiver em file:// ou capturando Janela/Tela Inteira, continua sem abortar!
-            let croppedByBrowser = false;
-            if (window.CropTarget && typeof track.cropTo === 'function') {
-                try {
-                    const ct = await CropTarget.fromElement(stage);
-                    await track.cropTo(ct);
-                    croppedByBrowser = true;
-                } catch (e) {
-                    console.warn('Region Capture (cropTo) unavailable in this capture mode; using 1080p Canvas compositor:', e);
-                }
-            }
+            // IMPORTANTE: não utilizar track.cropTo() (Region Capture).
+            // Neste arquivo HTML o CropTarget pode retornar quadros pretos/vazios sem
+            // falhar. Capturar a guia integral e recortar pelas coordenadas reais
+            // do #tour-stage no canvas é determinístico e funciona em file://.
+            // O compositor abaixo recorta a região em todos os frames.
 
             // Pipeline de composição 1920x1080 (dimensões pares fixas evitam falha no encoder H.264/MP4)
             const recVideo = document.createElement('video');
@@ -13261,25 +13263,41 @@ window.drawUniReferenceBins = drawReferenceBins;
             recVideo.playsInline = true;
             recVideo.srcObject = stream;
             document.body.appendChild(recVideo);
-            try { await recVideo.play(); } catch (e) {}
-            for (let w = 0; w < 20 && !recVideo.videoWidth; w++) await sleep(50);
+            let playbackReady = false;
+            try {
+                await recVideo.play();
+                for (let w = 0; w < 30 && (!recVideo.videoWidth || recVideo.readyState < 2); w++) await sleep(100);
+                playbackReady = !!(recVideo.videoWidth && recVideo.videoHeight && recVideo.readyState >= 2);
+            } catch (e) { console.error('Screen capture preview:', e); }
+            if (!playbackReady) {
+                recVideo.srcObject = null; recVideo.remove();
+                stream.getTracks().forEach(t => t.stop());
+                document.body.classList.remove('rec-clean');
+                document.body.style.removeProperty('--rec-w');
+                stage.classList.remove('rec');
+                stage.style.removeProperty('--rec-w'); stage.style.removeProperty('--rec-h');
+                recStarting = false; resetExportButtons();
+                alert('The selected tab did not produce video frames. Select This Tab / Esta guia and keep it visible during capture.');
+                return;
+            }
 
-            const surf = (track.getSettings && track.getSettings().displaySurface) || '';
+            const surf = sourceSurface;
             const REC_FPS = 30;
 
             // área de origem a gravar (o quadro do roteiro)
             function cropRect() {
                 const vw = recVideo.videoWidth, vh = recVideo.videoHeight;
                 let sx = 0, sy = 0, sw = vw, sh = vh;
-                // Se capturou a guia sem CropTarget, recorta exatamente nas coordenadas do #tour-stage
-                if (!croppedByBrowser && surf === 'browser' && window.innerWidth > 0 && window.innerHeight > 0) {
+                // Browser tab video has no toolbar; rect coordinates map directly
+                // to captured tab coordinates, even at non-100% OS/browser DPI.
+                if ((surf === 'browser' || !surf) && window.innerWidth > 0 && window.innerHeight > 0) {
                     const r = stage.getBoundingClientRect();
                     if (r.width > 50 && r.height > 50) {
                         const scaleX = vw / window.innerWidth, scaleY = vh / window.innerHeight;
-                        sx = Math.max(0, Math.round(r.left * scaleX));
-                        sy = Math.max(0, Math.round(r.top * scaleY));
-                        sw = Math.min(vw - sx, Math.round(r.width * scaleX));
-                        sh = Math.min(vh - sy, Math.round(r.height * scaleY));
+                        sx = Math.max(0, Math.min(vw - 1, Math.floor(r.left * scaleX)));
+                        sy = Math.max(0, Math.min(vh - 1, Math.floor(r.top * scaleY)));
+                        sw = Math.max(1, Math.min(vw - sx, Math.ceil(r.width * scaleX)));
+                        sh = Math.max(1, Math.min(vh - sy, Math.ceil(r.height * scaleY)));
                     }
                 }
                 return { sx, sy, sw, sh };
@@ -13295,14 +13313,42 @@ window.drawUniReferenceBins = drawReferenceBins;
 
             function drawRecFrame() {
                 const vw = recVideo.videoWidth, vh = recVideo.videoHeight;
-                if (!vw || !vh) return;
+                if (!vw || !vh || recVideo.readyState < 2) return;
                 recCtx.fillStyle = APHA_CABIN_PALETTE.background;
                 recCtx.fillRect(0, 0, OW, OH);
                 const { sx, sy, sw, sh } = cropRect();
+                if (!(sw > 0 && sh > 0)) return;
                 const scale = Math.min(OW / sw, OH / sh);
                 const dw = Math.round(sw * scale), dh = Math.round(sh * scale);
                 const dx = Math.round((OW - dw) / 2), dy = Math.round((OH - dh) / 2);
                 recCtx.drawImage(recVideo, sx, sy, sw, sh, dx, dy, dw, dh);
+                // Detect silent black recordings. A real simulator frame contains
+                // light aircraft, CAD geometry or text; a failed capture does not.
+                const r = rec;
+                if (!r || r.stopping || r.hasVisibleScene || ++r.sampleCount % 30 !== 0) return;
+                try {
+                    const pixels = recCtx.getImageData(0, 0, OW, OH).data;
+                    let highlights = 0;
+                    for (let y = 100; y < OH - 100; y += 25) {
+                        for (let x = 150; x < OW - 150; x += 25) {
+                            const j = (y * OW + x) * 4;
+                            const R = pixels[j], G = pixels[j + 1], B = pixels[j + 2];
+                            if (Math.max(R, G, B) > 95 && R + G + B > 170) highlights++;
+                        }
+                    }
+                    if (highlights >= 10) r.hasVisibleScene = true;
+                    else if (performance.now() - r.startedAt > 7000) {
+                        r.captureError = true;
+                        console.error('Recording contains no visible simulation: confirm the current browser tab was shared.');
+                        stopRec();
+                        abort();
+                    }
+                } catch (e) {
+                    // Some browsers deny readback; keep recording rather than
+                    // terminating on a security exception.
+                    if (!r.warnedReadback) console.warn('Video readback unavailable:', e);
+                    r.warnedReadback = true;
+                }
             }
             drawRecFrame();
             const timer = setInterval(drawRecFrame, Math.round(1000 / REC_FPS));
@@ -13310,8 +13356,8 @@ window.drawUniReferenceBins = drawReferenceBins;
             const REC_BPS = 16e6;   // 16 Mbps: clearer technical drawings at 1920×1080 / 30 FPS
 
             const mimeList = [
-                'video/mp4;codecs=avc1.640028',
                 'video/mp4;codecs=avc1.42E028',
+                'video/mp4;codecs=avc1.640028',
                 'video/mp4;codecs=avc1',
                 'video/mp4',
                 'video/webm;codecs=vp9',
@@ -13351,8 +13397,13 @@ window.drawUniReferenceBins = drawReferenceBins;
                 document.body.classList.remove('rec-clean');
                 document.body.style.removeProperty('--rec-w');
                 stage.classList.remove('rec');
+                const captureError = rec?.captureError;
                 rec = null; recStarting = false;
                 resetExportButtons();
+                if (captureError) {
+                    alert('Black video prevented: the selected capture did not contain the simulation. Export again, choose This Tab / Esta guia and leave it visible until the recording ends.');
+                    return;
+                }
                 if (!chunks.length) {
                     alert('No frames were captured. Make sure to keep the window visible during recording.');
                     return;
@@ -13369,7 +13420,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 setTimeout(() => URL.revokeObjectURL(url), 15000);
             };
             track.addEventListener('ended', () => { stopRec(); abort(); });
-            rec = { mr, timer, profile, stopping: false };
+            rec = { mr, timer, profile, stopping: false, sampleCount: 0, hasVisibleScene: false, startedAt: performance.now(), captureError: false };
             try {
                 mr.start(500);
             } catch (e) {
