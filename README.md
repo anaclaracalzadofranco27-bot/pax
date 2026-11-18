@@ -21,7 +21,7 @@ O `--check` compara o resultado **byte a byte** com o HTML versionado. Em pull r
 | --- | --- |
 | `src/page.template.html` | Estrutura externa e pontos de inclusão dos módulos |
 | `src/css/global.css` | CSS global e estilos de transições / gravação |
-| `src/html/ABA1.html` a `ABA8.html` | HTML das oito abas, numerados na ordem da navegação (incluindo a Aba 6 do manequim) |
+| `src/html/ABA1.html` a `ABA8.html` (Aba 4 em `src/html/ABA4/ABA4.html`) | HTML das oito abas, numerados na ordem da navegação (incluindo a Aba 6 do manequim) |
 | `src/js/core/config.js` | Paleta, geometria e configurações comuns |
 | `src/js/engine/cad2d-and-shared.js` | Desenho técnico CAD 2D e funções compartilhadas |
 | `src/js/engine/manikin.js` | Renderização biomecânica e manequim |
@@ -47,13 +47,14 @@ alterar os IDs `module-*`, a ordem original do DOM ou a renderização do HTML f
 | `ABA1.html` | Avião e embarque (`pax`) |
 | `ABA2.html` | CAD 3D (`cad3d`) |
 | `ABA3.html` | Comparação de espaço (`nova`) |
-| `ABA4.html` | Vista superior (`topview`), com desenhos armazenados em `src/html/ABA4/` |
+| `ABA4/ABA4.html` | Vista superior (`topview`), com HTML e desenhos armazenados juntos em `src/html/ABA4/` |
 | `ABA5.html` | Simulação integrada (`unified`) |
 | `ABA6.html` | Manequim colocando a mala (`sim`) |
 | `ABA7.html` | Encerramento (`closing`) |
 | `ABA8.html` | Simulação Geral / cinco takes (`tour`) |
 
-Os dois SVGs da vista superior ficam em `src/html/ABA4/` como arquivos
+O HTML da Aba 4 e os dois SVGs da vista superior ficam em `src/html/ABA4/`,
+assim toda a estrutura da aba fica em uma única pasta. Os SVGs permanecem como arquivos
 `.svg.base64` (o conteúdo é inserido diretamente pelo JavaScript em
 `src/js/topview/animation.js`). Os desenhos continuam embutidos no HTML
 final e **não exigem arquivos externos ao abrir a apresentação**.

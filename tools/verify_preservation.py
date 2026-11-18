@@ -16,10 +16,11 @@ for tab in tabs:
 # not the legacy DOM order (the original Aba 6 block lives earlier in the page).
 template = (ROOT / "src/page.template.html").read_text(encoding="utf-8")
 for index, name in enumerate(tabs, start=1):
-    source_path = ROOT / "src/html" / f"ABA{index}.html"
+    relative_path = f"src/html/ABA{index}/ABA{index}.html" if index == 4 else f"src/html/ABA{index}.html"
+    source_path = ROOT / relative_path
     source = source_path.read_text(encoding="utf-8")
     assert f'id="module-{name}"' in source, f"Broken section: ABA{index} ({name})"
-    assert f"@@APHA_INCLUDE:src/html/ABA{index}.html@@" in template, (
+    assert f"@@APHA_INCLUDE:{relative_path}@@" in template, (
         f"Template does not include ABA{index} ({name})"
     )
 
