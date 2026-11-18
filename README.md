@@ -36,10 +36,25 @@ HTML e recursos exclusivos ficam juntos:
 | Caminho | Responsabilidade |
 | --- | --- |
 | `source/page.template.html` | Estrutura principal, ordem de inclusão e navegação |
-| `source/css/global.css` | CSS, aparência e transições usadas por várias abas |
+| `source/css/global.css` | Regras globais e inclusões ordenadas de CSS específico |
+| `source/css/shared-viewport.css` | Ajustes compartilhados de painéis das simulações |
+| `source/css/recording-and-transitions.css` | Ajustes do quadro de vídeo, modo de gravação, enquadramento 16:9 e cursor |
 | `source/js/core/config.js` | Paleta, geometria, linha do tempo e configurações comuns |
 | `source/js/core/navigation.js` | Estado da aba ativa e função `switchTab()` para navegar entre as oito abas |
 | `source/js/engine/cabin-shared.js` | Geometria/CAD 2D, bins, malas, ergonomia sentada e desenho da cabine (Abas 5 e 6) |
+
+**CSS modular por aba:** os estilos visuais antes misturados em `source/css/global.css` foram colocados nas pastas das abas, com arquivos de responsabilidade específica:
+
+- `source/html/ABA1/`: `presentation.css` (iframe do avião no palco principal; não substitui `styles.css` do próprio iframe).
+- `source/html/ABA2/`: `cad-hud.css` (balões, cotas e HUD do CAD 3D).
+- `source/html/ABA3/`: `tour-layout.css` e `presentation.css` (comparação e cabeçalho).
+- `source/html/ABA4/`: `tour-layout.css` (vista superior dentro do roteiro).
+- `source/html/ABA5/`: `viewport-theme.css` e `tour-layout.css` (seção da cabine).
+- `source/html/ABA6/`: `viewport-theme.css`, `tour-layout.css` e `fullscreen.css` (viewport e manequim).
+- `source/html/ABA7/`: `closing-frame.css`, `closing-scenes.css` e `closing-illustrations.css` (encerramento).
+- `source/html/ABA8/`: `tour-frame.css`, `tour-controls-hidden.css`, `tour-pax.css`, `tour-buttons.css` e `tour-closing.css` (direção e montagem das cenas).
+
+O `global.css` é o único ponto de entrada do CSS principal e conserva as regras gerais. Ele referencia os novos arquivos por meio de `@@APHA_INCLUDE`, **sem mudar a ordem original das declarações**; o `tools/build.py` gera exatamente o mesmo HTML autossuficiente, com as mesmas prioridades CSS. `source/css/shared-viewport.css` guarda o que pertence às Abas 5 e 6, e `source/css/recording-and-transitions.css` concentra os estilos gerais do modo de gravação. **Não** importe os arquivos novamente com `<link>` ou outras tags `<style>`: eles já são embutidos pelo montador.
 
 **Controle da Aba 6:** `controller.js` contém `initAba6Engine()`, `scheduleAba6Engine()` e `pauseAba6Engine()`, usadas pela própria Aba 6 e pelo diretor da Aba 8. O `cabin-shared.js` inclui o controlador na **posição original, dentro do mesmo `<script>`** por meio de `@@APHA_INCLUDE`. Isso é uma inclusão de código-fonte, não um carregamento separado: não muda a ordem de execução, o código gerado ou as transições.
 

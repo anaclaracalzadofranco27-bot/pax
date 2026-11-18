@@ -1,0 +1,12 @@
+        #tour-stage #module-pax .sim-card{border:0;border-radius:0;box-shadow:none;background:transparent}
+        #tour-stage #module-pax .sim-card > div:first-child{display:none}   /* roteiro: sem a barra do viewport */
+        /* A aba do avião e a Simulação Geral compartilham o mesmo palco 16:9. */
+        #module-pax #pax-host{height:auto;aspect-ratio:16/9}
+        #tour-stage #pax-host{height:auto;aspect-ratio:16/9}
+        #tour-stage.rec #module-pax{position:absolute !important;inset:0 !important;margin:0 !important}
+        #tour-stage.rec #module-pax .sim-card,#tour-stage.rec #pax-host{height:100% !important;aspect-ratio:auto}
+        #tour-stage.rec > #module-pax,#tour-stage.rec > #module-cad3d,#tour-stage.rec > #module-nova,
+        #tour-stage.rec > #module-topview,#tour-stage.rec > #module-unified,
+        #tour-stage.rec > #module-closing{max-width:100%;box-sizing:border-box}
+
+

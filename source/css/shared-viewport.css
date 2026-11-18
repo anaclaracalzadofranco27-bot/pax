@@ -1,0 +1,4 @@
+        /* Hide redundant section headings without hiding the general-simulation controls. */
+        #aba6-module-ergo > .bg-cad-panel:first-child,
+        #module-unified > .bg-cad-panel:first-of-type { display:none !important; }
+        #aba6-module-ergo, #module-unified { row-gap:0 !important; }

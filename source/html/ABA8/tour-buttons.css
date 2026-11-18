@@ -1,0 +1,17 @@
+        /* ===== Aba 6: Full Simulation ===== */
+        #module-tour #tour-btn{padding:10px 22px;font:700 12px 'JetBrains Mono',monospace;color:#000223;background:#5b7b9e;border:1px solid #5b7b9e;border-radius:8px;cursor:pointer;transition:background .2s}
+        #module-tour #tour-btn:hover{background:#6d90b8}
+        #module-tour #tour-rec{padding:10px 22px;font:700 12px 'JetBrains Mono',monospace;color:#9ba9b5;background:transparent;border:1px solid #5b7b9e;border-radius:8px;cursor:pointer;transition:background .2s}
+        #module-tour #tour-rec:hover{background:rgba(91,123,158,0.14)}
+        #module-tour #tour-rec.on{background:#dc2626;border-color:#dc2626;color:#ffffff}
+        #module-tour #tour-snap{padding:10px 22px;font:700 12px 'JetBrains Mono',monospace;color:#9ba9b5;background:transparent;border:1px solid #5b7b9e;border-radius:8px;cursor:pointer;transition:background .2s}
+        #module-tour #tour-snap:hover{background:rgba(91,123,158,0.14)}
+        #module-tour #tour-snap.on{background:#dc2626;border-color:#dc2626;color:#ffffff}
+        #module-tour #tour-snap:disabled,#module-tour #tour-rec:disabled{opacity:.45;cursor:not-allowed}
+        /* Takes independentes: cada cena pode ser reproduzida e exportada em MP4 sem PNG. */
+        #tour-takes{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 12px;padding:2px 0 6px}
+        #tour-takes .take-controls{display:flex;align-items:stretch;border:1px solid #5b7b9e;border-radius:8px;overflow:hidden;background:rgba(5,12,36,.8)}
+        #tour-takes button{border:0;border-radius:0;background:transparent;color:#cbd5e1;padding:8px 10px;font:600 11px 'JetBrains Mono',monospace;cursor:pointer}
+        #tour-takes button:hover{background:rgba(91,123,158,.22);color:white}
+        #tour-takes .take-export{border-left:1px solid #5b7b9e;color:#9ba9b5}
+        #tour-takes button:focus-visible{outline:2px solid #00b4d8;outline-offset:-2px}

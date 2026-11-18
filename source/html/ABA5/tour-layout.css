@@ -1,0 +1,18 @@
+        #tour-stage #module-unified .sim-card > div:first-child{display:none}
+
+        /* Aba 4 (Simulação Integrada) no roteiro/vídeo: SÓ a cena (bin + personagens), a escala de estatura e os títulos CONVENTIONAL / ALPHA */
+        #tour-stage #module-unified{position:relative;width:100%;aspect-ratio:16/9;container-type:inline-size;margin:0 !important}
+        #tour-stage.rec #module-unified{position:absolute !important;inset:0 !important;width:auto;aspect-ratio:auto}
+        #tour-stage #module-unified > div:first-of-type{display:none !important}
+        #tour-stage #module-unified .sim-card{position:absolute;inset:0;margin:0 !important;border:0;border-radius:0;box-shadow:none;background:transparent;overflow:visible}
+        #tour-stage #module-unified .sim-card > div:nth-child(2){display:block;position:static}
+        #tour-stage #module-unified .sim-card > div:last-child{display:none !important}
+        #tour-stage #module-unified .sim-bg{position:absolute !important;left:9.27%;top:14.7%;width:70.73%;height:79%;background:none !important}
+        #tour-stage #module-unified aside{position:absolute !important;left:79.4%;top:10%;width:240px !important;height:750px !important;transform-origin:0 0;background:transparent !important;border:0 !important}
+        /* roteiro/vídeo: a frase "* Approximate values" fica maior e mais abaixo, fora da base da escala */
+        #tour-stage #module-unified aside .uni-note{position:absolute;right:12px;top:100%;margin-top:34px;font-size:17px;line-height:1.2;white-space:nowrap}
+        /* roteiro/vídeo: fontes maiores na escala de estatura */
+        #tour-stage #module-unified aside > div:first-child{font-size:26px !important;line-height:1.2;white-space:nowrap}
+        #tour-stage #module-unified #uni-gauge [id^="uni-ml-"]{font-size:19px !important}
+        .uni-titles{display:none}
+        #tour-stage .uni-titles{display:block;position:absolute;left:0;top:0;width:100%;height:100%;margin:0 !important;pointer-events:none;z-index:2;font-family:'Montserrat','Inter',sans-serif;font-weight:700;animation:cbIn .7s ease .2s both}

@@ -1,0 +1,4 @@
+        /* Vista Superior no roteiro: sem cabeçalho, sem controles e sem moldura */
+        #tour-stage #top-card{border:0;border-radius:0;box-shadow:none;background:transparent}
+        #tour-stage #top-card > div:nth-child(1),#tour-stage #top-card > div:nth-child(2){display:none}
+                #tour-stage #module-topview > div:first-child{display:none}   /* roteiro: sem a caixa de título "Top View – Volumetric Advantage" */

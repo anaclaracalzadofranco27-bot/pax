@@ -34,6 +34,39 @@ assert navigation_source.count("function switchTab(tab) {") == 1, "Navigation ha
 assert "function switchTab(tab) {" not in cabin_source, "Navigation handler duplicated in cabin engine"
 assert "window.SEATED_STAT =" in cabin_source, "Missing seated-cabin ergonomics state"
 
+# CSS modules are expanded at the exact original cascade positions.
+# Never append them to the end of the HTML or introduce new <link> tags.
+css_source = (ROOT / "source/css/global.css").read_text(encoding="utf-8")
+css_paths = (
+    "source/html/ABA6/viewport-theme.css",
+    "source/html/ABA5/viewport-theme.css",
+    "source/html/ABA8/tour-frame.css",
+    "source/html/ABA2/cad-hud.css",
+    "source/html/ABA4/tour-layout.css",
+    "source/html/ABA3/tour-layout.css",
+    "source/html/ABA5/tour-layout.css",
+    "source/html/ABA8/tour-controls-hidden.css",
+    "source/html/ABA6/tour-layout.css",
+    "source/html/ABA1/presentation.css",
+    "source/html/ABA8/tour-pax.css",
+    "source/html/ABA6/fullscreen.css",
+    "source/css/shared-viewport.css",
+    "source/html/ABA8/tour-buttons.css",
+    "source/css/recording-and-transitions.css",
+    "source/html/ABA7/closing-frame.css",
+    "source/html/ABA8/tour-closing.css",
+    "source/html/ABA7/closing-scenes.css",
+    "source/html/ABA3/presentation.css",
+    "source/html/ABA7/closing-illustrations.css",
+)
+assert template.count("@@APHA_INCLUDE:source/css/global.css@@") == 1, "Global CSS entry point missing"
+for css_path in css_paths:
+    css_marker = f"@@APHA_INCLUDE:{css_path}@@"
+    assert css_source.count(css_marker) == 1, f"CSS fragment missing or duplicated: {css_path}"
+    assert (ROOT / css_path).is_file(), f"Missing CSS fragment: {css_path}"
+assert "body {" in css_source and "html, body {" in css_source, "Global theme moved out"
+assert "source/html/ABA1/styles.css" not in css_source, "PAX iframe styles must remain isolated"
+
 for index, name in enumerate(tabs, start=1):
     relative_path = f"source/html/ABA{index}/ABA{index}.html"
     source_path = ROOT / relative_path

@@ -1,0 +1,29 @@
+        /* Reduz apenas o tamanho visual do quadro (o arquivo exportado permanece Full HD). */
+        #tour-frame-adjust{display:flex;align-items:center;justify-content:center;gap:11px;flex-wrap:wrap;
+            color:#9ba9b5;font:600 11px 'JetBrains Mono',monospace;padding:0 0 6px}
+        #tour-frame-adjust input{width:145px;accent-color:#5b7b9e;cursor:pointer}
+        #tour-frame-adjust output{min-width:36px;color:#d4dce6}
+        body.rec-clean #tour-takes,body.rec-clean #tour-frame-adjust{display:none!important}
+        #tour-stage.rec{height:var(--rec-h,820px) !important;overflow:hidden}
+        #tour-stage #ergo-overlay { position: absolute !important; inset: 0 !important; border-radius: 16px; }
+        body.rec-clean { overflow: hidden !important; background-color: #000223 !important; }
+        /* O cursor não deve aparecer nos takes gravados; volta ao normal ao finalizar. */
+        body.rec-clean, body.rec-clean *, body.rec-clean *::before, body.rec-clean *::after { cursor:none !important; }
+        body.rec-clean > header { display: none !important; }
+        body.rec-clean > main { max-width: 100% !important; padding: 0 !important; margin: 0 !important; height: 100vh !important; display: flex !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; }
+        body.rec-clean #module-tour { width: var(--rec-w, 1456px) !important; max-width: var(--rec-w, 1456px) !important; margin: 0 auto !important; }
+        body.rec-clean #tour-ctl-bar { display: none !important; }
+        /* quadro mestre 16:9 (1920x1080 no vídeo): caixa exatamente 16:9, centrada; o recuo interno é a mesma fração da largura e da altura,
+           então a área útil também é 16:9 e nenhuma cena é cortada ou distorcida */
+        #tour-stage.rec { width: var(--rec-w, 1456px) !important; height: var(--rec-h, 819px) !important; aspect-ratio: 16 / 9; margin-left: auto !important; margin-right: auto !important; padding: calc(var(--rec-h, 819px) * 0.022) calc(var(--rec-w, 1456px) * 0.022) !important; overflow: hidden !important; box-sizing: border-box !important; }
+        #tour-stage.rec #cad3d-container { height: 100% !important; }
+        /* A comparação ocupa exatamente a mesma área útil tanto na medição
+           do ponto de chegada do giro quanto na entrada real da Aba 3. */
+        #tour-stage.rec > #module-nova {
+            position:absolute !important;
+            top:2.2% !important;left:2.2% !important;right:2.2% !important;
+            margin:0 !important;
+        }
+        #tour-stage.rec #aba6-module-ergo .sm\:h-\[740px\] { height: calc(var(--rec-h, 819px) * 0.956) !important; }   /* área útil do quadro (altura menos o recuo de 2,2% em cima e embaixo) */
+        /* gravação: tamanho fixo do quadro, para o vídeo não mudar de resolução */
+

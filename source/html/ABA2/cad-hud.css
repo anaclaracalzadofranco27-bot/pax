@@ -1,0 +1,56 @@
+        .cad3d-balloons{display:none;position:absolute;inset:0;pointer-events:none;z-index:3;font-family:'Open Sans','Inter',sans-serif}
+        #tour-stage .cad3d-balloons{display:block}
+        /* Callouts HUD (estilo CAD): fundo, borda, linha de chamada e texto ficam DENTRO de um único .hud-callout, e só esse pai
+           anima a opacidade (entrada e saída), então caixa, linha e texto aparecem e somem juntos */
+        .cad3d-balloons .hud-callout{position:absolute;inset:0;animation:hudIn .7s ease .5s both}
+        .cad3d-balloons.hud-off .hud-callout{animation:hudOut .35s ease-in both}
+        /* Título "OVERHEAD BIN ALPHA" e descrição: caixas HUD sobre a malha, na entrada da cena 3D (logo depois do alerta da cena 1).
+           Ficam dentro de .hud-callout como os callouts, então entram e saem (hudIn / hudOut no pai) junto com eles.
+           Tamanhos em cqw: relativos à largura do quadro 16:9 (#cad3d-container é container-type:inline-size no roteiro). */
+        /* No tour, nenhum título aparece enquanto o CAD ainda inicializa. */
+        #tour-stage .cad3d-balloons:not(.tour-sequenced):not(.hud-off) .hud-callout{
+            animation:none !important;opacity:0 !important;
+        }
+        #tour-stage .cad3d-balloons.tour-sequenced:not(.hud-off) .hud-callout{
+            animation:hudIn var(--apha-intro-fade,.56s) cubic-bezier(.22,.61,.36,1) both;
+        }
+        #tour-stage .cad3d-balloons.tour-sequenced .hud-callout-hero{animation-delay:var(--apha-title-delay,.18s)}
+        #tour-stage .cad3d-balloons.tour-sequenced .hud-callout-door{animation-delay:var(--apha-legend-delay,.61s)}
+        #tour-stage .cad3d-balloons.tour-sequenced .hud-callout-iata{animation-delay:var(--apha-measures-delay,1.02s)}
+        #tour-stage .cad3d-balloons.tour-sequenced .hud-callout-desc{animation-delay:var(--apha-desc-delay,1.46s)}
+        .cad3d-balloons .hud-callout-hero{animation-delay:.25s}
+        .cad3d-balloons .hud-callout-desc{animation-delay:.9s}
+        .cad3d-balloons.hud-off .hud-callout-hero,.cad3d-balloons.hud-off .hud-callout-desc{animation-delay:0s}
+        .alpha-hero-title-box{position:absolute;top:5%;left:50%;transform:translateX(-50%);z-index:25;pointer-events:none;
+            background:rgba(5,12,36,0.88);border:1px solid rgba(0,180,216,0.55);border-top:3px solid #00B4D8;border-radius:6px;padding:10px 28px;
+            box-shadow:0 8px 24px rgba(0,0,0,0.45);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);white-space:nowrap;
+            font-family:'Montserrat','Segoe UI',Arial,sans-serif;font-weight:800;text-transform:uppercase;font-size:clamp(26px,3cqw,48px);line-height:1.15;letter-spacing:0.14em}
+        .alpha-hero-title-box .word-overhead{color:#FFFFFF}
+        .alpha-hero-title-box .word-binalpha{color:#00B4D8}
+        /* Texto técnico numa faixa inferior DIREITA: não cobre mais a área inteira das cotas. */
+        .alpha-hero-desc-box{position:absolute;bottom:4%;right:3%;z-index:25;width:min(48%,580px);max-width:580px;text-align:right;pointer-events:none;
+            background:rgba(5,12,36,0.92);border:1px solid rgba(0,180,216,0.55);border-right:3px solid #00B4D8;border-radius:6px;padding:10px 14px;
+            box-shadow:0 8px 24px rgba(0,0,0,0.45);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
+            font-family:'Montserrat','Segoe UI',Arial,sans-serif;font-weight:500;font-size:clamp(11px,1cqw,18px);line-height:1.28;letter-spacing:0.01em;color:#d4dce6}
+        /* Os valores acompanham a linha projetada, mas são colocados ABAIXO dela, na área segura 16:9. */
+        #cad3d-container .cad3d-dimension-labels{position:absolute;inset:0;z-index:6;pointer-events:none;overflow:hidden}
+        #cad3d-container .cad3d-dimension-value{position:absolute;display:block;visibility:hidden;white-space:nowrap;transform:translateX(-50%);
+            background:rgba(5,12,36,.93);border:1px solid rgba(224,168,0,.65);border-radius:4px;
+            padding:3px 7px;color:#f6d35f;text-shadow:0 1px 2px #050c24;
+            font:800 clamp(11px,1.16cqw,18px)/1.25 'JetBrains Mono',monospace}
+        .alpha-hero-desc-box strong{font-weight:800;color:#FFFFFF}
+        @keyframes hudIn{from{opacity:0;transform:translateY(.8cqw) scale(.97)}to{opacity:1;transform:none}}
+        @keyframes hudOut{from{opacity:1}to{opacity:0}}
+        .cad3d-balloons .cb-lead{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible}
+        .cad3d-balloons .cb-lead line{stroke:#38bdf8;stroke-linecap:round}
+        .cad3d-balloons .cb-lead circle{fill:#38bdf8}
+        .cad3d-balloons .cb{position:absolute;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;white-space:nowrap;
+            background:rgba(15,23,42,.88);border:1px solid #38bdf8;border-radius:4px;color:#f8fafc;font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+        .cad3d-balloons .cb-door{left:69.27%;top:17.5%;width:23.7%;height:17.1%}   /* 17,5%: folga abaixo do título OVERHEAD BIN ALPHA */
+        .cad3d-balloons .cb-door b{font-weight:700;font-size:1.6cqw;line-height:1.2;letter-spacing:.06em;color:#f8fafc}
+        .cad3d-balloons .cb-door span{font-weight:400;font-size:1.2cqw;line-height:1.3;color:#cbd5e1;margin-top:.4cqw}
+        .cad3d-balloons .cb-iata{left:4.35%;top:75.65%;width:18.75%;height:15.28%;font-size:1.1cqw;font-weight:400;color:#cbd5e1}
+        .cad3d-balloons .cb-iata p{margin:0;line-height:1.15}
+        .cad3d-balloons .cb-iata p + p{margin-top:.8cqw;line-height:1.1;font-size:1.3cqw;font-weight:700;color:#f8fafc;letter-spacing:.04em}
+        .cad3d-balloons .cb-iata u{text-decoration:none;color:#f8fafc}
+        @keyframes cbIn{from{opacity:0;transform:translateY(.8cqw) scale(.97)}to{opacity:1;transform:none}}

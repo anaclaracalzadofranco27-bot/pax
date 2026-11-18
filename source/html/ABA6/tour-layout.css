@@ -1,0 +1,5 @@
+        /* roteiro (simulação final): sem a caixa de título, sem a barra "BIOMECHANICAL CAD 2D VIEWPORT" e sem a moldura do cartão */
+        
+        
+        #tour-stage #aba6-module-ergo .sim-card{border:0;border-radius:0;box-shadow:none;background:transparent}
+

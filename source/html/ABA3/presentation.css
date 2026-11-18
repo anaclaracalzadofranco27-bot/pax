@@ -1,0 +1,5 @@
+#nova-comparison-header{text-align:center;padding:12px 10px 22px;opacity:0;transform:translateY(9px);transition:opacity .65s ease,transform .65s ease;pointer-events:none}
+#nova-comparison-header.is-visible{opacity:1;transform:translateY(0)}
+#nova-comparison-header .comparison-title{font-family:'Montserrat','Inter',sans-serif;font-size:clamp(19px,2.1vw,29px);line-height:1.2;font-weight:800;letter-spacing:.065em;color:#FFFFFF;margin:0}
+#nova-comparison-header .comparison-subtitle{font-family:'Montserrat','Inter',sans-serif;font-size:clamp(12px,1.25vw,17px);line-height:1.35;font-weight:700;letter-spacing:.12em;color:#7c8b9e;margin:7px 0 0}
+
