@@ -807,6 +807,12 @@
         #scene-3.go .logo .mkB{animation:s3-dr 1.6s var(--ease) calc(6.7s + var(--o)) both}
         #scene-3.go .logo .lt{animation:s3-lt 1.4s var(--ease) calc(7.7s + var(--o)) both}
         #scene-3.go .logo .wp{animation:s3-wipe 1.5s var(--ease) calc(7.7s + var(--o)) both}
+        /* Exportações da conclusão: conteúdo sem logo e logo isolada da mesma animação. */
+        #module-closing.closing-no-logo #scene-3 #s3-b{display:none!important}
+        #module-closing.logo-only #scene-3{--o:-6.4s}
+        #module-closing.logo-only #scene-1,#module-closing.logo-only #scene-2{display:none!important}
+        #module-closing.logo-only #scene-3.go{animation:none!important;visibility:visible!important;opacity:1!important}
+        #module-closing.logo-only #scene-3 #s3-a{display:none!important}
         @media (prefers-reduced-motion:reduce){#scene-3.go *{animation-duration:.01s!important;animation-delay:var(--o)!important}}
 
         /* cena 1: palco fixo 1920x1080 escalado pelo JS (igual às cenas 2 e 3), centrado no quadro */
@@ -6363,14 +6369,12 @@ function xrayRun(ms) {
                 <input id="tour-frame-scale" type="range" min="65" max="100" step="5" value="85" aria-label="Tamanho do quadro de gravação na tela">
                 <output id="tour-frame-scale-value" for="tour-frame-scale">85%</output>
             </div>
-            <div id="tour-takes" role="group" aria-label="Individual simulation takes">
-                <div class="take-controls"><button type="button" data-take-play="0" title="Play only Take 1">▶ Take 1 · Boarding</button><button type="button" class="take-export" data-take-rec="0" title="Export Take 1 as a separate 1920×1080 video">⏺ MP4</button></div>
-                <div class="take-controls"><button type="button" data-take-play="1" title="Play only Take 2">▶ Take 2 · CAD 3D</button><button type="button" class="take-export" data-take-rec="1" title="Export Take 2 as a separate 1920×1080 video">⏺ MP4</button></div>
-                <div class="take-controls"><button type="button" data-take-play="2" title="Play only Take 3">▶ Take 3 · Bins</button><button type="button" class="take-export" data-take-rec="2" title="Export Take 3 as a separate 1920×1080 video">⏺ MP4</button></div>
-                <div class="take-controls"><button type="button" data-take-play="3" title="Play only Take 4">▶ Take 4 · Top View</button><button type="button" class="take-export" data-take-rec="3" title="Export Take 4 as a separate 1920×1080 video">⏺ MP4</button></div>
-                <div class="take-controls"><button type="button" data-take-play="4" title="Play only Take 5">▶ Take 5 · Section</button><button type="button" class="take-export" data-take-rec="4" title="Export Take 5 as a separate 1920×1080 video">⏺ MP4</button></div>
-                <div class="take-controls"><button type="button" data-take-play="5" title="Play only Take 6">▶ Take 6 · Manikin</button><button type="button" class="take-export" data-take-rec="5" title="Export Take 6 as a separate 1920×1080 video">⏺ MP4</button></div>
-                <div class="take-controls"><button type="button" data-take-play="6" title="Play only Take 7">▶ Take 7 · Closing</button><button type="button" class="take-export" data-take-rec="6" title="Export Take 7 as a separate 1920×1080 video">⏺ MP4</button></div>
+            <div id="tour-takes" role="group" aria-label="Grouped simulation video takes">
+                <div class="take-controls"><button type="button" data-take-play="0" title="Reproduzir somente a cena do avião">▶ Take 1 · Avião</button><button type="button" class="take-export" data-take-rec="0" title="Exportar só a cena do avião em 1920×1080">⏺ MP4</button></div>
+                <div class="take-controls"><button type="button" data-take-play="1" title="Reproduzir abas 2, 3 e 4, com as transições">▶ Take 2 · Abas 2–4</button><button type="button" class="take-export" data-take-rec="1" title="Exportar abas 2 a 4 em um único MP4 com transições">⏺ MP4</button></div>
+                <div class="take-controls"><button type="button" data-take-play="2" title="Reproduzir abas 5 e 6, com a transição contínua">▶ Take 3 · Abas 5–6</button><button type="button" class="take-export" data-take-rec="2" title="Exportar abas 5 e 6 em um único MP4 com transição">⏺ MP4</button></div>
+                <div class="take-controls"><button type="button" data-take-play="3" title="Reproduzir a conclusão sem a logo">▶ Take 4 · Conclusão</button><button type="button" class="take-export" data-take-rec="3" title="Exportar só a conclusão, sem a logo final">⏺ MP4</button></div>
+                <div class="take-controls"><button type="button" data-take-play="4" title="Reproduzir somente a animação da logo">▶ Take 5 · Logo</button><button type="button" class="take-export" data-take-rec="4" title="Exportar apenas a logo final, em MP4 próprio">⏺ MP4</button></div>
             </div>
             <div id="tour-stage" class="tour-frame"><i class="tw-corner c1"></i><i class="tw-corner c2"></i><i class="tw-corner c3"></i><i class="tw-corner c4"></i></div>
         </section>
@@ -13102,7 +13106,9 @@ window.drawUniReferenceBins = drawReferenceBins;
         const stages = ['s1-stage', 's2-stage', 's3-stage'].map(id => document.getElementById(id)).filter(Boolean);
         const timeEl = document.getElementById('closing-time');
         const DURATION = 30000;
-        let t0 = 0, raf = 0;
+        const NO_LOGO_DURATION = 26400;  // termina ANTES do início da logo (26,4 s)
+        const LOGO_DURATION = 3600;      // animação da logo: de 26,4 a 30 s
+        let t0 = 0, raf = 0, activeDuration = DURATION;
         function fit() {
             const W = root.clientWidth, H = root.clientHeight; if (!W || !H) return;
             const s = Math.min(W / 1920, H / 1080);
@@ -13111,32 +13117,51 @@ window.drawUniReferenceBins = drawReferenceBins;
         }
         if (window.ResizeObserver) new ResizeObserver(fit).observe(root);
         window.addEventListener('resize', fit);
-        const label = ms => { if (timeEl) timeEl.textContent = `${(Math.min(ms, DURATION) / 1000).toFixed(1).padStart(4, '0')} / 30.0 s`; };
+        const label = ms => { if (timeEl) timeEl.textContent = `${(Math.min(ms, activeDuration) / 1000).toFixed(1).padStart(4, '0')} / ${(activeDuration/1000).toFixed(1)} s`; };
         function tick() {
             cancelAnimationFrame(raf);
             if (!t0) return;
             const el = performance.now() - t0; label(el);
-            if (el < DURATION) raf = requestAnimationFrame(tick);
+            if (el < activeDuration) raf = requestAnimationFrame(tick);
         }
         function reset() {
             cancelAnimationFrame(raf); t0 = 0;
+            const mod=root.closest('#module-closing');
+            if(mod) mod.classList.remove('closing-no-logo','logo-only');
             scenes.forEach(e => e && e.classList.remove('go'));
+            activeDuration=DURATION;
             fit(); label(0);
         }
-        function play() {
+        function playSegment(mode='full') {
             reset();
-            void root.offsetWidth;                                   // reinicia as animações CSS do zero
-            scenes.forEach(e => e && e.classList.add('go'));
-            t0 = performance.now(); tick();
+            const mod=root.closest('#module-closing');
+            if(mode==='closing'){
+                activeDuration=NO_LOGO_DURATION;
+                if(mod) mod.classList.add('closing-no-logo');
+            }else if(mode==='logo'){
+                activeDuration=LOGO_DURATION;
+                if(mod) mod.classList.add('logo-only');
+            }
+            void root.offsetWidth;    // reinicia todos os keyframes
+            if(mode==='logo') {
+                // O CSS desloca apenas o relógio do SVG 6,4 s, sem reproduzir
+                // as cenas anteriores nem o intervalo de 26,4 segundos.
+                if(scenes[2]) scenes[2].classList.add('go');
+            } else {
+                scenes.forEach(e => e && e.classList.add('go'));
+            }
+            t0=performance.now(); tick();
         }
+        function play(){playSegment('full');}
         // fontes Montserrat 500/800 embutidas: decodifica já no carregamento, para a 1ª cena não trocar de fonte no meio
         try { ['500 40px Montserrat', '800 40px Montserrat'].forEach(f => document.fonts.load(f)); } catch (e) {}
         const btn = document.getElementById('closing-play'); if (btn) btn.addEventListener('click', play);
         window.closingFit = fit;
         window.closingReset = reset;
         window.closingPlay = play;
+        window.closingPlaySegment = playSegment;
         window.closingEnter = () => { fit(); play(); };
-        window.closingDone = () => t0 > 0 && performance.now() - t0 >= DURATION;   // terminou a revelação da logo (30 s)
+        window.closingDone = () => t0 > 0 && performance.now() - t0 >= activeDuration;
     })();
     </script>
     <script>
@@ -13202,10 +13227,20 @@ window.drawUniReferenceBins = drawReferenceBins;
             // depois o encerramento surge sobre a mesma malha do quadro). Só termina depois da revelação da logo (30 s).
             { key: 'closing', sec: 'module-closing', title: '7. Closing – Benefits & Compliance (30 s)', hold: 400, timeout: 40000, noFit: true,
               enter: () => call(window.closingReset),
-              start: () => { call(window.closingFit); call(window.closingPlay); },
+              start: () => { call(window.closingFit); call(window.closingPlaySegment, currentTourSegment); },
               done: () => !!call(window.closingDone),
               leave: () => call(window.closingReset) },
         ];
+        // Um arquivo por bloco cinematográfico: preserva morphIn/morphOut ENTRE
+        // as abas do grupo, nunca grava a transição entre arquivos diferentes.
+        const TOUR_TAKES = [
+            {start:0,end:0,mode:'full',name:'01-aviao'},
+            {start:1,end:3,mode:'full',name:'02-cad-bins-vista-superior'},
+            {start:4,end:5,mode:'full',name:'03-secao-manikin'},
+            {start:6,end:6,mode:'closing',name:'04-conclusao-sem-logo'},
+            {start:6,end:6,mode:'logo',name:'05-logo'}
+        ];
+        let currentTourSegment = 'full';
 
         // ---- transições cinematográficas (Simulação Completa e vídeo) ----
         // Câmera sempre parada: as trocas são feitas com luz e opacidade. A malha do fundo (#tour-stage) nunca se move nem muda de tamanho.
@@ -13651,10 +13686,11 @@ window.drawUniReferenceBins = drawReferenceBins;
             return false;
         }
 
-        async function run(from, through = STEPS.length - 1) {
+        async function run(from, through = STEPS.length - 1, segmentMode = 'full') {
             const my = ++token; live = true;
             destroyBridge();
             giveBack();
+            currentTourSegment = segmentMode;
             btn.textContent = '■ Stop'; btn.dataset.mode = 'stop';
             stage.style.transition = 'none'; stage.style.opacity = '1';
             frameOn(true);
@@ -13724,8 +13760,8 @@ window.drawUniReferenceBins = drawReferenceBins;
         btn.addEventListener('click', () => { if (btn.dataset.mode === 'stop') abort(); else run(0); });
         document.querySelectorAll('#tour-takes [data-take-play]').forEach(b => b.addEventListener('click', () => {
             if (rec) return;
-            const i = Number(b.dataset.takePlay);
-            if (i >= 0 && i < STEPS.length) run(i, i);
+            const take=TOUR_TAKES[Number(b.dataset.takePlay)];
+            if(take) run(take.start,take.end,take.mode);
         }));
 
         // ---- exportar vídeo: grava o quadro com suporte universal (file://, Guia, Janela ou Tela Cheia) em 1920x1080 ----
@@ -13762,7 +13798,7 @@ window.drawUniReferenceBins = drawReferenceBins;
         }
         async function startRec(takeIndex = null) {
             if (rec) { stopRec(); abort(); return; }
-            const selectedTake = Number.isInteger(takeIndex) && takeIndex >= 0 && takeIndex < STEPS.length ? takeIndex : null;
+            const selectedTake = Number.isInteger(takeIndex) && takeIndex >= 0 && takeIndex < TOUR_TAKES.length ? TOUR_TAKES[takeIndex] : null;
             if (!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) || !window.MediaRecorder) {
                 alert('Video export requires the Google Chrome or Microsoft Edge browser (open the HTML file directly in the browser).');
                 return;
@@ -13797,8 +13833,10 @@ window.drawUniReferenceBins = drawReferenceBins;
             stage.style.setProperty('--rec-h', recH + 'px');
             document.body.style.setProperty('--rec-w', recW + 'px');
             stage.classList.add('rec');
-            if (selectedTake === null) run(0);
-            else run(selectedTake, selectedTake);                       // grava somente o take selecionado
+            // Exibir e dimensionar o palco ANTES do CropTarget e do MediaRecorder.
+            // A primeira cena começa SOMENTE depois do recorder.start(), evitando
+            // que o vídeo da logo, que é curto, perca os primeiros keyframes.
+            frameOn(true);
             await sleep(250);
 
             // Tenta recortar apenas o #tour-stage via Region Capture (funciona ao compartilhar Guia);
@@ -13922,7 +13960,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = (selectedTake === null ? 'simulacao-completa-bin-alpha' :
-                    'take-' + String(selectedTake + 1).padStart(2, '0') + '-' + STEPS[selectedTake].key + '-bin-alpha') + '.' + ext;
+                    'take-' + selectedTake.name + '-bin-alpha') + '.' + ext;
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
@@ -13933,11 +13971,13 @@ window.drawUniReferenceBins = drawReferenceBins;
             mr.start(500);
             recBtn.classList.add('on');
             recBtn.textContent = '■ Stop and save video';
+            if(selectedTake === null) run(0);
+            else run(selectedTake.start,selectedTake.end,selectedTake.mode);
         }
         recBtn.addEventListener('click', () => startRec());
         document.querySelectorAll('#tour-takes [data-take-rec]').forEach(b => b.addEventListener('click', () => {
             const i = Number(b.dataset.takeRec);
-            if (i >= 0 && i < STEPS.length) startRec(i);
+            if (i >= 0 && i < TOUR_TAKES.length) startRec(i);
         }));
 
         // ---- exportar PNGs do COMEÇO e do FINAL de cada aba: mesma captura/recorte do vídeo, quadros 1920x1080 num único ZIP ----
