@@ -13224,6 +13224,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                 stream.getTracks().forEach(t => t.stop());
                 recStarting = false; resetExportButtons(); return;
             }
+            // Stop any preview BEFORE applying fixed-size recording layout.
+            if (live || active) abort();
 
             // Ativa modo gravação limpo (sem cabeçalho fixo e com altura par garantida)
             document.body.classList.add('rec-clean');
@@ -13237,7 +13239,6 @@ window.drawUniReferenceBins = drawReferenceBins;
             stage.style.setProperty('--rec-h', recH + 'px');
             document.body.style.setProperty('--rec-w', recW + 'px');
             stage.classList.add('rec');
-            if (live || active) abort();
             await sleep(250); // stabilize the screen-share layout before beginning the clip
 
             // Tenta recortar apenas o #tour-stage via Region Capture (funciona ao compartilhar Guia);
