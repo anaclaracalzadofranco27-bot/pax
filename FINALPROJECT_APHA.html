@@ -362,13 +362,17 @@
         #module-tour #tour-rec:hover{background:rgba(91,123,158,0.14)}
         #module-tour #tour-rec.on{background:#dc2626;border-color:#dc2626;color:#ffffff}
         #module-tour #tour-rec:disabled{opacity:.45;cursor:not-allowed}
+        #tour-video-segments .tour-segment-export{padding:10px 12px;border:1px solid #5b7b9e;border-radius:8px;background:rgba(10,26,58,.9);color:#d4dce6;font:600 11px 'JetBrains Mono',monospace;cursor:pointer;transition:background .2s,border-color .2s;white-space:normal;text-align:center}
+        #tour-video-segments .tour-segment-export:hover,#tour-video-segments .tour-segment-export:focus-visible{background:rgba(91,123,158,.25);border-color:#9ba9b5}
+        #tour-video-segments .tour-segment-export.on{background:#dc2626;border-color:#dc2626;color:#fff}
+        #tour-video-segments .tour-segment-export:disabled{opacity:.45;cursor:not-allowed}
         #tour-stage.rec{height:var(--rec-h,820px) !important;overflow:hidden}
         #tour-stage #ergo-overlay { position: absolute !important; inset: 0 !important; border-radius: 16px; }
         body.rec-clean { overflow: hidden !important; background-color: #000223 !important; }
         body.rec-clean > header { display: none !important; }
         body.rec-clean > main { max-width: 100% !important; padding: 0 !important; margin: 0 !important; height: 100vh !important; display: flex !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; }
         body.rec-clean #module-tour { width: var(--rec-w, 1456px) !important; max-width: var(--rec-w, 1456px) !important; margin: 0 auto !important; }
-        body.rec-clean #tour-ctl-bar { display: none !important; }
+        body.rec-clean #tour-ctl-bar,body.rec-clean #tour-video-segments,body.rec-clean #tour-video-help { display: none !important; }
         /* quadro mestre 16:9 (1920x1080 no vídeo): caixa exatamente 16:9, centrada; o recuo interno é a mesma fração da largura e da altura,
            então a área útil também é 16:9 e nenhuma cena é cortada ou distorcida */
         #tour-stage.rec { width: var(--rec-w, 1456px) !important; height: var(--rec-h, 819px) !important; aspect-ratio: 16 / 9; margin-left: auto !important; margin-right: auto !important; padding: calc(var(--rec-h, 819px) * 0.022) calc(var(--rec-w, 1456px) * 0.022) !important; overflow: hidden !important; box-sizing: border-box !important; }
@@ -5983,7 +5987,17 @@ function xrayRun(ms) {
         </section>
 
         <section id="module-tour" class="space-y-4 hidden">
-            <div id="tour-ctl-bar" class="flex justify-center items-center gap-3 flex-wrap"><button type="button" id="tour-btn" data-mode="run">▶ Run full simulation</button><button type="button" id="tour-rec">⏺ Export video (MP4)</button></div>
+            <div id="tour-ctl-bar" class="flex justify-center items-center gap-3 flex-wrap">
+                <button type="button" id="tour-btn" data-mode="run">▶ Run full simulation</button>
+                <button type="button" id="tour-rec">⏺ Export full video (Full HD)</button>
+            </div>
+            <div id="tour-video-segments" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
+                <button type="button" class="tour-segment-export" data-tour-video="boarding" title="Export only Scene 1: aircraft and boarding bridge">⬇ 1 · Aircraft simulation</button>
+                <button type="button" class="tour-segment-export" data-tour-video="cad" title="Export Scenes 2, 3 and 4, including their transitions">⬇ 2–4 · CAD & Top Views</button>
+                <button type="button" class="tour-segment-export" data-tour-video="ergonomics" title="Export Scenes 5 and 6: integrated cabin and baggage loading">⬇ 5–6 · Cabin & Baggage</button>
+                <button type="button" class="tour-segment-export" data-tour-video="closing" title="Export only the closing sequence">⬇ Closing · Conclusion</button>
+            </div>
+            <p id="tour-video-help" class="text-center text-[11px] font-mono text-slate-600">4 independent Full HD exports · 1920×1080 · 30 FPS · select this browser tab when prompted to share.</p>
             <div id="tour-stage" class="tour-frame"><i class="tw-corner c1"></i><i class="tw-corner c2"></i><i class="tw-corner c3"></i><i class="tw-corner c4"></i></div>
         </section>
     </main>
@@ -13057,7 +13071,8 @@ window.drawUniReferenceBins = drawReferenceBins;
             return false;
         }
 
-        async function run(from) {
+        async function run(from = 0, through = STEPS.length - 1) {
+            // Preserve original transitions while allowing a clip to end after a chosen step.
             const my = ++token; live = true;
             destroyBridge();
             giveBack();
@@ -13065,7 +13080,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             stage.style.transition = 'none'; stage.style.opacity = '1';
             frameOn(true);
             let h0 = 0;                                        // altura do quadro no passo anterior (0 = primeiro passo)
-            for (let i = from; i < STEPS.length; i++) {
+            for (let i = from; i <= through; i++) {
                 if (my !== token) return;
                 const st = STEPS[i];
                 currentTab = st.key;                               // alguns módulos só animam quando "sua" aba está ativa
@@ -13095,7 +13110,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 await sleep(st.hold);
                 if (my !== token) return;
                 if (window.__tourEdge) window.__tourEdge(i, st, 'fim');   // foto do FINAL (antes de dissolver para a próxima aba)
-                if (i < STEPS.length - 1) {
+                if (i < through) {
                     if (st.key === 'unified') {
                         const ok = await fxCabinToStow(my);
                         if (my !== token) return;
@@ -13111,10 +13126,17 @@ window.drawUniReferenceBins = drawReferenceBins;
                         if (st.key === 'sim') destroyBridge(450);
                     }
                 }
-                else { await fadeOut(); if (my !== token) return; giveBack(); currentTab = 'tour'; }
+                else if (through === STEPS.length - 1) {
+                    await fadeOut();
+                    if (my !== token) return;
+                    giveBack(); currentTab = 'tour';
+                }
+                // For a clip, retain its last frame until the recorder has finished.
             }
             if (my !== token) return;
             if (window.__tourEnded) await window.__tourEnded();
+            if (my !== token) return;
+            if (through < STEPS.length - 1) { giveBack(); currentTab = 'tour'; }
             frameOn(false);
             btn.textContent = '↻ Run full simulation again'; btn.dataset.mode = 'run'; live = false;
             // Do not loop or restart the full presentation without the user's click.
@@ -13129,12 +13151,32 @@ window.drawUniReferenceBins = drawReferenceBins;
 
         btn.addEventListener('click', () => { if (btn.dataset.mode === 'stop') abort(); else run(0); });
 
-        // ---- exportar vídeo: grava o quadro com suporte universal (file://, Guia, Janela ou Tela Cheia) em 1920x1080 ----
+        // Full-HD clip exports use the same browser capture compositor as the full video.
         const recBtn = $('tour-rec');
-        let rec = null;
+        const VIDEO_EXPORTS = Object.freeze({
+            full:       { start: 0, end: 6, filename: 'alpha-full-simulation', label: '⏺ Export full video (Full HD)' },
+            boarding:   { start: 0, end: 0, filename: 'alpha-01-aircraft-boarding', label: '⬇ 1 · Aircraft simulation' },
+            cad:        { start: 1, end: 3, filename: 'alpha-02-04-cad-top-views', label: '⬇ 2–4 · CAD & Top Views' },
+            ergonomics: { start: 4, end: 5, filename: 'alpha-05-06-cabin-baggage', label: '⬇ 5–6 · Cabin & Baggage' },
+            closing:    { start: 6, end: 6, filename: 'alpha-07-conclusion', label: '⬇ Closing · Conclusion' }
+        });
+        const segmentBtns = [...document.querySelectorAll('[data-tour-video]')];
+        const exportBtns = [recBtn, ...segmentBtns];
+        const buttonFor = key => key === 'full' ? recBtn : segmentBtns.find(b => b.dataset.tourVideo === key);
+        const resetExportButtons = () => {
+            exportBtns.forEach(b => {
+                if (!b) return;
+                b.classList.remove('on');
+                b.disabled = false;
+                const key = b.dataset.tourVideo || 'full';
+                b.textContent = VIDEO_EXPORTS[key].label;
+            });
+        };
+        let rec = null, recStarting = false;
         function stopRec() {
-            if (!rec) return;
+            if (!rec || rec.stopping) return;
             const r = rec;
+            r.stopping = true;
             if (r.timer) { clearInterval(r.timer); r.timer = null; }
             if (r.mr && r.mr.state !== 'inactive') {
                 try { r.mr.requestData(); } catch (e) {}
@@ -13148,16 +13190,23 @@ window.drawUniReferenceBins = drawReferenceBins;
             stopRec();
             await sleep(250);
         };
-        async function startRec() {
+        async function startRec(exportKey = 'full') {
             if (rec) { stopRec(); abort(); return; }
+            if (recStarting) return;
+            const profile = VIDEO_EXPORTS[exportKey];
+            if (!profile) return;
             if (!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) || !window.MediaRecorder) {
                 alert('Video export requires the Google Chrome or Microsoft Edge browser (open the HTML file directly in the browser).');
                 return;
             }
+            recStarting = true;
+            exportBtns.forEach(b => { if (b) b.disabled = true; });
+            const selectedButton = buttonFor(exportKey);
+            if (selectedButton) selectedButton.textContent = 'Preparing Full HD capture…';
             let stream;
             try {
                 stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { frameRate: { ideal: 30, max: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 }, aspectRatio: { ideal: 16 / 9 } },
+                    video: { frameRate: { ideal: 30, max: 30 }, width: { ideal: 1920 }, height: { ideal: 1080 }, aspectRatio: { ideal: 16 / 9 } },
                     audio: false,
                     preferCurrentTab: true,
                     selfBrowserSurface: 'include',
@@ -13167,10 +13216,14 @@ window.drawUniReferenceBins = drawReferenceBins;
                 if (e && e.name !== 'NotAllowedError' && e.name !== 'AbortError') {
                     alert('Could not start screen capture (' + (e.message || e.name) + '). Open the HTML file directly in a Chrome or Edge tab.');
                 }
+                recStarting = false; resetExportButtons();
                 return;
             }
             const track = stream.getVideoTracks()[0];
-            if (!track) { stream.getTracks().forEach(t => t.stop()); return; }
+            if (!track) {
+                stream.getTracks().forEach(t => t.stop());
+                recStarting = false; resetExportButtons(); return;
+            }
 
             // Ativa modo gravação limpo (sem cabeçalho fixo e com altura par garantida)
             document.body.classList.add('rec-clean');
@@ -13184,8 +13237,8 @@ window.drawUniReferenceBins = drawReferenceBins;
             stage.style.setProperty('--rec-h', recH + 'px');
             document.body.style.setProperty('--rec-w', recW + 'px');
             stage.classList.add('rec');
-            run(0);                                                     // exibe o quadro e inicia a sequência
-            await sleep(250);
+            if (live || active) abort();
+            await sleep(250); // stabilize the screen-share layout before beginning the clip
 
             // Tenta recortar apenas o #tour-stage via Region Capture (funciona ao compartilhar Guia);
             // se estiver em file:// ou capturando Janela/Tela Inteira, continua sem abortar!
@@ -13253,10 +13306,11 @@ window.drawUniReferenceBins = drawReferenceBins;
             drawRecFrame();
             const timer = setInterval(drawRecFrame, Math.round(1000 / REC_FPS));
             const recStream = (recVideo.videoWidth > 0 && recCanvas.captureStream) ? recCanvas.captureStream(REC_FPS) : stream;
-            const REC_BPS = 10e6;   // 10 Mbps (limite do perfil H.264 Baseline nível 3.0); 8 Mbps era o valor original
+            const REC_BPS = 16e6;   // 16 Mbps: clearer technical drawings at 1920×1080 / 30 FPS
 
             const mimeList = [
-                'video/mp4;codecs=avc1.42E01E',
+                'video/mp4;codecs=avc1.640028',
+                'video/mp4;codecs=avc1.42E028',
                 'video/mp4;codecs=avc1',
                 'video/mp4',
                 'video/webm;codecs=vp9',
@@ -13279,6 +13333,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                     stream.getTracks().forEach(t => t.stop());
                     document.body.classList.remove('rec-clean');
                     stage.classList.remove('rec'); abort();
+                    recStarting = false; resetExportButtons();
                     alert('This browser could not initialize the video recorder.');
                     return;
                 }
@@ -13295,9 +13350,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                 document.body.classList.remove('rec-clean');
                 document.body.style.removeProperty('--rec-w');
                 stage.classList.remove('rec');
-                recBtn.classList.remove('on');
-                recBtn.textContent = '⏺ Export video (MP4)';
-                rec = null;
+                rec = null; recStarting = false;
+                resetExportButtons();
                 if (!chunks.length) {
                     alert('No frames were captured. Make sure to keep the window visible during recording.');
                     return;
@@ -13307,19 +13361,40 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'simulacao-completa-bin-alpha.' + ext;
+                a.download = profile.filename + '-1080p.' + ext;
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
                 setTimeout(() => URL.revokeObjectURL(url), 15000);
             };
             track.addEventListener('ended', () => { stopRec(); abort(); });
-            rec = { mr, timer };
-            mr.start(500);
-            recBtn.classList.add('on');
-            recBtn.textContent = '■ Stop and save video';
+            rec = { mr, timer, profile, stopping: false };
+            try {
+                mr.start(500);
+            } catch (e) {
+                rec = null;
+                clearInterval(timer);
+                recVideo.srcObject = null; recVideo.remove();
+                stream.getTracks().forEach(t => t.stop());
+                document.body.classList.remove('rec-clean');
+                document.body.style.removeProperty('--rec-w');
+                stage.classList.remove('rec');
+                recStarting = false; resetExportButtons();
+                alert('Could not start Full HD recording: ' + (e.message || e));
+                return;
+            }
+            recStarting = false;
+            exportBtns.forEach(b => { if (b) b.disabled = true; });
+            if (selectedButton) {
+                selectedButton.classList.add('on');
+                selectedButton.disabled = false;
+                selectedButton.textContent = '■ Stop and save this video';
+            }
+            // The recorder must be running before the first scene frame.
+            requestAnimationFrame(() => run(profile.start, profile.end));
         }
-        recBtn.addEventListener('click', startRec);
+        recBtn.addEventListener('click', () => startRec('full'));
+        segmentBtns.forEach(b => b.addEventListener('click', () => startRec(b.dataset.tourVideo)));
 
         window.__tourEdge = () => {}; // Compatibility hook: PNG capture removed.
         window.tourStart = () => { if (!live) run(0); }; // explicit start only (general presentation button)
