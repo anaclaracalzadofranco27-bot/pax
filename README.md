@@ -30,7 +30,7 @@ O `--check` compara o resultado **byte a byte** com o HTML versionado. Em pull r
 | `src/js/engine/cad3d.js` | Bin Alpha 3D, quatro malas, câmera e transição para a vista superior |
 | `src/js/pax/bridge.js` | Comunicação da Aba 1 com o iframe |
 | `src/pax/index.template.html`, `src/pax/styles.css`, `src/pax/js/*.js` | Cena interna do avião, materiais e movimentos dos passageiros |
-| `src/js/topview/animation.js` e `src/assets/topview/*.base64` | Vista superior da cabine e desenhos vetoriais incorporados |
+| `src/js/topview/animation.js` e `src/html/ABA4/*.base64` | Vista superior da cabine e desenhos vetoriais incorporados |
 | `src/js/bins/export.js` e `src/js/topview/export.js` | Exportadores pontuais |
 | `src/js/closing/animation.js` e `src/svg/closing/*.svg` | Encerramento e desenhos SVG embutidos |
 | `src/js/tour/director-and-recording.js` | Ordem das cenas, morphs, cinco takes e gravação 1920 × 1080 |
@@ -47,11 +47,16 @@ alterar os IDs `module-*`, a ordem original do DOM ou a renderização do HTML f
 | `ABA1.html` | Avião e embarque (`pax`) |
 | `ABA2.html` | CAD 3D (`cad3d`) |
 | `ABA3.html` | Comparação de espaço (`nova`) |
-| `ABA4.html` | Vista superior (`topview`) |
+| `ABA4.html` | Vista superior (`topview`), com desenhos armazenados em `src/html/ABA4/` |
 | `ABA5.html` | Simulação integrada (`unified`) |
 | `ABA6.html` | Manequim colocando a mala (`sim`) |
 | `ABA7.html` | Encerramento (`closing`) |
 | `ABA8.html` | Simulação Geral / cinco takes (`tour`) |
+
+Os dois SVGs da vista superior ficam em `src/html/ABA4/` como arquivos
+`.svg.base64` (o conteúdo é inserido diretamente pelo JavaScript em
+`src/js/topview/animation.js`). Os desenhos continuam embutidos no HTML
+final e **não exigem arquivos externos ao abrir a apresentação**.
 
 A Aba 6 estava embutida em `src/page.template.html`; agora possui um arquivo
 próprio. Sua inclusão foi preservada na mesma posição do template, de modo que

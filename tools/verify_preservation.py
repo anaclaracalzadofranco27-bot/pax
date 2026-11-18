@@ -23,6 +23,15 @@ for index, name in enumerate(tabs, start=1):
         f"Template does not include ABA{index} ({name})"
     )
 
+# The two top-view drawings are owned by ABA4 and embedded, not fetched at runtime.
+topview_js = (ROOT / "src/js/topview/animation.js").read_text(encoding="utf-8")
+for asset in ("aircraft.svg.base64", "detail-s.svg.base64"):
+    asset_path = ROOT / "src/html/ABA4" / asset
+    assert asset_path.is_file(), f"Missing ABA4 asset: {asset_path}"
+    marker = f"@@APHA_INCLUDE:src/html/ABA4/{asset}@@"
+    assert topview_js.count(marker) == 1, f"Missing or duplicate ABA4 asset include: {asset}"
+assert "src/assets/topview/" not in topview_js, "Outdated topview asset path"
+
 block = re.search(r"const TOUR_TAKES = \[([\s\S]*?)\];", director)
 assert block, "Missing take manifest"
 takes = [

@@ -23,13 +23,13 @@
         const CAB_VB = [18.0, 144.5, 814.5, 167.0];   // viewBox do recorte, em pt do PDF
         const CAB = new Image();
         CAB.onload = () => { CAB.ok = true; try { refresh(); } catch (e) { } };
-        CAB.src = 'data:image/svg+xml;base64,@@APHA_INCLUDE:src/assets/topview/aircraft.svg.base64@@';
+        CAB.src = 'data:image/svg+xml;base64,@@APHA_INCLUDE:src/html/ABA4/aircraft.svg.base64@@';
 
         // Detalhe da seção S: arte vetorial do 9.svg (embutida; fundo branco removido)
         const DET_VB = [1422, 467];   // largura × altura do recorte, em unidades do SVG
         const DET = new Image();
         DET.onload = () => { DET.ok = true; try { refresh(); } catch (e) { } };
-        DET.src = 'data:image/svg+xml;base64,@@APHA_INCLUDE:src/assets/topview/detail-s.svg.base64@@';
+        DET.src = 'data:image/svg+xml;base64,@@APHA_INCLUDE:src/html/ABA4/detail-s.svg.base64@@';
 
         // desenhos vetoriais grandes (cabine e detalhe S): rasterizados uma vez por tamanho, em vez de a cada quadro (evita travar o vídeo)
         function rasterOf(img, w, h) {
