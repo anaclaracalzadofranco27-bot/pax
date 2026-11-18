@@ -38,10 +38,12 @@ HTML e recursos exclusivos ficam juntos:
 | `source/page.template.html` | Estrutura principal, ordem de inclusão e navegação |
 | `source/css/global.css` | CSS, aparência e transições usadas por várias abas |
 | `source/js/core/config.js` | Paleta, geometria, linha do tempo e configurações comuns |
-| `source/js/engine/cad2d-and-shared.js` | CAD 2D, comparação da Aba 3 e funções compartilhadas |
-| `source/js/engine/sectioncabin.js` | Ergonomia sentada e funções compartilhadas com a simulação da cabine |
+| `source/js/core/navigation.js` | Estado da aba ativa e função `switchTab()` para navegar entre as oito abas |
+| `source/js/engine/cabin-shared.js` | Geometria/CAD 2D, bins, malas, ergonomia sentada e desenho da cabine (Abas 5 e 6) |
 
-**Controle da Aba 6:** `controller.js` contém `initAba6Engine()`, `scheduleAba6Engine()` e `pauseAba6Engine()`, usadas pela própria Aba 6 e pelo diretor da Aba 8. Como dependem do relógio do manequim e do estado global da aba, o `cad2d-and-shared.js` inclui este módulo na **posição original, dentro do mesmo `<script>`** por meio de `@@APHA_INCLUDE`. Isso é uma inclusão de código-fonte, não um carregamento separado: não muda a ordem de execução, o código gerado ou as transições.
+**Controle da Aba 6:** `controller.js` contém `initAba6Engine()`, `scheduleAba6Engine()` e `pauseAba6Engine()`, usadas pela própria Aba 6 e pelo diretor da Aba 8. O `cabin-shared.js` inclui o controlador na **posição original, dentro do mesmo `<script>`** por meio de `@@APHA_INCLUDE`. Isso é uma inclusão de código-fonte, não um carregamento separado: não muda a ordem de execução, o código gerado ou as transições.
+
+**Unificação do motor compartilhado:** `cabin-shared.js` incorpora o conteúdo anterior de `cad2d-and-shared.js` e `sectioncabin.js`; os dois arquivos antigos foram excluídos. A função `switchTab()` e o estado `currentTab` ficam agora em `core/navigation.js`, incluído exatamente no seu ponto anterior. Para manter a ordem rigorosa do código gerado, `cabin-shared.js` inclui `ABA6/manikin.js` **entre** as partes CAD e ergonomia sentada; a ABA6 continua sendo dona de `manikin.js` e `controller.js`. A montagem resulta no **mesmo HTML byte a byte**. Não inclua esses arquivos manualmente como novas tags `<script>`.
 
 **Dependência importante da Aba 3:** `bin-comparison-renderers.js` pertence à comparação visual (dois bins, cotas de 44″ e 56″), mas utiliza a geometria, os materiais, as malas e a cena do motor `ABA2/cad3d.js`. Por isso, `ABA2/cad3d.js` contém um `@@APHA_INCLUDE` para inserir esse arquivo **dentro da função `initCAD3DModule()`**, exatamente onde o código estava. Ele **não** deve ser incluído como `<script>` separado. O resultado montado permanece idêntico, sem duplicar motores Three.js.
 

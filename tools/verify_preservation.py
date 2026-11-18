@@ -15,10 +15,25 @@ for tab in tabs:
 # Each navigation tab has its own HTML source. File numbers follow tab order,
 # not the legacy DOM order (the original Aba 6 block lives earlier in the page).
 template = (ROOT / "source/page.template.html").read_text(encoding="utf-8")
-# Shared cabin-section drawing is used in ABA5 and ABA6.
-sectioncabin_path = ROOT / "source/js/engine/sectioncabin.js"
-assert sectioncabin_path.is_file(), "Missing shared sectioncabin.js"
-assert template.count("@@APHA_INCLUDE:source/js/engine/sectioncabin.js@@") == 1, "Broken shared sectioncabin.js include"
+# One engine owns shared CAD drawing and seated-cabin drawing.
+# The Aba 6 manikin is inlined *between* them to keep original runtime order.
+cabin_path = ROOT / "source/js/engine/cabin-shared.js"
+navigation_path = ROOT / "source/js/core/navigation.js"
+assert cabin_path.is_file(), "Missing unified cabin-shared.js"
+assert navigation_path.is_file(), "Missing navigation.js"
+cabin_source = cabin_path.read_text(encoding="utf-8")
+navigation_source = navigation_path.read_text(encoding="utf-8")
+assert template.count("@@APHA_INCLUDE:source/js/engine/cabin-shared.js@@") == 1, "Broken shared cabin include"
+assert "@@APHA_INCLUDE:source/js/engine/cad2d-and-shared.js@@" not in template, "Outdated CAD include"
+assert "@@APHA_INCLUDE:source/js/engine/sectioncabin.js@@" not in template, "Outdated seated-cabin include"
+assert cabin_source.count("@@APHA_INCLUDE:source/js/core/navigation.js@@") == 1, "Navigation not placed in original position"
+assert cabin_source.count("@@APHA_INCLUDE:source/html/ABA6/manikin.js@@") == 1, "ABA6 manikin not placed between engine halves"
+assert cabin_source.index("@@APHA_INCLUDE:source/js/core/navigation.js@@") < cabin_source.index("@@APHA_INCLUDE:source/html/ABA6/controller.js@@") < cabin_source.index("function computeAllGeometries("), "Navigation, controller and CAD order changed"
+assert cabin_source.index("function drawCADCanvas(") < cabin_source.index("@@APHA_INCLUDE:source/html/ABA6/manikin.js@@") < cabin_source.index("window.drawSeatedScene = drawSeatedScene;"), "Shared engine draw order changed"
+assert navigation_source.count("function switchTab(tab) {") == 1, "Navigation handler missing or duplicated"
+assert "function switchTab(tab) {" not in cabin_source, "Navigation handler duplicated in cabin engine"
+assert "window.SEATED_STAT =" in cabin_source, "Missing seated-cabin ergonomics state"
+
 for index, name in enumerate(tabs, start=1):
     relative_path = f"source/html/ABA{index}/ABA{index}.html"
     source_path = ROOT / relative_path
@@ -54,7 +69,7 @@ assert "source/assets/topview/" not in topview_js, "Outdated topview asset path"
 aba6_control_path = ROOT / "source/html/ABA6/controller.js"
 assert aba6_control_path.is_file(), "Missing ABA6 animation controller"
 aba6_control_source = aba6_control_path.read_text(encoding="utf-8")
-shared_cad_source = (ROOT / "source/js/engine/cad2d-and-shared.js").read_text(encoding="utf-8")
+shared_cad_source = cabin_source
 assert shared_cad_source.count("@@APHA_INCLUDE:source/html/ABA6/controller.js@@") == 1, "Broken ABA6 controller include"
 assert shared_cad_source.index("@@APHA_INCLUDE:source/html/ABA6/controller.js@@") < shared_cad_source.index("function computeAllGeometries("), "ABA6 controller position changed"
 for name in ("initAba6Engine", "scheduleAba6Engine", "pauseAba6Engine"):
