@@ -426,6 +426,8 @@
         #tour-stage.rec{height:var(--rec-h,820px) !important;overflow:hidden}
         #tour-stage #ergo-overlay { position: absolute !important; inset: 0 !important; border-radius: 16px; }
         body.rec-clean { overflow: hidden !important; background-color: #000223 !important; }
+        /* O cursor não deve aparecer nos takes gravados; volta ao normal ao finalizar. */
+        body.rec-clean, body.rec-clean *, body.rec-clean *::before, body.rec-clean *::after { cursor:none !important; }
         body.rec-clean > header { display: none !important; }
         body.rec-clean > main { max-width: 100% !important; padding: 0 !important; margin: 0 !important; height: 100vh !important; display: flex !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; }
         body.rec-clean #module-tour { width: var(--rec-w, 1456px) !important; max-width: var(--rec-w, 1456px) !important; margin: 0 auto !important; }
@@ -1058,6 +1060,7 @@ body { gap: 10px; }
 #viewport { width: min(98vw, calc((100vh - 52px) * 16 / 9)); max-width: none; border: 0; border-radius: 0; background: transparent; box-shadow: none;
   overflow: hidden; }   /* o limite da cena coincide com o vídeo 1920x1080; conteúdo essencial fica na safe area */
 body.no-ctl { gap: 0; }
+body.no-ctl, body.no-ctl *, body.no-ctl *::before, body.no-ctl *::after { cursor:none !important; } /* iframe da passarela no tour */
 body.no-ctl #controls { display: none; }
 body.no-ctl #viewport { width: min(100vw, calc(100vh * 16 / 9)); }
 #controls { color: #9ba9b5; font-family: 'JetBrains Mono', 'Segoe UI', system-ui, -apple-system, sans-serif; }
@@ -13720,6 +13723,19 @@ window.drawUniReferenceBins = drawReferenceBins;
             stopRec();
             await sleep(250);
         };
+        async function suppressRecordedCursor(track) {
+            // Pede ao navegador para excluir o ponteiro quando a superfície oferecer suporte.
+            // Fallback: a classe rec-clean oculta o cursor no conteúdo HTML da guia.
+            try {
+                const caps = typeof track.getCapabilities === 'function' ? track.getCapabilities() : null;
+                if (caps && Array.isArray(caps.cursor) && caps.cursor.includes('never') &&
+                    typeof track.applyConstraints === 'function') {
+                    await track.applyConstraints({cursor:'never'});
+                }
+            } catch (e) {
+                console.info('Cursor suppression delegated to CSS/browser:', e);
+            }
+        }
         async function startRec(takeIndex = null) {
             if (rec) { stopRec(); abort(); return; }
             const selectedTake = Number.isInteger(takeIndex) && takeIndex >= 0 && takeIndex < STEPS.length ? takeIndex : null;
@@ -13730,7 +13746,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             let stream;
             try {
                 stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { frameRate: { ideal: 30, max: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 }, aspectRatio: { ideal: 16 / 9 } },
+                    video: { frameRate: { ideal: 30, max: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 }, aspectRatio: { ideal: 16 / 9 }, cursor: 'never' },
                     audio: false,
                     preferCurrentTab: true,
                     selfBrowserSurface: 'include',
@@ -13744,6 +13760,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             }
             const track = stream.getVideoTracks()[0];
             if (!track) { stream.getTracks().forEach(t => t.stop()); return; }
+            await suppressRecordedCursor(track);
 
             // Ativa modo gravação limpo (sem cabeçalho fixo e com altura par garantida)
             document.body.classList.add('rec-clean');
@@ -13991,7 +14008,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             let stream;
             try {
                 stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { frameRate: { ideal: 30, max: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 }, aspectRatio: { ideal: 16 / 9 } },
+                    video: { frameRate: { ideal: 30, max: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 }, aspectRatio: { ideal: 16 / 9 }, cursor: 'never' },
                     audio: false, preferCurrentTab: true, selfBrowserSurface: 'include', surfaceSwitching: 'include'
                 });
             } catch (e) {
@@ -14000,6 +14017,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             }
             const track = stream.getVideoTracks()[0];
             if (!track) { stream.getTracks().forEach(t => t.stop()); return; }
+            await suppressRecordedCursor(track);
 
             document.body.classList.add('rec-clean');
             const recW = frameWidth(true), recH = recW * 9 / 16;
