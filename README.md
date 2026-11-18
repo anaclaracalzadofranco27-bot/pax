@@ -4,14 +4,16 @@ A entrega e a reprodução continuam sendo feitas **exclusivamente pelo arquivo 
 
 ## Como editar
 
-Edite os arquivos em `src/`, **não** edite o HTML final manualmente. Para reconstruir:
+Edite os arquivos em `src/`, **não** edite o HTML final manualmente. **Ao salvar alterações na branch `main` do GitHub, o GitHub Actions reconstrói `FINALPROJECT_APHA.html`, executa as verificações e faz automaticamente um segundo commit contendo o HTML atualizado, se necessário. Não é preciso instalar Python no computador para editar pelo GitHub.**
+
+Para executar localmente, opcionalmente, use Python 3.9+ (somente biblioteca padrão):
 
 ```bash
 python tools/build.py
 python tools/build.py --check
 ```
 
-É necessário Python 3.9+ (somente biblioteca padrão). O `--check` compara o resultado **byte a byte** com o HTML versionado e falha se algum módulo não tiver sido compilado. O GitHub Actions repete essa verificação em commits e pull requests.
+O `--check` compara o resultado **byte a byte** com o HTML versionado. Em pull requests e em outras branches, o GitHub Actions reconstrói e valida uma cópia temporária, mas **não faz commit**. O script também pode ser iniciado manualmente pela aba *Actions* (`Build and verify standalone HTML` → *Run workflow*).
 
 ## Onde encontrar cada parte
 
@@ -43,7 +45,7 @@ python tools/build.py --check
 - **Nenhuma limpeza de CSS, troca de Three.js, alteração na geometria ou no timing foi feita nesta separação.** Os cinco takes, as oito abas, os cálculos e as transições permanecem como estavam na versão de referência.
 - Depois de alterações futuras, valide as oito abas, a Simulação Completa e especialmente o Take 02 (giro CAD → bin Alpha), o Take 03 (seção → manequim) e a exportação Full HD.
 
-O ponto de verdade é o código modular em `src/`. O HTML final é um artefato gerado e deve ser atualizado no mesmo commit de qualquer alteração de fonte.
+O ponto de verdade é o código modular em `src/`. O HTML final é um artefato gerado. Em alterações feitas diretamente na `main`, a automação o sincroniza em um commit subsequente do `github-actions[bot]` (pode haver um intervalo breve entre os dois commits). Não edite manualmente o HTML gerado.
 
 ## Limpeza conservadora de código não utilizado (18/11/2026)
 

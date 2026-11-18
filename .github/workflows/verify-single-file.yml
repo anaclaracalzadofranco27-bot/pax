@@ -1,16 +1,56 @@
-name: Verify single-file build
+name: Build and verify standalone HTML
 
 on:
   push:
   pull_request:
+  workflow_dispatch:
+
+# One run per branch at a time; never cancel a build midway through committing.
+concurrency:
+  group: single-file-build-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  verify-html:
+  rebuild-main:
+    name: Rebuild and commit HTML on main
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Compare HTML output with modular source
+      - name: Assemble standalone HTML
+        run: python3 tools/build.py
+      - name: Verify assembled file is in sync
         run: python3 tools/build.py --check
-      - name: Check preserved tabs, transitions and take manifest
+      - name: Check tabs, transitions and five Full HD takes
+        run: python3 tools/verify_preservation.py
+      - name: Commit the generated HTML only if it changed
+        shell: bash
+        run: |
+          if git diff --quiet -- FINALPROJECT_APHA.html; then
+            echo "FINALPROJECT_APHA.html is already in sync."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- FINALPROJECT_APHA.html
+          git commit -m "build: sync FINALPROJECT_APHA.html from src"
+          git push origin HEAD:main
+
+  verify-other-branches:
+    name: Verify pull requests and other branches
+    if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Assemble standalone HTML
+        run: python3 tools/build.py
+      - name: Verify assembled file
+        run: python3 tools/build.py --check
+      - name: Check tabs, transitions and five Full HD takes
         run: python3 tools/verify_preservation.py
