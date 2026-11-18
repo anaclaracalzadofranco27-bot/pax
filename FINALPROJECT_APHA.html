@@ -389,26 +389,26 @@
         #tour-takes button:hover{background:rgba(91,123,158,.22);color:white}
         #tour-takes .take-export{border-left:1px solid #5b7b9e;color:#9ba9b5}
         #tour-takes button:focus-visible{outline:2px solid #00b4d8;outline-offset:-2px}
-        /* Controle de escala da prévia: ajusta apenas o tamanho exibido na tela.
-           A resolução do vídeo exportado é configurada pelo diretor da Aba 8 (1920 × 1080). */
+        /* Controle de escala da prévia: ajusta apenas o tamanho exibido na tela. */
+
         #tour-frame-adjust{display:flex;align-items:center;justify-content:center;gap:11px;flex-wrap:wrap;
             color:#9ba9b5;font:600 11px 'JetBrains Mono',monospace;padding:0 0 6px}
         #tour-frame-adjust input{width:145px;accent-color:#5b7b9e;cursor:pointer}
         #tour-frame-adjust output{min-width:36px;color:#d4dce6}
-        /* Modo de gravação: oculta os controles da prévia e remove rolagem/cabeçalho
+
+/* Modo de gravação: oculta os controles da prévia e remove rolagem/cabeçalho
            para centralizar exclusivamente o palco de captura. */
         body.rec-clean #tour-takes,body.rec-clean #tour-frame-adjust{display:none!important}
         body.rec-clean { overflow: hidden !important; background-color: #000223 !important; }
-        /* Oculta o cursor desenhado pela página (inclusive em pseudoelementos).
-           A supressão do cursor capturado pelo navegador é tratada no JavaScript. */
+
+/* Oculta o cursor desenhado pela página  */
         body.rec-clean, body.rec-clean *, body.rec-clean *::before, body.rec-clean *::after { cursor:none !important; }
         body.rec-clean > header { display: none !important; }
         body.rec-clean > main { max-width: 100% !important; padding: 0 !important; margin: 0 !important; height: 100vh !important; display: flex !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; }
         body.rec-clean #module-tour { width: var(--rec-w, 1456px) !important; max-width: var(--rec-w, 1456px) !important; margin: 0 auto !important; }
         body.rec-clean #tour-ctl-bar { display: none !important; }
-        /* Palco de gravação 16:9: --rec-w/--rec-h controlam o tamanho em tela.
-           O padding de 2,2% em cada eixo preserva a proporção da área útil;
-           a exportação continua em 1920 × 1080, definida pelo gravador. */
+
+/* Palco de gravação 16:9: --rec-w/--rec-h controlam o tamanho em tela. */
         #tour-stage.rec { width: var(--rec-w, 1456px) !important; height: var(--rec-h, 819px) !important; aspect-ratio: 16 / 9; margin-left: auto !important; margin-right: auto !important; padding: calc(var(--rec-h, 819px) * 0.022) calc(var(--rec-w, 1456px) * 0.022) !important; overflow: hidden !important; box-sizing: border-box !important; }
         /* CAD 3D: o canvas ocupa toda a altura útil do palco. */
         #tour-stage.rec #cad3d-container { height: 100% !important; }
