@@ -15,53 +15,39 @@ python tools/build.py --check
 
 O `--check` compara o resultado **byte a byte** com o HTML versionado. Em pull requests e em outras branches, o GitHub Actions reconstrói e valida uma cópia temporária, mas **não faz commit**. O script também pode ser iniciado manualmente pela aba *Actions* (`Build and verify standalone HTML` → *Run workflow*).
 
-## Onde encontrar cada parte
+## Organização por aba
 
-| Fonte | Responsabilidade |
+Cada aba possui sua própria pasta em `src/html/ABA1/` até `src/html/ABA8/`.
+HTML e recursos exclusivos ficam juntos:
+
+| Pasta | Conteúdo |
 | --- | --- |
-| `src/page.template.html` | Estrutura externa e pontos de inclusão dos módulos |
-| `src/css/global.css` | CSS global e estilos de transições / gravação |
-| `src/html/ABA1.html` a `ABA8.html` (Aba 4 em `src/html/ABA4/ABA4.html`) | HTML das oito abas, numerados na ordem da navegação (incluindo a Aba 6 do manequim) |
-| `src/js/core/config.js` | Paleta, geometria e configurações comuns |
-| `src/js/engine/cad2d-and-shared.js` | Desenho técnico CAD 2D e funções compartilhadas |
-| `src/js/engine/manikin.js` | Renderização biomecânica e manequim |
-| `src/js/engine/seated-ergonomics.js` | Ergonomia sentada |
-| `src/js/engine/unified-simulation.js` | Simulação integrada (aba 5) |
-| `src/js/engine/cad3d.js` | Bin Alpha 3D, quatro malas, câmera e transição para a vista superior |
-| `src/js/pax/bridge.js` | Comunicação da Aba 1 com o iframe |
-| `src/pax/index.template.html`, `src/pax/styles.css`, `src/pax/js/*.js` | Cena interna do avião, materiais e movimentos dos passageiros |
-| `src/js/topview/animation.js` e `src/html/ABA4/*.base64` | Vista superior da cabine e desenhos vetoriais incorporados |
-| `src/js/bins/export.js` e `src/js/topview/export.js` | Exportadores pontuais |
-| `src/js/closing/animation.js` e `src/svg/closing/*.svg` | Encerramento e desenhos SVG embutidos |
-| `src/js/tour/director-and-recording.js` | Ordem das cenas, morphs, cinco takes e gravação 1920 × 1080 |
-| `src/js/unified/door-addon.js` | Movimento adicional da porta na simulação integrada |
-| `src/svg/pax/*.svg` | Desenhos da aeronave no iframe |
+| `src/html/ABA1/` | `ABA1.html`, `index.template.html`, `styles.css`, `bridge.js`, scripts de avião/passageiros/controles em `js/` e duas ilustrações em `svg/` |
+| `src/html/ABA2/` | `ABA2.html` e `cad3d.js` (bin 3D, porta, malas e câmera) |
+| `src/html/ABA3/` | `ABA3.html` e `export.js` (exportação da comparação de bins) |
+| `src/html/ABA4/` | `ABA4.html`, `animation.js`, `export.js` e desenhos `*.svg.base64` da vista superior |
+| `src/html/ABA5/` | `ABA5.html`, `unified-simulation.js` e `door-addon.js` |
+| `src/html/ABA6/` | `ABA6.html` e `manikin.js` (manequim e movimentação das malas) |
+| `src/html/ABA7/` | `ABA7.html`, `animation.js` e sete ilustrações do encerramento em `svg/` |
+| `src/html/ABA8/` | `ABA8.html` e `director-and-recording.js` (Simulação Geral, transições e cinco takes) |
 
-## Organização de `src/html/` por abas
+**Arquivos compartilhados**, mantidos fora das pastas das abas:
 
-Os nomes dos arquivos seguem a ordem dos botões visíveis da apresentação, sem
-alterar os IDs `module-*`, a ordem original do DOM ou a renderização do HTML final:
-
-| Fonte | Aba |
+| Caminho | Responsabilidade |
 | --- | --- |
-| `ABA1.html` | Avião e embarque (`pax`) |
-| `ABA2.html` | CAD 3D (`cad3d`) |
-| `ABA3.html` | Comparação de espaço (`nova`) |
-| `ABA4/ABA4.html` | Vista superior (`topview`), com HTML e desenhos armazenados juntos em `src/html/ABA4/` |
-| `ABA5.html` | Simulação integrada (`unified`) |
-| `ABA6.html` | Manequim colocando a mala (`sim`) |
-| `ABA7.html` | Encerramento (`closing`) |
-| `ABA8.html` | Simulação Geral / cinco takes (`tour`) |
+| `src/page.template.html` | Estrutura principal, ordem de inclusão e navegação |
+| `src/css/global.css` | CSS, aparência e transições usadas por várias abas |
+| `src/js/core/config.js` | Paleta, geometria, linha do tempo e configurações comuns |
+| `src/js/engine/cad2d-and-shared.js` | CAD 2D, comparação da Aba 3 e funções compartilhadas |
+| `src/js/engine/seated-ergonomics.js` | Ergonomia sentada e funções compartilhadas com a simulação da cabine |
 
-O HTML da Aba 4 e os dois SVGs da vista superior ficam em `src/html/ABA4/`,
-assim toda a estrutura da aba fica em uma única pasta. Os SVGs permanecem como arquivos
-`.svg.base64` (o conteúdo é inserido diretamente pelo JavaScript em
-`src/js/topview/animation.js`). Os desenhos continuam embutidos no HTML
-final e **não exigem arquivos externos ao abrir a apresentação**.
+Códigos específicos de uma aba também podem ser **chamados pela Simulação Geral**
+(ABA8), mas ficam na pasta de origem. O diretor da ABA8 apenas os coordena.
 
-A Aba 6 estava embutida em `src/page.template.html`; agora possui um arquivo
-próprio. Sua inclusão foi preservada na mesma posição do template, de modo que
-a expansão de `tools/build.py` reproduz exatamente o HTML anterior.
+A montagem pelo `tools/build.py` preserva os elementos `<script>` e `<style>`,
+a ordem de execução e os escopos. A Aba 1 mantém o `iframe srcdoc` isolado:
+seu conteúdo ainda é escapado corretamente pelo builder. Os SVGs e as imagens
+base64 permanecem embutidos no `FINALPROJECT_APHA.html`, independente de `src/`.
 
 ## Regras importantes
 
@@ -77,7 +63,7 @@ O ponto de verdade é o código modular em `src/`. O HTML final é um artefato g
 
 Foram removidas funções sem referência literal, constantes não lidas, seletores SVG `.filNN` sem correspondência fora do CSS e os estilos dos antigos cartões biomecânicos (o overlay não existe mais no HTML). A expressão que desenha os percentis mantém a execução; apenas o array `stats`, que nunca era lido, deixou de ser criado. Funções IIFE e regras potencialmente dinâmicas foram preservadas.
 
-**Intocados nesta limpeza:** as sete estruturas de `src/html/`, `src/js/engine/cad3d.js` (malas, câmera e cotas), `src/js/tour/director-and-recording.js` (cinco takes, suas transições e gravação Full HD) e os demais estilos em uso.
+**Intocados naquela limpeza:** os módulos originais, hoje em `src/html/ABA1/` até `src/html/ABA8/`, incluindo `src/html/ABA2/cad3d.js` (malas, câmera e cotas), `src/html/ABA8/director-and-recording.js` (cinco takes, suas transições e gravação Full HD) e os demais estilos em uso.
 
 Verificação estática:
 
@@ -90,7 +76,7 @@ Esses testes não substituem a reprodução visual das oito abas nem a gravaçã
 
 ## Passageiros: limpeza conservadora e testes
 
-A Aba 1 desenha os três passageiros em `src/pax/js/passengers.js`. As receitas
+A Aba 1 desenha os três passageiros em `src/html/ABA1/js/passengers.js`. As receitas
 obsoletas de textura `PT` e as definições sobrescritas foram removidas.
 O primeiro passageiro mantém as texturas ativas `TVT`; `PT` guarda somente
 receitas ainda usadas pelo senhor, pela mãe e pelo bebê. Geometria de malas,
@@ -105,7 +91,7 @@ foram alterados, e as chamadas públicas de reprodução/exportação permanecem
 Além de reconstruir o HTML, o GitHub Actions executa:
 
 ```bash
-node --check src/pax/js/passengers.js
+node --check src/html/ABA1/js/passengers.js
 python3 tools/verify_passengers.py
 ```
 

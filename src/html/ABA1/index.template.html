@@ -4,17 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Overhead Bin Alpha · Intro Animation (14s)</title>
-<style>@@APHA_INCLUDE:src/pax/styles.css@@</style>
+<style>@@APHA_INCLUDE:src/html/ABA1/styles.css@@</style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
 <div id="viewport">
   <div id="camera-rig" class="zoom-bridge">
-    @@APHA_INCLUDE:src/svg/pax/illustration-01.svg@@
+    @@APHA_INCLUDE:src/html/ABA1/svg/illustration-01.svg@@
     <div id="pax-layer"></div>
     <!-- camada por cima dos passageiros: vidro da passarela e, depois, o pórtico (contornos, poste da frente, moldura, viga e soleira, na ordem do SVG original) -->
-    @@APHA_INCLUDE:src/svg/pax/illustration-02.svg@@
+    @@APHA_INCLUDE:src/html/ABA1/svg/illustration-02.svg@@
     <!-- balões por cima de tudo: nome de cada passageiro (segue a cabeça) e, depois do zoom, o aviso dos bagageiros lotados; montados pelo script -->
     <svg id="pax-labels" viewBox="0 224 575 425"></svg>
   </div>
@@ -29,8 +29,8 @@
   <button id="exportBtn" title="Grava a animação inteira e baixa um arquivo de vídeo">⬇ Exportar vídeo</button>
 </div>
 
-<script>@@APHA_INCLUDE:src/pax/js/aircraft.js@@</script>
-<script>@@APHA_INCLUDE:src/pax/js/passengers.js@@</script>
-<script>@@APHA_INCLUDE:src/pax/js/controls.js@@</script>
+<script>@@APHA_INCLUDE:src/html/ABA1/js/aircraft.js@@</script>
+<script>@@APHA_INCLUDE:src/html/ABA1/js/passengers.js@@</script>
+<script>@@APHA_INCLUDE:src/html/ABA1/js/controls.js@@</script>
 </body>
 </html>
