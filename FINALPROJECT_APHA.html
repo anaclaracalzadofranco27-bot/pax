@@ -417,7 +417,12 @@
         #tour-takes button:hover{background:rgba(91,123,158,.22);color:white}
         #tour-takes .take-export{border-left:1px solid #5b7b9e;color:#9ba9b5}
         #tour-takes button:focus-visible{outline:2px solid #00b4d8;outline-offset:-2px}
-        body.rec-clean #tour-takes{display:none!important}
+        /* Reduz apenas o tamanho visual do quadro (o arquivo exportado permanece Full HD). */
+        #tour-frame-adjust{display:flex;align-items:center;justify-content:center;gap:11px;flex-wrap:wrap;
+            color:#9ba9b5;font:600 11px 'JetBrains Mono',monospace;padding:0 0 6px}
+        #tour-frame-adjust input{width:145px;accent-color:#5b7b9e;cursor:pointer}
+        #tour-frame-adjust output{min-width:36px;color:#d4dce6}
+        body.rec-clean #tour-takes,body.rec-clean #tour-frame-adjust{display:none!important}
         #tour-stage.rec{height:var(--rec-h,820px) !important;overflow:hidden}
         #tour-stage #ergo-overlay { position: absolute !important; inset: 0 !important; border-radius: 16px; }
         body.rec-clean { overflow: hidden !important; background-color: #000223 !important; }
@@ -6342,6 +6347,11 @@ function xrayRun(ms) {
 
         <section id="module-tour" class="space-y-4 hidden">
             <div id="tour-ctl-bar" class="flex justify-center items-center gap-3 flex-wrap"><button type="button" id="tour-btn" data-mode="run">▶ Run full simulation</button><button type="button" id="tour-rec">⏺ Export video (MP4)</button><button type="button" id="tour-snap" title="Runs the full simulation and saves 2 PNGs (1920×1080) per tab — one at the start and one at the end — delivered as a single ZIP" aria-hidden="true" tabindex="-1">📷 Export start/end PNGs</button><button type="button" id="tour-figure-export" title="Export isolated manikin, suitcase and open Alpha bin" aria-hidden="true" tabindex="-1">📷 Export figure (PNG)</button></div>
+            <div id="tour-frame-adjust">
+                <label for="tour-frame-scale">Tamanho do quadro na tela</label>
+                <input id="tour-frame-scale" type="range" min="65" max="100" step="5" value="85" aria-label="Tamanho do quadro de gravação na tela">
+                <output id="tour-frame-scale-value" for="tour-frame-scale">85%</output>
+            </div>
             <div id="tour-takes" role="group" aria-label="Individual simulation takes">
                 <div class="take-controls"><button type="button" data-take-play="0" title="Play only Take 1">▶ Take 1 · Boarding</button><button type="button" class="take-export" data-take-rec="0" title="Export Take 1 as a separate 1920×1080 video">⏺ MP4</button></div>
                 <div class="take-controls"><button type="button" data-take-play="1" title="Play only Take 2">▶ Take 2 · CAD 3D</button><button type="button" class="take-export" data-take-rec="1" title="Export Take 2 as a separate 1920×1080 video">⏺ MP4</button></div>
@@ -13523,13 +13533,31 @@ window.drawUniReferenceBins = drawReferenceBins;
         // ---- quadro com tamanho fixo em todas as etapas: o maior usado entre as simulações (área interna 16:9, a da passarela e da
         //      Simulação Integrada), na largura toda. Usa o mesmo enquadramento da gravação (.rec), então a tela fica igual ao vídeo. ----
         let liveFit = false;
+        const frameScale = $('tour-frame-scale'), frameScaleValue = $('tour-frame-scale-value');
+        const displayFrameScale = () => frameScale ? Number(frameScale.value) / 100 : 0.85;
+        // Encaixe contain: margens internas da janela + tamanho configurável.
+        // Trabalha em pixels CSS; o compositor continua entregando 1920x1080.
+        function frameWidth(forRecording = false) {
+            const pageW = Math.max(1, window.innerWidth);
+            const pageH = Math.max(1, window.innerHeight);
+            const maxW = Math.min(
+                pageW * 0.94,
+                pageH * 0.92 * 16 / 9,
+                forRecording ? 1920 : Math.max(1, stage.parentElement.clientWidth),
+                1920
+            );
+            return Math.max(16, Math.floor(maxW * displayFrameScale() / 16) * 16);
+        }
         function sizeFit() {
             if (!liveFit) return;
-            // quadro mestre 16:9 (YouTube): width = min(100%, 85vh·16/9); altura = largura·9/16 (largura par múltipla de 16 → altura inteira)
-            const w = Math.max(320, Math.floor(Math.min(stage.parentElement.clientWidth, window.innerHeight * 0.85 * 16 / 9) / 16) * 16);
+            const w = frameWidth();
             stage.style.setProperty('--rec-w', w + 'px');
             stage.style.setProperty('--rec-h', (w * 9 / 16) + 'px');
         }
+        if (frameScale) frameScale.addEventListener('input', () => {
+            if (frameScaleValue) frameScaleValue.textContent = frameScale.value + '%';
+            sizeFit();
+        });
         function fitFrame(on) {
             if (on) {
                 if (stage.classList.contains('rec')) return;      // gravação/PNGs: o tamanho já foi fixado por eles
@@ -13719,10 +13747,9 @@ window.drawUniReferenceBins = drawReferenceBins;
 
             // Ativa modo gravação limpo (sem cabeçalho fixo e com altura par garantida)
             document.body.classList.add('rec-clean');
-            // Quadro SEMPRE 16:9: maior retângulo 16:9 que cabe na janela, limitado a 1920x1080.
-            // Largura múltipla de 32 => altura inteira e par (ex.: 1920x1080, 1600x900, 1280x720).
-            const fitW = Math.min(window.innerWidth, window.innerHeight * 16 / 9, 1920);
-            const recW = Math.max(640, Math.floor(fitW / 32) * 32);
+            // Gravação: o quadro 16:9 fica menor do que a janela, com margem de segurança,
+            // respeitando o ajuste selecionado pelo usuário antes de iniciar o MP4.
+            const recW = frameWidth(true);
             const recH = recW * 9 / 16;
             fitFrame(false);                                            // sai do quadro fixo da tela; a gravação define o próprio tamanho
             stage.style.setProperty('--rec-w', recW + 'px');
@@ -13975,8 +14002,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             if (!track) { stream.getTracks().forEach(t => t.stop()); return; }
 
             document.body.classList.add('rec-clean');
-            const fitW = Math.min(window.innerWidth, window.innerHeight * 16 / 9, 1920);
-            const recW = Math.max(640, Math.floor(fitW / 32) * 32), recH = recW * 9 / 16;
+            const recW = frameWidth(true), recH = recW * 9 / 16;
             fitFrame(false);
             stage.style.setProperty('--rec-w', recW + 'px'); stage.style.setProperty('--rec-h', recH + 'px');
             document.body.style.setProperty('--rec-w', recW + 'px');
