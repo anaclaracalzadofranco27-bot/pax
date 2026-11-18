@@ -42,39 +42,7 @@
             gridStepCm: 10 * 2.54
         });
         window.APHA_BLUEPRINT = APHA_BLUEPRINT;
-        function drawAphaCabinGrid(ctx, toX, toY) {
-            const step = APHA_BLUEPRINT.gridStepCm;
-            ctx.save();
-            ctx.strokeStyle = APHA_BLUEPRINT.grid;
-            ctx.lineWidth = 1;
-            for (let i = -7; i <= 7; i++) {
-                const x = toX(i * step);
-                ctx.beginPath(); ctx.moveTo(x, toY(-8));
-                ctx.lineTo(x, toY(225)); ctx.stroke();
-            }
-            for (let i = 0; i <= 8; i++) {
-                const y = toY(i * step);
-                ctx.beginPath(); ctx.moveTo(toX(-180), y);
-                ctx.lineTo(toX(180), y); ctx.stroke();
-            }
-            ctx.restore();
-        }
-        window.drawAphaCabinGrid = drawAphaCabinGrid;
-        // Fonte única do background da seção transversal, do manikin e da
-        // ponte de câmera. No tour, #tour-stage já pinta cor + grid fixos.
-        function drawUnifiedCabinBackground(ctx, W, H, opts = {}) {
-            if (opts.tour) return;
-            if (opts.paint !== false) {
-                ctx.save();
-                ctx.fillStyle = APHA_BLUEPRINT.background;
-                ctx.fillRect(0, 0, W, H);
-                ctx.restore();
-            }
-            if (typeof opts.toX === 'function' && typeof opts.toY === 'function') {
-                drawAphaCabinGrid(ctx, opts.toX, opts.toY);
-            }
-        }
-        window.drawUnifiedCabinBackground = drawUnifiedCabinBackground;
+
         // Dimensões físicas compartilhadas pela projeção m4 (centímetros).
         const APHA_CABIN_GEOMETRY = Object.freeze({
             fuselageRadiusCm: 137.16, fuselageCenterYCm: 62.84,
@@ -350,9 +318,8 @@
         #tour-stage #module-cad3d > div:first-child .bg-cad-bg,
         #tour-stage #module-cad3d [data-cad3d-v] { display: none !important; }
         #tour-stage #uni-export, #tour-stage #uni-export-p95{display:none}
-        /* Full simulation: PNG actions remain as inert DOM anchors for legacy event handlers, but never appear in the UI. */
-        #module-tour #tour-snap, #module-tour #tour-figure-export,
-        #tour-stage #cad3d-export, #tour-stage #cad3d-export-side,
+        /* Hide per-tab PNG controls during the full presentation. */
+                #tour-stage #cad3d-export, #tour-stage #cad3d-export-side,
         #tour-stage #uni-export, #tour-stage #uni-export-p95,
         #tour-stage #aba6-figure-export{display:none !important}
         #tour-stage #aba6-module-ergo button[onclick^="toggleManikinAnimation"]{display:none}
@@ -401,10 +368,7 @@
         #module-tour #tour-rec{padding:10px 22px;font:700 12px 'JetBrains Mono',monospace;color:#9ba9b5;background:transparent;border:1px solid #5b7b9e;border-radius:8px;cursor:pointer;transition:background .2s}
         #module-tour #tour-rec:hover{background:rgba(91,123,158,0.14)}
         #module-tour #tour-rec.on{background:#dc2626;border-color:#dc2626;color:#ffffff}
-        #module-tour #tour-snap{padding:10px 22px;font:700 12px 'JetBrains Mono',monospace;color:#9ba9b5;background:transparent;border:1px solid #5b7b9e;border-radius:8px;cursor:pointer;transition:background .2s}
-        #module-tour #tour-snap:hover{background:rgba(91,123,158,0.14)}
-        #module-tour #tour-snap.on{background:#dc2626;border-color:#dc2626;color:#ffffff}
-        #module-tour #tour-snap:disabled,#module-tour #tour-rec:disabled{opacity:.45;cursor:not-allowed}
+        #module-tour #tour-rec:disabled{opacity:.45;cursor:not-allowed}
         #tour-stage.rec{height:var(--rec-h,820px) !important;overflow:hidden}
         #tour-stage #ergo-overlay { position: absolute !important; inset: 0 !important; border-radius: 16px; }
         body.rec-clean { overflow: hidden !important; background-color: #000223 !important; }
@@ -1011,7 +975,6 @@ button {
 }
 button:hover { background: #2c273b; }
 button:disabled { opacity: 0.55; cursor: default; }
-#exportBtn:disabled { opacity: 1; }
 #scrubber {
   width: 180px;
   accent-color: #c8a2c8;
@@ -1492,7 +1455,6 @@ button:hover { background: rgba(91,123,158,.14); }
   <button id="resetBtn">↺ Restart</button>
   <input type="range" id="scrubber" min="0" max="14" step="0.1" value="0">
   <span id="timer">00:00 / 00:14</span>
-  <button id="exportBtn" title="Grava a animação inteira e baixa um arquivo de vídeo">⬇ Exportar vídeo</button>
 </div>
 
 <\script>
@@ -1619,36 +1581,8 @@ scrubber.oninput = (e) => {
   updateStage(time);
 };
 
-// ============================================================================
-// EXPORTAR VÍDEO: a animação é redesenhada quadro a quadro num canvas próprio (1920 x 1420, a proporção do palco, 30 quadros/s)
-// e codificada em MP4 (H.264) com o codificador do navegador; sem ele, é gravada em tempo real com o MediaRecorder. Cada quadro tem o fundo, o desenho
-// do avião, os passageiros, o pórtico por cima deles, o zoom da câmera, os bagageiros em laranja, os passageiros sentados escurecidos e os balões, nos mesmos tempos do Play.
-// Os valores abaixo repetem o CSS: #camera-rig.zoom-bridge, a transição do #camera-rig e o pulso dos bagageiros.
-// ============================================================================
-const EXPORT_W = 1920, EXPORT_H = 1420, EXPORT_FPS = 30;
-const CAM_ZOOM = { s: 2.35, tx: -0.045, ty: -0.24, dur: 1.8 };   // scale(2.35) translate(-4.5%, -24%); transição de 1,5 s
-const CABIN_DIM = { '#91999c': '#808283', '#8d8d8b': '#797979', '#758185': '#6a6d6e' };   // mesmas cores do CSS .bin-active .cabin-pax
-const BIN_ORANGE = { top: [242, 106, 42], front: [207, 83, 28], detail: [247, 140, 85] };     // mesmas cores do CSS .bin-active .bag-* (#f26a2a, #cf531c, #f78c55)
-const exportBtn = document.getElementById('exportBtn');
-let exportingVideo = false;
-
-function cubicBezier(x1, y1, x2, y2) {
-  const B = (a, b, t) => 3 * a * t * (1 - t) * (1 - t) + 3 * b * t * t * (1 - t) + t * t * t;
-  return x => {
-    if (x <= 0) return 0;
-    if (x >= 1) return 1;
-    let lo = 0, hi = 1;
-    for (let i = 0; i < 30; i++) { const m = (lo + hi) / 2; if (B(x1, x2, m) < x) lo = m; else hi = m; }
-    return B(y1, y2, (lo + hi) / 2);
-  };
-}
-const easeCam = cubicBezier(0.45, 0, 0.25, 1), easeCss = cubicBezier(0.25, 0.1, 0.25, 1);
-
-// câmera no instante t: zoom na passarela até ZOOM_END, depois a transição para o avião inteiro
-function cameraAt(t) {
-  const e = easeCam(Math.min(1, Math.max(0, (t - ZOOM_END) / CAM_ZOOM.dur)));
-  return { s: CAM_ZOOM.s + (1 - CAM_ZOOM.s) * e, tx: CAM_ZOOM.tx * (1 - e), ty: CAM_ZOOM.ty * (1 - e) };
-}
+// Camera zoom reused by live passenger HUD.
+const CAM_ZOOM = { s: 2.35, tx: -0.045, ty: -0.24, dur: 1.8 };   // scale(2.35) translate(-4.5%, -24%);
 
 // ============================================================================
 // BALÕES (textos em inglês): o nome de cada passageiro acompanha a cabeça dele; depois que a câmera abre, um selo laranja com
@@ -1732,297 +1666,6 @@ function updateBalloonsLive(t, zoom, anchors) {
   gb.setAttribute('transform', `translate(${BIN_BADGE.center[0]} ${(BIN_BADGE.center[1] + b.dy).toFixed(2)}) scale(${b.k.toFixed(4)})`);
   gb.setAttribute('opacity', b.a.toFixed(3));
 }
-
-// rasteriza um <svg> (ou parte dele) num canvas: vb = [x, y, w, h] em unidades do desenho, ppu = pixels por unidade
-async function rasterSvg(svgText, vb, ppu) {
-  const w = Math.ceil(vb[2] * ppu), h = Math.ceil(vb[3] * ppu);
-  const url = URL.createObjectURL(new Blob([svgText], { type: 'image/svg+xml' }));
-  try {
-    const img = new Image();
-    img.src = url;
-    await img.decode();
-    const c = document.createElement('canvas');
-    c.width = w; c.height = h;
-    c.getContext('2d').drawImage(img, 0, 0, w, h);
-    return c;
-  } finally { URL.revokeObjectURL(url); }
-}
-function svgCloneText(svgEl, vb, ppu) {
-  const clone = svgEl.cloneNode(true);
-  clone.setAttribute('viewBox', vb.join(' '));
-  clone.setAttribute('width', Math.ceil(vb[2] * ppu));
-  clone.setAttribute('height', Math.ceil(vb[3] * ppu));
-  clone.removeAttribute('id');
-  return new XMLSerializer().serializeToString(clone);
-}
-function unionBBox(els, pad) {
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  els.forEach(el => { const b = el.getBBox(); x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height); });
-  return [x0 - pad, y0 - pad, x1 - x0 + 2 * pad, y1 - y0 + 2 * pad];
-}
-
-// prepara as camadas uma única vez por exportação
-async function buildExportLayers(W, H) {
-  const mainSvg = document.querySelector('#camera-rig > svg'), frontSvg = document.getElementById('pax-front');
-  const VB = mainSvg.viewBox.baseVal, ppu = W / VB.width * CAM_ZOOM.s;              // resolução suficiente para o zoom
-  const main = await rasterSvg(svgCloneText(mainSvg, [VB.x, VB.y, VB.width, VB.height], ppu), [VB.x, VB.y, VB.width, VB.height], ppu);
-  const fb = unionBBox([...frontSvg.querySelectorAll('path')], 1);
-  const front = await rasterSvg(svgCloneText(frontSvg, fb, ppu), fb, ppu);
-  // bagageiros em destaque (classes do CSS .bin-active), em duas intensidades do pulso: brilho 0,85 e 1,18 com brilho laranja em volta
-  const bags = [...mainSvg.querySelectorAll('.bag-top, .bag-front, .bag-detail')];
-  let red = null;
-  if (bags.length) {
-    const bb = unionBBox(bags, 6);
-    const base = el => el.classList.contains('bag-top') ? BIN_ORANGE.top : el.classList.contains('bag-front') ? BIN_ORANGE.front : BIN_ORANGE.detail;
-    const col = (c, k) => 'rgb(' + c.map(v => Math.min(255, Math.round(v * k))).join(',') + ')';
-    const layer = (k, glow) => {
-      const paths = bags.map(el => { const c = col(base(el), k); return `<path d="${el.getAttribute('d')}" fill="${c}" stroke="${c}"/>`; }).join('');
-      const defs = glow ? '<defs><filter id="g" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="#f26a2a" flood-opacity="0.55"/></filter></defs>' : '';
-      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${bb.join(' ')}" width="${Math.ceil(bb[2] * ppu)}" height="${Math.ceil(bb[3] * ppu)}">${defs}<g${glow ? ' filter="url(#g)"' : ''}>${paths}</g></svg>`;
-    };
-    red = { bb, low: await rasterSvg(layer(0.85, false), bb, ppu), high: await rasterSvg(layer(1.18, true), bb, ppu) };
-  }
-  // passageiros sentados mais escuros (CSS .bin-active .cabin-pax): o mesmo desenho, só na área da cabine, com as cores trocadas.
-  // A área fica alinhada aos pixels da camada principal e é recortada no formato dos passageiros, para não aparecer emenda.
-  const seated = [...mainSvg.querySelectorAll('.cabin-pax')];
-  let dim = null;
-  if (seated.length) {
-    const u = unionBBox(seated, 2), gx = Math.floor((u[0] - VB.x) * ppu), gy = Math.floor((u[1] - VB.y) * ppu);
-    const nw = Math.ceil((u[0] + u[2] - VB.x) * ppu) - gx, nh = Math.ceil((u[1] + u[3] - VB.y) * ppu) - gy;
-    const bb = [VB.x + gx / ppu, VB.y + gy / ppu, (nw - 1e-4) / ppu, (nh - 1e-4) / ppu];
-    const clone = mainSvg.cloneNode(true);
-    clone.querySelectorAll('.cabin-pax').forEach(p => { const c = CABIN_DIM[(p.getAttribute('fill') || '').toLowerCase()]; if (c) p.setAttribute('fill', c); });
-    const img = await rasterSvg(svgCloneText(clone, bb, ppu), bb, ppu);
-    const shapes = seated.map(p => `<path d="${p.getAttribute('d')}" fill="#fff" stroke="#fff" stroke-width="0.6"${p.getAttribute('fill-rule') ? ` fill-rule="${p.getAttribute('fill-rule')}"` : ''}/>`).join('');
-    const mask = await rasterSvg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${bb.join(' ')}" width="${Math.ceil(bb[2] * ppu)}" height="${Math.ceil(bb[3] * ppu)}">${shapes}</svg>`, bb, ppu);
-    const g = img.getContext('2d'); g.globalCompositeOperation = 'destination-in'; g.drawImage(mask, 0, 0);
-    dim = { bb, img };
-  }
-  // fundo azul-escuro quadriculado, o mesmo das outras simulações (#000223 com malha de 48 px em rgba(91,123,158,.10)), na escala do vídeo
-  const cell = Math.max(8, Math.round(48 * W / Math.max(1, document.getElementById('viewport').clientWidth)));
-  const tile = document.createElement('canvas'); tile.width = tile.height = cell;
-  const tg = tile.getContext('2d'), lw = Math.max(1, Math.round(cell / 48));
-  tg.fillStyle = '#000223'; tg.fillRect(0, 0, cell, cell);
-  tg.fillStyle = 'rgba(91,123,158,0.10)'; tg.fillRect(0, 0, lw, cell); tg.fillRect(0, 0, cell, lw);
-  const bg = tg.createPattern(tile, 'repeat');
-  // balões (o mesmo SVG da página), rasterizados com folga de resolução para o zoom
-  const bp = ppu * 1.25, rasterBalloon = async b => ({ box: b.box, img: await rasterSvg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${b.box.join(' ')}" width="${Math.ceil(b.box[2] * bp)}" height="${Math.ceil(b.box[3] * bp)}">${b.inner}</svg>`, b.box, bp) });
-  const balloons = { names: await Promise.all(NAME_BALLOONS.map(n => rasterBalloon(balloonSvg(n, NAME_STYLE)))), bin: await rasterBalloon(binBadgeSvg(BIN_BADGE)) };
-  return { W, H, VB, main, front, fb, red, dim, balloons, bg };
-}
-
-// desenha o quadro do instante t
-function drawExportFrame(ctx, t, L) {
-  const { W, H, VB } = L;
-  const X = x => (x - VB.x) / VB.width * W, Y = y => (y - VB.y) / VB.height * H;
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = L.bg; ctx.fillRect(0, 0, W, H);
-  const cam = cameraAt(t);
-  ctx.setTransform(cam.s, 0, 0, cam.s, W / 2 + cam.s * (cam.tx * W - W / 2), H / 2 + cam.s * (cam.ty * H - H / 2));
-  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(L.main, 0, 0, W, H);
-  if (L.dim && t >= BIN_ON) {                       // .bin-active: passageiros sentados escurecem em 0,5 s
-    const b = L.dim.bb;
-    ctx.globalAlpha = easeCss(Math.min(1, (t - BIN_ON) / 0.5));
-    ctx.drawImage(L.dim.img, X(b[0]), Y(b[1]), b[2] / VB.width * W, b[3] / VB.height * H);
-    ctx.globalAlpha = 1;
-  }
-  if (L.red && t >= BIN_ON) {                       // .bin-active: cor laranja em 0,5 s e pulso de 1,1 s (ida e volta)
-    const dt = t - BIN_ON, fa = easeCss(Math.min(1, dt / 0.5));
-    const k = Math.floor(dt / 1.1), f = dt / 1.1 - k, q = easeCss(k % 2 === 0 ? f : 1 - f);
-    const b = L.red.bb, args = [X(b[0]), Y(b[1]), b[2] / VB.width * W, b[3] / VB.height * H];
-    ctx.globalAlpha = fa; ctx.drawImage(L.red.low, ...args);
-    ctx.globalAlpha = fa * q; ctx.drawImage(L.red.high, ...args);
-    ctx.globalAlpha = 1;
-  }
-  if (window.PAX) ctx.drawImage(PAX.renderAt(t, cam.s), X(185), Y(455), X(360) - X(185), Y(645) - Y(455));   // mesmo retângulo do #pax-layer
-  const fb = L.fb;
-  ctx.drawImage(L.front, X(fb[0]), Y(fb[1]), fb[2] / VB.width * W, fb[3] / VB.height * H);
-  // balões por cima de tudo (como o #pax-labels): nomes nas posições calculadas pelo renderAt acima e o aviso dos bagageiros
-  const put = (B, x, y, k, a) => { const b = B.box; ctx.globalAlpha = a; ctx.drawImage(B.img, X(x + k * b[0]), Y(y + k * b[1]), k * b[2] / VB.width * W, k * b[3] / VB.height * H); };
-  if (window.PAX) { const k = nameBalloonScale(cam.s); PAX.labelAnchors().forEach((a, i) => { if (a) put(L.balloons.names[i], a.x, a.y, k, a.a); }); }
-  const bb = binBalloonAt(t);
-  if (bb) {                                            // mesmo pulso das malas (1,1 s, ida e volta, a partir de ZOOM_END)
-    const dt = t - BIN_ON, n = Math.floor(dt / 1.1), f = dt / 1.1 - n, q = easeCss(n % 2 === 0 ? f : 1 - f);
-    ctx.filter = `brightness(${(0.85 + 0.33 * q).toFixed(3)})`;
-    put(L.balloons.bin, BIN_BADGE.center[0], BIN_BADGE.center[1] + bb.dy, bb.k, bb.a * (0.88 + 0.12 * q));   // só um pulso leve (na página, só a borda pulsa)
-    ctx.filter = 'none';
-  }
-  ctx.globalAlpha = 1;
-}
-
-// ---------------------------------------------------------------- gravador MP4 (H.264) quadro a quadro
-// Cada quadro é desenhado no tempo exato (0, 1/30, 2/30 s...) e codificado com esse horário, então o vídeo fica idêntico à animação
-// mesmo que o computador demore para desenhar. Usa o codificador do navegador (WebCodecs) e monta o arquivo MP4 aqui mesmo.
-function mp4Box(type, ...parts) {
-  const len = 8 + parts.reduce((s, p) => s + p.length, 0), out = new Uint8Array(len), dv = new DataView(out.buffer);
-  dv.setUint32(0, len); for (let i = 0; i < 4; i++) out[4 + i] = type.charCodeAt(i);
-  let o = 8; parts.forEach(p => { out.set(p, o); o += p.length; });
-  return out;
-}
-function mp4Full(type, version, flags, ...parts) { return mp4Box(type, new Uint8Array([version, flags >> 16 & 255, flags >> 8 & 255, flags & 255]), ...parts); }
-function u32(...v) { const a = new Uint8Array(v.length * 4), dv = new DataView(a.buffer); v.forEach((x, i) => dv.setUint32(i * 4, x)); return a; }
-function u16(...v) { const a = new Uint8Array(v.length * 2), dv = new DataView(a.buffer); v.forEach((x, i) => dv.setUint16(i * 2, x)); return a; }
-function bytes(...v) { return new Uint8Array(v); }
-const MP4_MATRIX = u32(0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x40000000);
-// samples: [{ data: Uint8Array, key: bool }], todos com a mesma duração (1 / fps)
-function buildMp4(samples, avcC, width, height, fps) {
-  const TS = fps * 1000, DUR = 1000, total = samples.length * DUR;     // timescale com quadros de duração inteira
-  const ftyp = mp4Box('ftyp', new TextEncoder().encode('isom'), u32(0x200), new TextEncoder().encode('isomiso2avc1mp41'));
-  const sizes = samples.map(s => s.data.length), mdatLen = 8 + sizes.reduce((a, b) => a + b, 0);
-  const keys = samples.map((s, i) => s.key ? i + 1 : 0).filter(Boolean);
-  const avc1 = mp4Box('avc1', new Uint8Array(6), u16(1), new Uint8Array(16), u16(width, height), u32(0x480000, 0x480000, 0), u16(1), new Uint8Array(32), u16(0x18, 0xffff), mp4Box('avcC', avcC));
-  const stbl = (chunkOffset) => mp4Box('stbl',
-    mp4Full('stsd', 0, 0, u32(1), avc1),
-    mp4Full('stts', 0, 0, u32(1, samples.length, DUR)),
-    mp4Full('stss', 0, 0, u32(keys.length, ...keys)),
-    mp4Full('stsc', 0, 0, u32(1, 1, samples.length, 1)),
-    mp4Full('stsz', 0, 0, u32(0, samples.length, ...sizes)),
-    mp4Full('stco', 0, 0, u32(1, chunkOffset)));
-  const moov = (chunkOffset) => mp4Box('moov',
-    mp4Full('mvhd', 0, 0, u32(0, 0, TS, total, 0x10000), u16(0x100, 0), u32(0, 0), MP4_MATRIX, new Uint8Array(24), u32(2)),
-    mp4Box('trak',
-      mp4Full('tkhd', 0, 3, u32(0, 0, 1, 0, total, 0, 0), u16(0, 0, 0, 0), MP4_MATRIX, u32(width << 16, height << 16)),
-      mp4Box('mdia',
-        mp4Full('mdhd', 0, 0, u32(0, 0, TS, total), u16(0x55c4, 0)),
-        mp4Full('hdlr', 0, 0, u32(0), new TextEncoder().encode('vide'), u32(0, 0, 0), new TextEncoder().encode('Video\0')),
-        mp4Box('minf',
-          mp4Full('vmhd', 0, 1, u16(0, 0, 0, 0)),
-          mp4Box('dinf', mp4Full('dref', 0, 0, u32(1), mp4Full('url ', 0, 1))),
-          stbl(chunkOffset)))));
-  const moovLen = moov(0).length;
-  const mdatHead = new Uint8Array(8); new DataView(mdatHead.buffer).setUint32(0, mdatLen); mdatHead.set([109, 100, 97, 116], 4);
-  return new Blob([ftyp, moov(ftyp.length + moovLen + 8), mdatHead, ...samples.map(s => s.data)], { type: 'video/mp4' });
-}
-async function pickH264(width, height, fps) {
-  if (!window.VideoEncoder) return null;
-  for (const codec of ['avc1.640032', 'avc1.4d0032', 'avc1.420032', 'avc1.640028', 'avc1.4d0028', 'avc1.420028']) {
-    const cfg = { codec, width, height, bitrate: 14e6, framerate: fps, avc: { format: 'avc' } };
-    try { const r = await VideoEncoder.isConfigSupported(cfg); if (r.supported) return r.config; } catch (e) { /* tenta o próximo */ }
-  }
-  return null;
-}
-// desenha e codifica TOTAL_TIME * fps quadros; onProgress(t) a cada quadro
-async function encodeMp4(canvas, ctx, L, fps, cfg, onProgress) {
-  const samples = []; let avcC = null, failure = null;
-  const enc = new VideoEncoder({
-    output: (chunk, meta) => {
-      if (meta && meta.decoderConfig && meta.decoderConfig.description && !avcC) avcC = new Uint8Array(meta.decoderConfig.description);
-      const data = new Uint8Array(chunk.byteLength); chunk.copyTo(data);
-      samples.push({ data, key: chunk.type === 'key', ts: chunk.timestamp });
-    },
-    error: e => { failure = e; }
-  });
-  enc.configure(cfg);
-  const n = Math.round(TOTAL_TIME * fps) + 1;
-  for (let i = 0; i < n; i++) {
-    if (failure) throw failure;
-    const t = Math.min(TOTAL_TIME, i / fps);
-    drawExportFrame(ctx, t, L);
-    const frame = new VideoFrame(canvas, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
-    enc.encode(frame, { keyFrame: i % (fps * 2) === 0 });
-    frame.close();
-    while (enc.encodeQueueSize > 4) await new Promise(r => setTimeout(r, 0));
-    if (i % 3 === 0) { onProgress(t); await new Promise(r => setTimeout(r, 0)); }
-  }
-  await enc.flush(); enc.close();
-  if (failure) throw failure;
-  if (!avcC) throw new Error('o codificador não forneceu a configuração H.264');
-  samples.sort((a, b) => a.ts - b.ts);
-  return buildMp4(samples, avcC, canvas.width, canvas.height, fps);
-}
-
-function pickVideoType(prefer) {           // gravação em tempo real (alternativa): prefer = 'webm' para forçar WebM
-  const types = ['video/mp4;codecs=avc1.640028', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].filter(m => !prefer || m.includes(prefer));
-  return types.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || null;
-}
-
-// gravação em tempo real com MediaRecorder: usada só quando o navegador não tem o codificador quadro a quadro.
-// Se o computador travar durante a gravação, o vídeo pode sair com a animação um pouco adiantada.
-async function recordRealtime(canvas, ctx, L, fps, type) {
-  const stream = canvas.captureStream(0), track = stream.getVideoTracks()[0];
-  const grab = () => { if (track.requestFrame) track.requestFrame(); else if (stream.requestFrame) stream.requestFrame(); };
-  const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 16e6 });
-  const chunks = [];
-  rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
-  const stopped = new Promise(res => { rec.onstop = res; });
-  rec.start(1000);
-  const t0 = performance.now();
-  grab();
-  await new Promise(resolve => {
-    const step = () => {
-      const t = Math.min(TOTAL_TIME, (performance.now() - t0) / 1000);
-      drawExportFrame(ctx, t, L);
-      grab();
-      showExportProgress(t, 'Gravando');
-      if (t >= TOTAL_TIME) setTimeout(() => { grab(); setTimeout(resolve, 150); }, 1000 / fps);   // repete o último quadro para fechar a duração
-      else requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-  });
-  rec.stop();
-  await stopped;
-  return new Blob(chunks, { type: type.split(';')[0] });
-}
-function showExportProgress(t, label) {
-  timerEl.textContent = `00:${String(Math.floor(t)).padStart(2, '0')} / 00:${String(TOTAL_TIME).padStart(2, '0')}`;
-  exportBtn.textContent = `⏺ ${label} ${Math.round(t / TOTAL_TIME * 100)}%`;
-}
-
-// exporta a animação inteira (TOTAL_TIME segundos) e devolve o arquivo; baixa automaticamente se download = true.
-// mode: 'auto' (MP4 quadro a quadro se o navegador permitir; senão gravação em tempo real), 'frames' ou 'realtime'
-async function exportVideo({ width = EXPORT_W, height = EXPORT_H, fps = EXPORT_FPS, download = true, format, mode = 'auto' } = {}) {
-  if (exportingVideo) return null;
-  if (!window.PAX) { alert('A animação ainda está carregando. Tente de novo em alguns segundos.'); return null; }
-  const h264 = mode !== 'realtime' ? await pickH264(width, height, fps) : null;
-  const type = h264 ? 'video/mp4' : pickVideoType(format);
-  const canvas = document.createElement('canvas');
-  if (!type || (!h264 && !canvas.captureStream)) {
-    alert('Este navegador não consegue gerar vídeo. Use o Chrome ou o Edge.');
-    return null;
-  }
-  exportingVideo = true;
-  clearInterval(interval); playing = false; playBtn.textContent = '▶ Play';
-  [playBtn, document.getElementById('resetBtn'), scrubber, exportBtn].forEach(el => { el.disabled = true; });
-  exportBtn.textContent = '⏳ Preparando…';
-  canvas.width = width; canvas.height = height;
-  // o quadro sendo gerado aparece por cima do palco (prévia); a página por baixo fica parada, sem custo extra
-  canvas.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; z-index:5;';
-  document.getElementById('viewport').appendChild(canvas);
-  const ctx = canvas.getContext('2d', { alpha: false });   // vídeo sem canal alfa
-  try {
-    const L = await buildExportLayers(width, height);
-    PAX.beginExport(Math.round(175 / L.VB.width * width * CAM_ZOOM.s));
-    for (const t of [0, 4, ZOOM_END + 0.7, TOTAL_TIME, 0]) drawExportFrame(ctx, t, L);   // aquecimento: compila os shaders e prepara as imagens
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-    const blob = h264
-      ? await encodeMp4(canvas, ctx, L, fps, h264, t => showExportProgress(t, 'Gerando vídeo'))
-      : await recordRealtime(canvas, ctx, L, fps, type);
-    if (download) {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'aviao_passarela.' + (blob.type === 'video/mp4' ? 'mp4' : 'webm');
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 60000);
-    }
-    return blob;
-  } catch (err) {
-    console.error(err);
-    alert('Não foi possível exportar o vídeo: ' + err.message);
-    return null;
-  } finally {
-    PAX.endExport();
-    // a página termina no último quadro do vídeo (sem a transição do zoom)
-    time = TOTAL_TIME;
-    rig.style.transition = 'none'; updateStage(TOTAL_TIME); void rig.offsetWidth; rig.style.transition = '';
-    canvas.remove();
-    exportingVideo = false;
-    [playBtn, document.getElementById('resetBtn'), scrubber, exportBtn].forEach(el => { el.disabled = false; });
-    exportBtn.textContent = '⬇ Exportar vídeo';
-  }
-}
-exportBtn.onclick = () => exportVideo();
 
 <\/script>
 <\script>
@@ -5571,9 +5214,10 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
         // Tempo da animação = tempo da linha do tempo do avião (Play/Restart/scrubber), suavizado entre os passos de 100 ms
         const camRig = document.getElementById('camera-rig');
         function cssZoom() { const t = getComputedStyle(camRig).transform; return t && t !== 'none' ? new DOMMatrix(t).a : 1; }
-        let paxExporting = false, paxSavedRatio = 1;
+        let paxExporting = false, paxSavedRatio = 1, paxActive = true, paxRaf = 0;
         function animate() {
-            requestAnimationFrame(animate);
+            if (!paxActive) { paxRaf = 0; return; }
+            paxRaf = requestAnimationFrame(animate);
             if (paxExporting) return;                    // durante a exportação quem desenha é PAX.renderAt
             const tl = PAX_TIMELINE();
             elapsed = Math.max(0, Math.min(MAX_ANIMATION_TIME, tl - PAX_START));
@@ -5583,7 +5227,12 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             renderer.render(scene, camera);
             updateBalloonsLive(tl, z, labelAnchors());
         }
-        // Exportação de vídeo: desenha os passageiros no instante tl da linha do tempo, com o contorno calculado para o zoom informado
+        function setActive(on) {
+            paxActive = !!on;
+            if (paxActive && !paxRaf) paxRaf = requestAnimationFrame(animate);
+            else if (!paxActive && paxRaf) { cancelAnimationFrame(paxRaf); paxRaf = 0; }
+        }
+        // Legacy renderer sampling retained for compatibility
         function renderAt(tl, zoom) {
             elapsed = Math.max(0, Math.min(MAX_ANIMATION_TIME, tl - PAX_START));
             updateWalk(0);
@@ -5596,8 +5245,8 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             renderer.setPixelRatio(bufferWidth / Math.max(1, container.clientWidth));
         }
         function endExport() { renderer.setPixelRatio(paxSavedRatio); paxExporting = false; }
-        window.PAX = { rig1, rig2, rig3, camera, renderer, scene, renderAt, labelAnchors, beginExport, endExport, get elapsed() { return elapsed; } };
-        requestAnimationFrame(animate);
+        window.PAX = { rig1, rig2, rig3, camera, renderer, scene, renderAt, labelAnchors, beginExport, endExport, setActive, get elapsed() { return elapsed; } };
+        paxRaf = requestAnimationFrame(animate);
 
 })();
 <\/script>
@@ -5606,10 +5255,10 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
 window.paxEmbed = {
   ready: () => !!window.PAX,
   reset: () => { rig.style.transition = 'none'; document.getElementById('resetBtn').click(); void rig.offsetWidth; rig.style.transition = ''; },
-  play: () => { if (!playing && !exportingVideo) togglePlay(); },
-  pause: () => { if (playing) togglePlay(); },
+  play: () => { if (window.PAX?.setActive) window.PAX.setActive(true); if (!playing) togglePlay(); },
+  pause: () => { if (playing) togglePlay(); if (window.PAX?.setActive) window.PAX.setActive(false); },
   done: () => time >= TOTAL_TIME,
-  setControls: on => { document.body.classList.toggle('no-ctl', !on); window.dispatchEvent(new Event('resize')); },
+  setControls: on => { if (window.PAX?.setActive) window.PAX.setActive(true); document.body.classList.toggle('no-ctl', !on); window.dispatchEvent(new Event('resize')); },
   xray: ms => xrayRun(ms || 1700),
   xrayReset: () => xrayReset()
 };
@@ -5673,20 +5322,7 @@ function xrayRun(ms) {
         })();
         </script>
 
-        <!-- ========================================================================= -->
-        <!-- ABA 4: SIMULADOR DE EMBARQUE (manikin → embarque → Monte Carlo)          -->
-        <!-- ========================================================================= -->
-        <div id="module-sim" class="space-y-4 hidden">
-            <!-- Aba 6: biomechanical engine integrado ao DOM principal (sem iframe). -->
-            <section id="aba6-module-ergo" class="space-y-0" aria-label="Biomechanical Validation & Boarding Time">
-                <div class="aba6-sim-card sim-card">
-                    <div class="aba6-viewport sim-bg">
-                        <canvas id="aba6-manikinCanvas" aria-label="Manikin placing luggage in the Alpha overhead bin"></canvas>
-                        <button type="button" id="aba6-figure-export" title="Download a transparent high-resolution figure" style="position:absolute;right:16px;bottom:16px;z-index:5;padding:9px 14px;background:#0a1a3a;color:#d4dce6;border:1px solid #5b7b9e;border-radius:8px;font:600 11px JetBrains Mono,monospace;cursor:pointer">📷 Export figure (PNG)</button>
-                    </div>
-                </div>
-            </section>
-        </div>
+
 
         <!-- ========================================================================= -->
         <!-- MÓDULO 6: SIMULAÇÃO CAD 3D INTERATIVA (PORTA ROLANTE 5MM & 4 MALAS IATA)  -->
@@ -5897,6 +5533,21 @@ function xrayRun(ms) {
             </div>
         </section>
         <!-- ========================================================================= -->
+        <!-- ========================================================================= -->
+        <!-- ABA 6: SIMULAÇÃO BIOMECÂNICA (MANIKIN E MALA)                          -->
+        <!-- ========================================================================= -->
+        <div id="module-sim" class="space-y-4 hidden">
+            <!-- Aba 6: biomechanical engine integrado ao DOM principal (sem iframe). -->
+            <section id="aba6-module-ergo" class="space-y-0" aria-label="Biomechanical Validation & Boarding Time">
+                <div class="aba6-sim-card sim-card">
+                    <div class="aba6-viewport sim-bg">
+                        <canvas id="aba6-manikinCanvas" aria-label="Manikin placing luggage in the Alpha overhead bin"></canvas>
+                        <button type="button" id="aba6-figure-export" title="Download a transparent high-resolution figure" style="position:absolute;right:16px;bottom:16px;z-index:5;padding:9px 14px;background:#0a1a3a;color:#d4dce6;border:1px solid #5b7b9e;border-radius:8px;font:600 11px JetBrains Mono,monospace;cursor:pointer">📷 Export figure (PNG)</button>
+                    </div>
+                </div>
+            </section>
+        </div>
+
         <!-- ABA 8: SIMULAÇÃO COMPLETA — roda as simulações das abas 1 → 7 em sequência  -->
         <!-- ========================================================================= -->
         <!-- ========================================================================= -->
@@ -6318,7 +5969,7 @@ function xrayRun(ms) {
         </section>
 
         <section id="module-tour" class="space-y-4 hidden">
-            <div id="tour-ctl-bar" class="flex justify-center items-center gap-3 flex-wrap"><button type="button" id="tour-btn" data-mode="run">▶ Run full simulation</button><button type="button" id="tour-rec">⏺ Export video (MP4)</button><button type="button" id="tour-snap" title="Runs the full simulation and saves 2 PNGs (1920×1080) per tab — one at the start and one at the end — delivered as a single ZIP" aria-hidden="true" tabindex="-1">📷 Export start/end PNGs</button><button type="button" id="tour-figure-export" title="Export isolated manikin, suitcase and open Alpha bin" aria-hidden="true" tabindex="-1">📷 Export figure (PNG)</button></div>
+            <div id="tour-ctl-bar" class="flex justify-center items-center gap-3 flex-wrap"><button type="button" id="tour-btn" data-mode="run">▶ Run full simulation</button><button type="button" id="tour-rec">⏺ Export video (MP4)</button></div>
             <div id="tour-stage" class="tour-frame"><i class="tw-corner c1"></i><i class="tw-corner c2"></i><i class="tw-corner c3"></i><i class="tw-corner c4"></i></div>
         </section>
     </main>
@@ -6329,6 +5980,40 @@ function xrayRun(ms) {
     <!-- JAVASCRIPT ENGINE COMPLETO                                                -->
     <!-- ========================================================================= -->
     <script>
+
+        function drawAphaCabinGrid(ctx, toX, toY) {
+            const step = APHA_BLUEPRINT.gridStepCm;
+            ctx.save();
+            ctx.strokeStyle = APHA_BLUEPRINT.grid;
+            ctx.lineWidth = 1;
+            for (let i = -7; i <= 7; i++) {
+                const x = toX(i * step);
+                ctx.beginPath(); ctx.moveTo(x, toY(-8));
+                ctx.lineTo(x, toY(225)); ctx.stroke();
+            }
+            for (let i = 0; i <= 8; i++) {
+                const y = toY(i * step);
+                ctx.beginPath(); ctx.moveTo(toX(-180), y);
+                ctx.lineTo(toX(180), y); ctx.stroke();
+            }
+            ctx.restore();
+        }
+        window.drawAphaCabinGrid = drawAphaCabinGrid;
+        // Fonte única do background da seção transversal, do manikin e da
+        // ponte de câmera. No tour, #tour-stage já pinta cor + grid fixos.
+        function drawUnifiedCabinBackground(ctx, W, H, opts = {}) {
+            if (opts.tour) return;
+            if (opts.paint !== false) {
+                ctx.save();
+                ctx.fillStyle = APHA_BLUEPRINT.background;
+                ctx.fillRect(0, 0, W, H);
+                ctx.restore();
+            }
+            if (typeof opts.toX === 'function' && typeof opts.toY === 'function') {
+                drawAphaCabinGrid(ctx, opts.toX, opts.toY);
+            }
+        }
+        window.drawUnifiedCabinBackground = drawUnifiedCabinBackground;
 
         // =========================================================================
         // PALETA ESCURA da simulação biomecânica (fundo #000223 · #5b7b9e · #9ba9b5 · #bababa)
@@ -6424,6 +6109,7 @@ function xrayRun(ms) {
             currentTab = tab;
             document.body.classList.toggle('apha-simulation-view', tab === 'sim');
             if (previousTab === 'sim' && tab !== 'sim') pauseAba6Engine();
+            if (tab !== 'cad3d' && window.stopCAD3DAnimations) window.stopCAD3DAnimations();
             if (tab !== 'unified' && window.uniPause) window.uniPause();
             if (tab !== 'nova' && window.novaShowHeader) window.novaShowHeader(false);
             if (tab !== 'pax' && window.paxPause) window.paxPause();
@@ -11184,6 +10870,35 @@ window.drawUniReferenceBins = drawReferenceBins;
             if (currentTab === 'cad3d' && window.resizeCAD3D) window.resizeCAD3D();
         });
 
+        /* Tab 5 independent door movement leaves the timeline and Tab 6 unaffected. */
+        (function () {
+            window.__uniRefDoorProgress = 0;
+            let doorRaf = 0;
+            window.uniRefSetDoors = value => {
+                if (doorRaf) { cancelAnimationFrame(doorRaf); doorRaf = 0; }
+                window.__uniRefDoorProgress = Math.max(0,Math.min(1, Number(value)||0));
+                const slider=document.getElementById('uni-bin-door-slider');
+                const pct=document.getElementById('uni-bin-door-pct');
+                const button=document.getElementById('uni-bin-door-toggle');
+                if(slider) slider.value = String(Math.round(window.__uniRefDoorProgress*100));
+                if(pct) pct.textContent = Math.round(window.__uniRefDoorProgress*100)+'%';
+                if(button) button.textContent = window.__uniRefDoorProgress>.5 ? 'Close bin doors' : 'Open bin doors';
+                if(typeof window.uniRefresh === 'function') window.uniRefresh();
+            };
+            window.uniRefToggleDoors = () => {
+                if (doorRaf) cancelAnimationFrame(doorRaf);
+                const from = window.__uniRefDoorProgress || 0, target=from>.5?0:1;
+                const t0=performance.now(), duration=950;
+                function tick(now) {
+                    const x=Math.min(1,(now-t0)/duration), eased=x*x*(3-2*x);
+                    doorRaf=0;
+                    window.uniRefSetDoors(from+(target-from)*eased);
+                    if(x<1) doorRaf=requestAnimationFrame(tick);
+                }
+                doorRaf=requestAnimationFrame(tick);
+            };
+        })();
+
         window.onload = function () {
             if (window.resizeCAD3D) window.resizeCAD3D();
             switchTab('pax');
@@ -11782,6 +11497,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 if(simReq){ cancelAnimationFrame(simReq); simReq = null; }
                 if(doorAnimReq){ cancelAnimationFrame(doorAnimReq); doorAnimReq = null; }
             }
+            window.stopCAD3DAnimations = stopAllAnimations;
 
             function resetSimulation(){
                 stopAllAnimations();
@@ -12416,190 +12132,6 @@ window.drawUniReferenceBins = drawReferenceBins;
                 }, 700);
             };
 
-
-            // Duas imagens 4K dedicadas à visualização das malas através da lateral:
-            // 1) lateral Y-Z fiel à referência; 2) lateral isométrica pouco inclinada.
-            window.cad3dExportSideTransparent = () => {
-                if (exporting) return;
-                exporting = true;
-                stopAllAnimations();
-                const EW = 3840, EH = 2160;
-                const state = {
-                    az, el, R, T: T.clone(), door: openProgress,
-                    pixelRatio: ren.getPixelRatio(), size: ren.getSize(new THREE.Vector2()),
-                    clear: ren.getClearColor(new THREE.Color()).clone(), clearAlpha: ren.getClearAlpha(),
-                    bagData: bags.map(b => ({
-                        vis: b.root.visible, env: b.env && b.env.visible,
-                        pos: b.root.position.clone(), quat: b.root.quaternion.clone()
-                    })),
-                    surfaces: [mat, wm, fm, ...profileBandMaterials].map(m => [m, m.transparent, m.opacity, m.depthWrite, m.color.getHex()])
-                };
-                // Tudo abaixo existe somente durante a SEGUNDA captura (lateral isométrica).
-                // A imagem ortográfica e os materiais acrílicos da cena principal permanecem intactos.
-                const isoVisibilityStates = new Map();
-                const isoMaterialSwaps = [];
-                const isoTemporaryMaterials = new Map();
-                const isoNormalGeometries = new Set();
-
-                // A câmera az=-0.47 está do lado X_RIGHT (DIST): ocultar essa parede e
-                // as malas 1 e 3, preservando as duas malas da fileira oposta (0 e 2).
-                const isoNearBagIndices = [1, 3];
-                const isoRearBagIndices = [0, 2];
-
-                const hideForIsometric = object => {
-                    if (!isoVisibilityStates.has(object)) isoVisibilityStates.set(object, object.visible);
-                    object.visible = false;
-                };
-                const swapIsoMaterial = (mesh, temporary) => {
-                    isoMaterialSwaps.push([mesh, mesh.material, mesh.renderOrder]);
-                    mesh.material = temporary;
-                    mesh.renderOrder = 0;  // oclusão apenas pelo depth buffer, nunca sobrepor as malas
-                };
-                const resetIsometricAppearance = () => {
-                    isoMaterialSwaps.forEach(([mesh, material, renderOrder]) => {
-                        mesh.material = material;
-                        mesh.renderOrder = renderOrder;
-                    });
-                    isoMaterialSwaps.length = 0;
-                    isoVisibilityStates.forEach((visible, object) => { object.visible = visible; });
-                    isoVisibilityStates.clear();
-                    isoNormalGeometries.forEach(geometry => geometry.deleteAttribute('normal'));
-                    isoNormalGeometries.clear();
-                    isoTemporaryMaterials.forEach(material => material.dispose());
-                    isoTemporaryMaterials.clear();
-                };
-                const highlightIsometricInterior = () => {
-                    // Cores foscas/acetinadas, diferenciadas pelo sombreamento real das luzes
-                    // ambiente e direcionais já presentes. Não mudar os materiais originais.
-                    const wallColors = new Map([
-                        [mat, 0xbecddd],       // parede lateral distante
-                        [wm, 0x9fb5c9],        // parede inclinada e divisória superior
-                        [fm, 0x849eb8],        // piso escalonado
-                        [doorMat, 0xc5d4e3],   // porta/teto retrátil
-                        [handleMat, 0x899fb4] // puxador da porta
-                    ]);
-                    profileBandMaterials.forEach(material => wallColors.set(material, 0x99b0c3));
-                    const solidMaterialFor = (source, isBag) => {
-                        if (!isoTemporaryMaterials.has(source)) {
-                            const solid = isBag
-                                ? source.clone()
-                                : new THREE.MeshStandardMaterial({
-                                    color: wallColors.get(source) ?? source.color.getHex(),
-                                    side: THREE.DoubleSide,
-                                    roughness: 0.78, metalness: 0.03,
-                                    polygonOffset: !!source.polygonOffset,
-                                    polygonOffsetFactor: source.polygonOffsetFactor || 0,
-                                    polygonOffsetUnits: source.polygonOffsetUnits || 0
-                                });
-                            solid.opacity = 1.0;
-                            solid.transparent = false;
-                            solid.depthWrite = true;
-                            solid.depthTest = true;
-                            solid.wireframe = false;
-                            solid.needsUpdate = true;
-                            isoTemporaryMaterials.set(source, solid);
-                        }
-                        return isoTemporaryMaterials.get(source);
-                    };
-
-                    // Retira toda a lateral X_RIGHT, inclusive suas tiras de extrusão.
-                    // Retira também TODAS as linhas estruturais do bin, inclusive EdgesGeometry,
-                    // guias e divisões das ripas: nenhuma linha pode atravessar as malas.
-                    sideWallParts.forEach(hideForIsometric);
-                    group.traverse(object => {
-                        if (object.isLine || object.isLineSegments || object.isLineLoop) {
-                            hideForIsometric(object);
-                        }
-                        if (!object.isMesh) return;
-                        // Paredes planas construídas com BufferGeometry precisam de normais
-                        // para receber sombreamento físico; remover as normais temporárias no reset.
-                        if (object.geometry && !object.geometry.getAttribute('normal') &&
-                            object.geometry.getAttribute('position')) {
-                            object.geometry.computeVertexNormals();
-                            isoNormalGeometries.add(object.geometry);
-                        }
-                        swapIsoMaterial(object, solidMaterialFor(object.material, false));
-                    });
-
-                    // As duas malas do fundo (casco, rodinhas e alças) ficam integralmente
-                    // opacas. As linhas decorativas das próprias malas continuam visíveis.
-                    isoRearBagIndices.forEach(index => {
-                        const bag = bags[index];
-                        bag.root.visible = true;
-                        if (bag.env) bag.env.visible = false;
-                        bag.root.traverse(object => {
-                            if (object.isMesh) {
-                                swapIsoMaterial(object, solidMaterialFor(object.material, true));
-                            }
-                        });
-                    });
-                };
-                const exportShot = (name, angle, elevation, radius) => {
-                    az = angle; el = elevation; R = radius;
-                    updateDoor(0.84);
-                    upd();
-                    const a = document.createElement('a');
-                    a.href = cv.toDataURL('image/png');
-                    a.download = 'alpha_bin_' + name + '_acrylic_4k.png';
-                    document.body.appendChild(a); a.click(); a.remove();
-                };
-                const restore = () => {
-                    resetIsometricAppearance();
-                    state.bagData.forEach((b, i) => {
-                        bags[i].root.visible = b.vis;
-                        bags[i].root.position.copy(b.pos);
-                        bags[i].root.quaternion.copy(b.quat);
-                        if (bags[i].env) bags[i].env.visible = b.env;
-                    });
-                    state.surfaces.forEach(([m, tr, op, dw, color]) => {
-                        m.color.setHex(color);
-                        m.transparent = tr; m.opacity = op; m.depthWrite = dw; m.needsUpdate = true;
-                    });
-                    ren.setClearColor(state.clear, state.clearAlpha);
-                    ren.setPixelRatio(state.pixelRatio);
-                    ren.setSize(state.size.x, state.size.y, false);
-                    az = state.az; el = state.el; R = state.R; T.copy(state.T);
-                    updateDoor(state.door);
-                    syncDoorUI();
-                    rs();
-                    exporting = false;
-                };
-                try {
-                    bags.forEach((b, i) => {
-                        b.root.visible = true;
-                        if (b.env) b.env.visible = false;
-                        setBagPoseAlongPath(i, 1);
-                    });
-                    state.surfaces.forEach(([m], i) => {
-                        m.transparent = true;
-                        m.opacity = i === 2 ? 0.37 : (i < 2 ? 0.23 : 0.25);
-                        m.depthWrite = false;
-                        m.needsUpdate = true;
-                    });
-                    ren.setPixelRatio(1); ren.setSize(EW, EH, false);
-                    cam.aspect = EW / EH; cam.updateProjectionMatrix();
-                    ren.setClearColor(0x000000, 0);
-                    exportShot('lateral_with_four_bags', 0, 0.08, 2600); // primeira imagem SEM alterações
-                    setTimeout(() => {
-                        try {
-                            // A câmera vê X_RIGHT: ocultar as malas 1 e 3 somente neste PNG.
-                            isoNearBagIndices.forEach(i => { bags[i].root.visible = false; });
-                            highlightIsometricInterior();
-                            exportShot('side_isometric_with_two_rear_bags', -0.47, 0.17, 2650);
-                        } catch (err) {
-                            console.warn('Side isometric export:', err);
-                        } finally {
-                            // Revela novamente a fileira frontal após o PNG (também em erro);
-                            // restore() recupera, por fim, a visibilidade original da tela.
-                            isoNearBagIndices.forEach(i => { bags[i].root.visible = true; });
-                            restore(); // devolve imediatamente materiais, contornos e pose
-                        }
-                    }, 400);
-                } catch (err) {
-                    console.warn('Side transparent export:', err);
-                    restore();
-                }
-            };
 
             setTimeout(rs, 60);
         })();
@@ -13777,186 +13309,13 @@ window.drawUniReferenceBins = drawReferenceBins;
         }
         recBtn.addEventListener('click', startRec);
 
-        // ---- exportar PNGs do COMEÇO e do FINAL de cada aba: mesma captura/recorte do vídeo, quadros 1920x1080 num único ZIP ----
-        const snapBtn = $('tour-snap');
-        let snap = null;
-        const snapLabel = () => '■ Stop and save PNGs (' + (snap ? snap.frames.length : 0) + ')';
-
-        // ZIP mínimo (método "store", sem compressão — PNG já é comprimido)
-        const crcTable = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
-        const crc32 = u8 => { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = crcTable[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
-        function buildZip(files) {          // files: [{ name, data:Uint8Array }]
-            const enc = new TextEncoder(), parts = [], central = [];
-            const d = new Date();
-            const dosTime = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
-            const dosDate = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
-            let offset = 0;
-            files.forEach(f => {
-                const nm = enc.encode(f.name), crc = crc32(f.data), sz = f.data.length;
-                const lh = new DataView(new ArrayBuffer(30));
-                lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
-                lh.setUint16(10, dosTime, true); lh.setUint16(12, dosDate, true); lh.setUint32(14, crc, true);
-                lh.setUint32(18, sz, true); lh.setUint32(22, sz, true); lh.setUint16(26, nm.length, true); lh.setUint16(28, 0, true);
-                parts.push(lh.buffer, nm, f.data);
-                const ch = new DataView(new ArrayBuffer(46));
-                ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true);
-                ch.setUint16(12, dosTime, true); ch.setUint16(14, dosDate, true); ch.setUint32(16, crc, true);
-                ch.setUint32(20, sz, true); ch.setUint32(24, sz, true); ch.setUint16(28, nm.length, true);
-                ch.setUint32(42, offset, true);
-                central.push(ch.buffer, nm);
-                offset += 30 + nm.length + sz;
-            });
-            const cdSize = central.reduce((a, b) => a + (b.byteLength !== undefined ? b.byteLength : b.length), 0);
-            const end = new DataView(new ArrayBuffer(22));
-            end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
-            end.setUint32(12, cdSize, true); end.setUint32(16, offset, true);
-            return new Blob([...parts, ...central, end.buffer], { type: 'application/zip' });
-        }
-        const pad = (n, w) => String(n).padStart(w, '0');
-
-        async function snapFinish() {
-            if (!snap || snap.finishing) return;
-            const sn = snap; sn.finishing = true;
-            await Promise.all(sn.pending);
-            sn.video.srcObject = null; sn.video.remove();
-            sn.stream.getTracks().forEach(t => t.stop());
-            document.body.classList.remove('rec-clean');
-            document.body.style.removeProperty('--rec-w');
-            stage.classList.remove('rec');
-            snapBtn.classList.remove('on'); snapBtn.textContent = '📷 Export start/end PNGs';
-            recBtn.disabled = false;
-            snap = null;
-            if (!sn.frames.length) { alert('No frames were captured. Keep the window visible while the simulation runs.'); return; }
-            const files = [];
-            for (const f of sn.frames) files.push({ name: f.name, data: new Uint8Array(await f.blob.arrayBuffer()) });
-            const url = URL.createObjectURL(buildZip(files));
-            const a = document.createElement('a');
-            a.href = url; a.download = 'simulacao-completa-bin-alpha-frames-png.zip';
-            document.body.appendChild(a); a.click(); a.remove();
-            setTimeout(() => URL.revokeObjectURL(url), 30000);
-        }
-
-        function snapTake(name) {
-            if (!snap || snap.finishing) return;
-            const v = snap.video, vw = v.videoWidth, vh = v.videoHeight;
-            if (!vw || !vh) return;
-            const OW = 1920, OH = 1080, c = snap.canvas, g = snap.ctx;
-            g.fillStyle = '#000223'; g.fillRect(0, 0, OW, OH);
-            let sx = 0, sy = 0, sw = vw, sh = vh;
-            if (!snap.cropped && snap.surf === 'browser' && window.innerWidth > 0 && window.innerHeight > 0) {
-                const r = stage.getBoundingClientRect();
-                if (r.width > 50 && r.height > 50) {
-                    const kx = vw / window.innerWidth, ky = vh / window.innerHeight;
-                    sx = Math.max(0, Math.round(r.left * kx)); sy = Math.max(0, Math.round(r.top * ky));
-                    sw = Math.min(vw - sx, Math.round(r.width * kx)); sh = Math.min(vh - sy, Math.round(r.height * ky));
-                }
-            }
-            const k = Math.min(OW / sw, OH / sh), dw = Math.round(sw * k), dh = Math.round(sh * k);
-            g.drawImage(v, sx, sy, sw, sh, Math.round((OW - dw) / 2), Math.round((OH - dh) / 2), dw, dh);
-            const sn = snap;
-            const pr = new Promise(res => c.toBlob(b => { if (b) sn.frames.push({ name, blob: b }); snapBtn.textContent = snapLabel(); res(); }, 'image/png'));
-            sn.pending.push(pr);
-            pr.then(() => { sn.pending = sn.pending.filter(x => x !== pr); });
-        }
-
-        async function startSnap() {
-            if (snap) { await snapFinish(); abort(); return; }
-            if (rec) { alert('Stop the video recording first.'); return; }
-            if (!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia)) {
-                alert('PNG export requires the Google Chrome or Microsoft Edge browser (open the HTML file directly in the browser).');
-                return;
-            }
-            let stream;
-            try {
-                stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { frameRate: { ideal: 30, max: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 }, aspectRatio: { ideal: 16 / 9 } },
-                    audio: false, preferCurrentTab: true, selfBrowserSurface: 'include', surfaceSwitching: 'include'
-                });
-            } catch (e) {
-                if (e && e.name !== 'NotAllowedError' && e.name !== 'AbortError') alert('Could not start screen capture (' + (e.message || e.name) + '). Open the HTML file directly in a Chrome or Edge tab.');
-                return;
-            }
-            const track = stream.getVideoTracks()[0];
-            if (!track) { stream.getTracks().forEach(t => t.stop()); return; }
-
-            document.body.classList.add('rec-clean');
-            const fitW = Math.min(window.innerWidth, window.innerHeight * 16 / 9, 1920);
-            const recW = Math.max(640, Math.floor(fitW / 32) * 32), recH = recW * 9 / 16;
-            fitFrame(false);
-            stage.style.setProperty('--rec-w', recW + 'px'); stage.style.setProperty('--rec-h', recH + 'px');
-            document.body.style.setProperty('--rec-w', recW + 'px');
-            stage.classList.add('rec');
-            recBtn.disabled = true;
-            run(0);
-            await sleep(250);
-
-            let cropped = false;
-            if (window.CropTarget && typeof track.cropTo === 'function') {
-                try { await track.cropTo(await CropTarget.fromElement(stage)); cropped = true; } catch (e) { console.warn('cropTo unavailable; using manual crop:', e); }
-            }
-            const video = document.createElement('video');
-            video.style.cssText = 'position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:0.01;pointer-events:none;z-index:-1;';
-            video.muted = true; video.playsInline = true; video.srcObject = stream;
-            document.body.appendChild(video);
-            try { await video.play(); } catch (e) {}
-            for (let w = 0; w < 20 && !video.videoWidth; w++) await sleep(50);
-
-            const canvas = document.createElement('canvas'); canvas.width = 1920; canvas.height = 1080;
-            const ctx = canvas.getContext('2d', { alpha: false });
-            ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-            const surf = (track.getSettings && track.getSettings().displaySurface) || '';
-
-            snap = { stream, video, canvas, ctx, cropped, surf, frames: [], pending: [], finishing: false };
-            track.addEventListener('ended', () => { snapFinish().then(() => abort()); });
-            snapBtn.classList.add('on'); snapBtn.textContent = snapLabel();
-        }
-        snapBtn.addEventListener('click', startSnap);
-        window.__tourEdge = (i, st, when) => { if (snap) snapTake(pad(i + 1, 2) + '_' + st.key + '_' + when + '.png'); };
-
-        // integra com o fim/parada da sequência (o handler do vídeo só age quando há gravação de vídeo)
-        const prevTourEnded = window.__tourEnded, prevStopRec = window.__stopTourRec;
-        window.__tourEnded = async () => {
-            if (snap) { await sleep(150); await snapFinish(); return; }   // gera o ZIP
-            return prevTourEnded();
-        };
-        window.__stopTourRec = () => { if (snap) { snapFinish().then(() => abort()); return; } prevStopRec(); };
-
+        window.__tourEdge = () => {}; // Compatibility hook: PNG capture removed.
         window.tourStart = () => { if (!live) run(0); }; // explicit start only (general presentation button)
         window.tourAbort = abort;               // chamado ao sair da aba 8
     })();
 
     </script>
 
-<script>
-/* Tab 5 independent door movement leaves the timeline and Tab 6 unaffected. */
-(function () {
-    window.__uniRefDoorProgress = 0;
-    let doorRaf = 0;
-    window.uniRefSetDoors = value => {
-        if (doorRaf) { cancelAnimationFrame(doorRaf); doorRaf = 0; }
-        window.__uniRefDoorProgress = Math.max(0,Math.min(1, Number(value)||0));
-        const slider=document.getElementById('uni-bin-door-slider');
-        const pct=document.getElementById('uni-bin-door-pct');
-        const button=document.getElementById('uni-bin-door-toggle');
-        if(slider) slider.value = String(Math.round(window.__uniRefDoorProgress*100));
-        if(pct) pct.textContent = Math.round(window.__uniRefDoorProgress*100)+'%';
-        if(button) button.textContent = window.__uniRefDoorProgress>.5 ? 'Close bin doors' : 'Open bin doors';
-        if(typeof window.uniRefresh === 'function') window.uniRefresh();
-    };
-    window.uniRefToggleDoors = () => {
-        if (doorRaf) cancelAnimationFrame(doorRaf);
-        const from = window.__uniRefDoorProgress || 0, target=from>.5?0:1;
-        const t0=performance.now(), duration=950;
-        function tick(now) {
-            const x=Math.min(1,(now-t0)/duration), eased=x*x*(3-2*x);
-            doorRaf=0;
-            window.uniRefSetDoors(from+(target-from)*eased);
-            if(x<1) doorRaf=requestAnimationFrame(tick);
-        }
-        doorRaf=requestAnimationFrame(tick);
-    };
-})();
-</script>
 
 </body>
 </html>
