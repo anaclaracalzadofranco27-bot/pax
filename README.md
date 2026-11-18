@@ -24,7 +24,7 @@ HTML e recursos exclusivos ficam juntos:
 | --- | --- |
 | `source/html/ABA1/` | `ABA1.html`, `index.template.html`, `styles.css`, `bridge.js`, scripts de avião/passageiros/controles em `js/` e duas ilustrações em `svg/` |
 | `source/html/ABA2/` | `ABA2.html` e `cad3d.js` (bin 3D, porta, malas e câmera) |
-| `source/html/ABA3/` | `ABA3.html` e `export.js` (exportação da comparação de bins) |
+| `source/html/ABA3/` | `ABA3.html`, `bin-comparison-renderers.js` (desenho Alpha/convencional e cotas) e `export.js` (PNG) |
 | `source/html/ABA4/` | `ABA4.html`, `animation.js`, `export.js` e desenhos `*.svg.base64` da vista superior |
 | `source/html/ABA5/` | `ABA5.html`, `unified-simulation.js` e `door-addon.js` |
 | `source/html/ABA6/` | `ABA6.html` e `manikin.js` (manequim e movimentação das malas) |
@@ -40,6 +40,8 @@ HTML e recursos exclusivos ficam juntos:
 | `source/js/core/config.js` | Paleta, geometria, linha do tempo e configurações comuns |
 | `source/js/engine/cad2d-and-shared.js` | CAD 2D, comparação da Aba 3 e funções compartilhadas |
 | `source/js/engine/sectioncabin.js` | Ergonomia sentada e funções compartilhadas com a simulação da cabine |
+
+**Dependência importante da Aba 3:** `bin-comparison-renderers.js` pertence à comparação visual (dois bins, cotas de 44″ e 56″), mas utiliza a geometria, os materiais, as malas e a cena do motor `ABA2/cad3d.js`. Por isso, `ABA2/cad3d.js` contém um `@@APHA_INCLUDE` para inserir esse arquivo **dentro da função `initCAD3DModule()`**, exatamente onde o código estava. Ele **não** deve ser incluído como `<script>` separado. O resultado montado permanece idêntico, sem duplicar motores Three.js.
 
 Códigos específicos de uma aba também podem ser **chamados pela Simulação Geral**
 (ABA8), mas ficam na pasta de origem. O diretor da ABA8 apenas os coordena.

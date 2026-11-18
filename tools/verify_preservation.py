@@ -49,6 +49,27 @@ for asset in ("aircraft.svg.base64", "detail-s.svg.base64"):
     assert topview_js.count(marker) == 1, f"Missing or duplicate ABA4 asset include: {asset}"
 assert "source/assets/topview/" not in topview_js, "Outdated topview asset path"
 
+# ABA3's two comparison renderers share the CAD3D closure and must stay
+# embedded at their original position, not loaded as a separate script.
+cad3d_source = (ROOT / "source/html/ABA2/cad3d.js").read_text(encoding="utf-8")
+aba3_renderers_path = ROOT / "source/html/ABA3/bin-comparison-renderers.js"
+assert aba3_renderers_path.is_file(), "Missing ABA3 comparison renderers"
+aba3_renderers = aba3_renderers_path.read_text(encoding="utf-8")
+assert cad3d_source.count("@@APHA_INCLUDE:source/html/ABA3/bin-comparison-renderers.js@@") == 1, "Broken ABA3 renderer include"
+assert cad3d_source.index("@@APHA_INCLUDE:source/html/ABA3/bin-comparison-renderers.js@@") < cad3d_source.index("window.cad3dExportImages"), "Incorrect renderer ordering"
+for required in (
+    "function drawTopDimension(",
+    "(function novaFront() {",
+    "(function conventionalSVGTopView(){",
+    "window.novaEnter =",
+    "window.__novaRender =",
+    "window.__convDraw=draw;",
+    "window.__convCapture=",
+    "window.novaShowHeader=",
+):
+    assert required in aba3_renderers, f"Missing comparison renderer: {required}"
+
+
 block = re.search(r"const TOUR_TAKES = \[([\s\S]*?)\];", director)
 assert block, "Missing take manifest"
 takes = [
