@@ -12,10 +12,16 @@ tabs = ("pax", "cad3d", "nova", "topview", "unified", "sim", "closing", "tour")
 for tab in tabs:
     assert html.count(f'id="tab-btn-{tab}"') == 1, f"Tab missing or duplicated: {tab}"
     assert html.count(f'id="module-{tab}"') == 1, f"Module missing or duplicated: {tab}"
-sections = ("pax", "cad3d", "nova", "topview", "unified", "closing", "tour")
-for name in sections:
-    source = (ROOT / "src/html" / f"{name}.html").read_text(encoding="utf-8")
-    assert f'id="module-{name}"' in source, f"Broken section: {name}"
+# Each navigation tab has its own HTML source. File numbers follow tab order,
+# not the legacy DOM order (the original Aba 6 block lives earlier in the page).
+template = (ROOT / "src/page.template.html").read_text(encoding="utf-8")
+for index, name in enumerate(tabs, start=1):
+    source_path = ROOT / "src/html" / f"ABA{index}.html"
+    source = source_path.read_text(encoding="utf-8")
+    assert f'id="module-{name}"' in source, f"Broken section: ABA{index} ({name})"
+    assert f"@@APHA_INCLUDE:src/html/ABA{index}.html@@" in template, (
+        f"Template does not include ABA{index} ({name})"
+    )
 
 block = re.search(r"const TOUR_TAKES = \[([\s\S]*?)\];", director)
 assert block, "Missing take manifest"
@@ -44,4 +50,4 @@ for marker in (
 ):
     assert marker in html, f"Missing transition or dimension handler: {marker}"
 assert len(re.findall(r"<script\b", html)) == 12, "Script layout changed"
-print("OK: eight tabs, seven source sections, five takes, Full HD and transition handlers preserved.")
+print("OK: eight tabs, eight source sections, five takes, Full HD and transition handlers preserved.")

@@ -21,7 +21,7 @@ O `--check` compara o resultado **byte a byte** com o HTML versionado. Em pull r
 | --- | --- |
 | `src/page.template.html` | Estrutura externa e pontos de inclusão dos módulos |
 | `src/css/global.css` | CSS global e estilos de transições / gravação |
-| `src/html/*.html` | Estrutura de cada aba: avião, CAD 3D, bins, vista superior, integrada, encerramento e tour |
+| `src/html/ABA1.html` a `ABA8.html` | HTML das oito abas, numerados na ordem da navegação (incluindo a Aba 6 do manequim) |
 | `src/js/core/config.js` | Paleta, geometria e configurações comuns |
 | `src/js/engine/cad2d-and-shared.js` | Desenho técnico CAD 2D e funções compartilhadas |
 | `src/js/engine/manikin.js` | Renderização biomecânica e manequim |
@@ -36,6 +36,26 @@ O `--check` compara o resultado **byte a byte** com o HTML versionado. Em pull r
 | `src/js/tour/director-and-recording.js` | Ordem das cenas, morphs, cinco takes e gravação 1920 × 1080 |
 | `src/js/unified/door-addon.js` | Movimento adicional da porta na simulação integrada |
 | `src/svg/pax/*.svg` | Desenhos da aeronave no iframe |
+
+## Organização de `src/html/` por abas
+
+Os nomes dos arquivos seguem a ordem dos botões visíveis da apresentação, sem
+alterar os IDs `module-*`, a ordem original do DOM ou a renderização do HTML final:
+
+| Fonte | Aba |
+| --- | --- |
+| `ABA1.html` | Avião e embarque (`pax`) |
+| `ABA2.html` | CAD 3D (`cad3d`) |
+| `ABA3.html` | Comparação de espaço (`nova`) |
+| `ABA4.html` | Vista superior (`topview`) |
+| `ABA5.html` | Simulação integrada (`unified`) |
+| `ABA6.html` | Manequim colocando a mala (`sim`) |
+| `ABA7.html` | Encerramento (`closing`) |
+| `ABA8.html` | Simulação Geral / cinco takes (`tour`) |
+
+A Aba 6 estava embutida em `src/page.template.html`; agora possui um arquivo
+próprio. Sua inclusão foi preservada na mesma posição do template, de modo que
+a expansão de `tools/build.py` reproduz exatamente o HTML anterior.
 
 ## Regras importantes
 
