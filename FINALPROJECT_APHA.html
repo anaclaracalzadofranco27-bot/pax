@@ -300,10 +300,17 @@
             font-family:'Montserrat','Segoe UI',Arial,sans-serif;font-weight:800;text-transform:uppercase;font-size:clamp(26px,3cqw,48px);line-height:1.15;letter-spacing:0.14em}
         .alpha-hero-title-box .word-overhead{color:#FFFFFF}
         .alpha-hero-title-box .word-binalpha{color:#00B4D8}
-        .alpha-hero-desc-box{position:absolute;bottom:5%;right:4%;z-index:25;max-width:640px;text-align:right;pointer-events:none;
-            background:rgba(5,12,36,0.88);border:1px solid rgba(0,180,216,0.55);border-right:3px solid #00B4D8;border-radius:6px;padding:14px 22px;
+        /* Texto técnico numa faixa inferior DIREITA: não cobre mais a área inteira das cotas. */
+        .alpha-hero-desc-box{position:absolute;bottom:4%;right:3%;z-index:25;width:min(48%,580px);max-width:580px;text-align:right;pointer-events:none;
+            background:rgba(5,12,36,0.92);border:1px solid rgba(0,180,216,0.55);border-right:3px solid #00B4D8;border-radius:6px;padding:10px 14px;
             box-shadow:0 8px 24px rgba(0,0,0,0.45);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
-            font-family:'Montserrat','Segoe UI',Arial,sans-serif;font-weight:500;font-size:clamp(14px,1.1cqw,20px);line-height:1.35;letter-spacing:0.01em;color:#d4dce6}
+            font-family:'Montserrat','Segoe UI',Arial,sans-serif;font-weight:500;font-size:clamp(11px,1cqw,18px);line-height:1.28;letter-spacing:0.01em;color:#d4dce6}
+        /* Os valores acompanham a linha projetada, mas são colocados ABAIXO dela, na área segura 16:9. */
+        #cad3d-container .cad3d-dimension-labels{position:absolute;inset:0;z-index:6;pointer-events:none;overflow:hidden}
+        #cad3d-container .cad3d-dimension-value{position:absolute;display:none;white-space:nowrap;transform:translateX(-50%);
+            background:rgba(5,12,36,.93);border:1px solid rgba(224,168,0,.65);border-radius:4px;
+            padding:3px 7px;color:#f6d35f;text-shadow:0 1px 2px #050c24;
+            font:800 clamp(11px,1.16cqw,18px)/1.25 'JetBrains Mono',monospace}
         .alpha-hero-desc-box strong{font-weight:800;color:#FFFFFF}
         @keyframes hudIn{from{opacity:0;transform:translateY(.8cqw) scale(.97)}to{opacity:1;transform:none}}
         @keyframes hudOut{from{opacity:1}to{opacity:0}}
@@ -5778,6 +5785,7 @@ function xrayRun(ms) {
                             <div class="cb cb-iata"><p>Based on IATA<br><u>carry-on standards</u></p><p>22 X 14 X 10 in</p></div>
                         </div>
                     </div>
+                    <div class="cad3d-dimension-labels" aria-hidden="true"></div>
                     <div class="absolute left-3 bottom-3 bg-white/90 backdrop-blur text-slate-700 px-3 py-1.5 rounded-lg text-[11px] font-mono border border-cad-border/40 pointer-events-none">
                         Drag to rotate · Scroll the mouse wheel to zoom · Use the buttons above to control the simulation
                     </div>
@@ -11469,6 +11477,7 @@ window.drawUniReferenceBins = drawReferenceBins;
 
             // Rótulos das cotas: mantidos junto à mala, mas confinados à área útil da câmera.
             const bagDimensionLabels = [];
+            const bagDimensionLayer = container.querySelector('.cad3d-dimension-labels');
             function createSuitcase(bodyColorHex, withDims){
                 const root = new THREE.Group();
                 const inner = new THREE.Group();
@@ -11516,13 +11525,16 @@ window.drawUniReferenceBins = drawReferenceBins;
                     function dim(a,b,txt,c){
                         const l=new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...a),new THREE.Vector3(...b)]),ym);
                         l.renderOrder=5;env.add(l);
-                        const k=document.createElement('canvas');k.width=256;k.height=96;const x=k.getContext('2d');
-                        x.font='bold 60px Arial';x.textAlign='center';x.textBaseline='middle';
-                        x.lineWidth=8;x.strokeStyle='#222';x.strokeText(txt,128,48);
-                        x.fillStyle='#e0a800';x.fillText(txt,128,48);
-                        const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(k),depthTest:false,transparent:true}));
-                        s.scale.set(140,52,1);s.position.set(...c);s.renderOrder=6;env.add(s);
-                        bagDimensionLabels.push({ sprite:s, envelope:env, anchor:s.position.clone() });
+                        // Não usar sprites 3D para os números: podiam atravessar a borda
+                        // e ficar escondidos atrás da caixa de explicação.
+                        const label=document.createElement('span');
+                        label.className='cad3d-dimension-value';
+                        label.textContent=txt;
+                        if(bagDimensionLayer) bagDimensionLayer.appendChild(label);
+                        bagDimensionLabels.push({
+                            el:label, envelope:env,
+                            a:new THREE.Vector3(...a), b:new THREE.Vector3(...b)
+                        });
                     }
                     dim([215,-279.5,160],[215,279.5,160],'22 in',[248,0,160]);
                     dim([-178,-322,160],[178,-322,160],'14 in',[0,-345,160]);
@@ -11534,39 +11546,51 @@ window.drawUniReferenceBins = drawReferenceBins;
                 return { root, env, mBody };
             }
 
-            // Mantém visíveis as etiquetas inclusive no vídeo 16:9 e durante a movimentação
-            // da mala. O clamp só atua quando o rótulo sairia do enquadramento;
-            // não altera as linhas, dimensões, animações nem o tempo de exibição.
+            // Cotas em pixels de tela: números sempre DEBAIXO da linha, dentro
+            // do quadro Full HD, sem alterar a geometria nem o tempo de exibição.
             function fitBagDimensionLabels() {
-                const w = container.clientWidth, h = container.clientHeight;
-                if (!w || !h) return;
+                const w=container.clientWidth, h=container.clientHeight;
+                if(!bagDimensionLayer || w<1 || h<1) return;
+                scene.updateMatrixWorld(true);
                 cam.updateMatrixWorld();
-                const world = new THREE.Vector3(), ndc = new THREE.Vector3();
-                const cameraSpace = new THREE.Vector3();
-                const tanHalfFov = Math.tan(cam.fov * Math.PI / 360);
-                for (const {sprite, envelope, anchor} of bagDimensionLabels) {
-                    sprite.position.copy(anchor);
-                    if (!envelope.visible || !envelope.parent.visible) continue;
-                    sprite.getWorldPosition(world);
-                    const depth = -cameraSpace.copy(world).applyMatrix4(cam.matrixWorldInverse).z;
-                    if (depth <= 0) continue;
-                    ndc.copy(world).project(cam);
-                    const pxPerUnit = h / (2 * depth * tanHalfFov);
-                    const halfW = sprite.scale.x * pxPerUnit / 2;
-                    const halfH = sprite.scale.y * pxPerUnit / 2;
-                    const minX = Math.min(w / 2, w * .055 + halfW);
-                    const maxX = Math.max(w / 2, w * .945 - halfW);
-                    const minY = Math.min(h / 2, h * .16 + halfH);
-                    const maxY = Math.max(h / 2, h * .84 - halfH);
-                    const x = Math.max(minX, Math.min(maxX, (ndc.x + 1) * w / 2));
-                    const y = Math.max(minY, Math.min(maxY, (1 - ndc.y) * h / 2));
-                    const oldX = (ndc.x + 1) * w / 2, oldY = (1 - ndc.y) * h / 2;
-                    if (Math.abs(x - oldX) < .5 && Math.abs(y - oldY) < .5) continue;
-                    ndc.x = x * 2 / w - 1;
-                    ndc.y = 1 - y * 2 / h;
-                    ndc.unproject(cam);
-                    envelope.worldToLocal(ndc);
-                    sprite.position.copy(ndc);
+                const pt=new THREE.Vector3();
+                const pos=v=>{
+                    pt.copy(v);
+                    pt.project(cam);
+                    return {x:(pt.x+1)*w/2,y:(1-pt.y)*h/2,z:pt.z};
+                };
+                const box=_balloons && _balloons.querySelector('.alpha-hero-desc-box');
+                const desc=box && _balloons.offsetParent && getComputedStyle(box).visibility!=='hidden'
+                    ?box.getBoundingClientRect():null;
+                const cont=container.getBoundingClientRect();
+                const topSafe=h*.20, bottomSafe=h*.72;
+                for(const entry of bagDimensionLabels){
+                    const {el,envelope,a,b}=entry;
+                    el.style.display='none';
+                    if(!envelope.visible || !envelope.parent || !envelope.parent.visible) continue;
+                    const wa=a.clone(),wb=b.clone();
+                    envelope.localToWorld(wa); envelope.localToWorld(wb);
+                    const p=pos(wa),q=pos(wb);
+                    if(!Number.isFinite(p.x+p.y+q.x+q.y) || (p.z>1 && q.z>1)) continue;
+                    el.style.display='block';
+                    const ew=el.offsetWidth||58,eh=el.offsetHeight||24;
+                    const leftSafe=w*.06+ew/2,rightSafe=w*.94-ew/2;
+                    const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+                    let x=clamp((p.x+q.x)/2,leftSafe,rightSafe);
+                    const horizontal=Math.abs(p.x-q.x)>=Math.abs(p.y-q.y)*.85;
+                    let y=horizontal?Math.max(p.y,q.y)+14:(p.y+q.y)/2+17;
+                    y=clamp(y,topSafe,bottomSafe-eh);
+                    // Evita o texto do modelo geométrico: nenhum número cobre a descrição.
+                    if(desc){
+                        const dl=desc.left-cont.left,dt=desc.top-cont.top;
+                        const dr=desc.right-cont.left,db=desc.bottom-cont.top;
+                        if(x+ew/2>dl-8 && x-ew/2<dr+8 && y+eh>dt-7 && y<db+7){
+                            y=clamp(dt-eh-14,topSafe,bottomSafe-eh);
+                            if(y+eh>dt-7) x=clamp(dl-ew/2-14,leftSafe,rightSafe);
+                        }
+                    }
+                    el.style.left=x.toFixed(1)+'px';
+                    el.style.top=y.toFixed(1)+'px';
                 }
             }
 
