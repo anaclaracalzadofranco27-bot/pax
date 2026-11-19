@@ -188,13 +188,13 @@
         #tour-stage #top-card{border:0;border-radius:0;box-shadow:none;background:transparent}
         #tour-stage #top-card > div:nth-child(1),#tour-stage #top-card > div:nth-child(2){display:none}
                 #tour-stage #module-topview > div:first-child{display:none}   /* roteiro: sem a caixa de título "Top View – Volumetric Advantage" */
-        /* Integrated Simulation (2D Section) no roteiro: sem a barra de controles */
+        /* Aba 3: Bin Top View no roteiro, sem os cartões de título e faixas sobre os bins. */
         #tour-stage #module-nova > div:first-child{display:none}   /* Bin Top View no roteiro: sem o cartão de título */
         #tour-stage #module-nova .sim-card{border:0;border-radius:0;box-shadow:none;background:transparent}   /* roteiro: sem a moldura retangular em volta dos bins */
         #tour-stage #module-nova .sim-card .grid > div > div:first-child{display:none}   /* roteiro: sem as faixas "ALPHA BIN — TOP VIEW" e "CONVENTIONAL BIN — TOP VIEW" */
         #tour-stage #module-unified .sim-card > div:first-child{display:none}
 
-        /* Aba 4 (Simulação Integrada) no roteiro/vídeo: SÓ a cena (bin + personagens), a escala de estatura e os títulos CONVENTIONAL / ALPHA */
+        /* Aba 5 (Simulação Integrada) no roteiro/vídeo: SÓ a cena (bin + personagens), a escala de estatura e os títulos CONVENTIONAL / ALPHA */
         #tour-stage #module-unified{position:relative;width:100%;aspect-ratio:16/9;container-type:inline-size;margin:0 !important}
         #tour-stage.rec #module-unified{position:absolute !important;inset:0 !important;width:auto;aspect-ratio:auto}
         #tour-stage #module-unified > div:first-of-type{display:none !important}
@@ -221,9 +221,7 @@
         /* Simulação Geral: esconde o cabeçalho da Aba 6 para preservar o take 03.
            O viewport continua preenchendo o palco 16:9 sem alteração das transições. */
         #tour-stage #aba6-header{display:none !important;}
-        /* roteiro (simulação final): sem a caixa de título, sem a barra "BIOMECHANICAL CAD 2D VIEWPORT" e sem a moldura do cartão */
-        
-        
+        /* Roteiro: remove a moldura do cartão, mantendo o viewport 16:9. */
         #tour-stage #aba6-module-ergo .sim-card{border:0;border-radius:0;box-shadow:none;background:transparent}
 
         /* ===== Aba 1: Boarding Bridge (passageiros caminhando na passarela do Aviao_Fuselagem_PDF_v10) ===== */
@@ -4236,7 +4234,7 @@ function xrayRun(ms) {
         </script>
 
         <!-- ========================================================================= -->
-        <!-- ABA 4: SIMULADOR DE EMBARQUE (manikin → embarque → Monte Carlo)          -->
+        <!-- ABA 6: SIMULAÇÃO BIOMECÂNICA E EMBARQUE (manikin)          -->
         <!-- ========================================================================= -->
         <div id="module-sim" class="space-y-4 hidden">
             <!-- Aba 6: biomechanical engine integrado ao DOM principal (sem iframe). -->
@@ -4258,7 +4256,7 @@ function xrayRun(ms) {
         </div>
 
         <!-- ========================================================================= -->
-        <!-- MÓDULO 6: SIMULAÇÃO CAD 3D INTERATIVA (PORTA ROLANTE 5MM & 4 MALAS IATA)  -->
+        <!-- ABA 2: SIMULAÇÃO CAD 3D INTERATIVA (PORTA ROLANTE 5MM & 4 MALAS IATA)  -->
         <!-- ========================================================================= -->
         <section id="module-cad3d" class="space-y-6 hidden">
             <div class="flex flex-col lg:flex-row items-stretch gap-4">
@@ -4325,7 +4323,7 @@ function xrayRun(ms) {
         </section>
 
         <!-- ========================================================================= -->
-        <!-- MÓDULO 7: VISTA SUPERIOR DA CABINE — VANTAGEM VOLUMÉTRICA                  -->
+        <!-- ABAS 3 E 4: COMPARAÇÃO DE BINS E VISTA SUPERIOR DA CABINE — VANTAGEM VOLUMÉTRICA                  -->
         <!-- ========================================================================= -->
         <section id="module-nova" class="space-y-4 hidden">
             <div class="bg-cad-panel border border-cad-border rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3">
@@ -4361,7 +4359,7 @@ function xrayRun(ms) {
 
         <section id="module-topview" class="space-y-4 hidden">
             <!-- ===================================================================== -->
-            <!-- SEÇÃO 2 (aba 1): VISTA SUPERIOR DA CABINE — VANTAGEM VOLUMÉTRICA      -->
+            <!-- ABA 4: VISTA SUPERIOR DA CABINE — VANTAGEM VOLUMÉTRICA      -->
             <!-- ===================================================================== -->
             <div class="bg-cad-panel border border-cad-border rounded-xl px-4 py-3">
                 <h2 class="text-base font-semibold text-slate-900 flex items-center gap-2">
@@ -4414,7 +4412,7 @@ function xrayRun(ms) {
         </script>
 
         <!-- ========================================================================= -->
-        <!-- MÓDULO 8: SIMULAÇÃO INTEGRADA (CONTORNO CAD 2D + ERGONOMIA SENTADO)        -->
+        <!-- ABA 5: SIMULAÇÃO INTEGRADA (CONTORNO CAD 2D + ERGONOMIA SENTADO)        -->
         <!-- ========================================================================= -->
         <section id="module-unified" class="space-y-4 hidden">
             <svg class="uni-titles" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
@@ -9997,7 +9995,7 @@ window.drawUniReferenceBins = drawReferenceBins;
     </script>
     <script>
     // -------------------------------------------------------------------------
-    // ABA 1 · SEÇÃO 2: VISTA SUPERIOR DA CABINE (bins Alpha × Convencional)
+    // ABA 4 · VISTA SUPERIOR DA CABINE (bins Alpha × Convencional)
     // -------------------------------------------------------------------------
     // Renderer 2D convencional substituído pela cena Three.js compartilhada acima.
     // __convDraw() é registrado em conventional3DTopView(), dentro de initCAD3DModule().
