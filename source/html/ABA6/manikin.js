@@ -75,7 +75,12 @@
 
         // Adaptador cinemático da aba 6 para o CAD da aba 5. Não desenha
         // uma segunda geometria: apenas calcula apoios e centros das malas.
+        // Compartilha a base CAD imutavel, mas devolve uma copia: o plano
+        // de estiva ajusta m1Cx/m2Cx e suas alturas durante cada quadro.
+        let cachedErgoCADProfile = null;
         function ergoCADAlphaProfile(cad) {
+            if (cachedErgoCADProfile && cachedErgoCADProfile.cad === cad)
+                return { ...cachedErgoCADProfile.profile };
             const pts = cad.floorPts;
             if (!pts || pts.length < 2) return null;
             let bend = Math.floor(pts.length / 2);
@@ -102,7 +107,8 @@
                            prof.m2H * Math.sin(prof.rad17)) / 2;
             prof.m2Cx = Math.min(prof.xFlatEnd + 23.0, prof.xRampEnd - halfW - 2.0);
             prof.m2Cy = ergoBagSupportY(prof, prof.m2Cx, prof.m2W, prof.m2H, 17, 1.2);
-            return prof;
+            cachedErgoCADProfile = { cad, profile: prof };
+            return { ...prof };
         }
 
         // =========================================================================
