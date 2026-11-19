@@ -388,7 +388,7 @@ def verify_bin_kinematics(v: Checker) -> None:
         v.check(render.count("new Path2D(") == 1 and
                 "ctx.stroke(alphaPaths.track)" in render,
                 "Renderizador voltou a construir paths estaticos por quadro")
-        v.check("if (L.pax <= 0) return 0;" in kinetics,
+        v.check("if (L.pax <= 0) return;" in kinetics,
                 "Passageiros sentados invisiveis voltaram a ser desenhados")
         v.check("drawRealisticSuitcase(ctx, cx, cy, wPx, hPx, angleRad)" in kinetics and
                 "colorOverride" not in kinetics,
