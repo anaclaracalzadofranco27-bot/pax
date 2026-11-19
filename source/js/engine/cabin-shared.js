@@ -1,6 +1,40 @@
+/**
+ * OVERHEAD BIN ALPHA - MOTOR CAD E ERGONOMICO COMPARTILHADO
+ * Arquivo unico: source/js/engine/cabin-shared.js
+ *
+ * INDICE (a ordem abaixo e relevante para a montagem do HTML):
+ * 01 - Paleta e interceptacao do Canvas para a vista biomecanica
+ * 02 - Unidades, navegacao, controlador, geometria geral e cotas
+ * 03 - Perfis vetoriais dos bins e desenho das malas
+ * 04 - Manequins tecnicos articulados
+ * 05 - CAD exato, cinematica das portas e medidas de altura
+ * 06 - Desenho da secao de cabine e cotas do CAD 2D
+ * 07 - Motor biomecanico especifico da Aba 6 (inclusao no mesmo script)
+ * 08 - Cabine com assentos, passageiros e folgas para a cabeca
+ *
+ * UTILIZACAO:
+ * - Abas 5/6: usam geometria, desenho e estados compartilhados.
+ * - Aba 8: coordena as mesmas cenas e os cinco takes, sem duplicar o motor.
+ * - Core/navigation.js e ABA6/controller.js entram dentro do bloco 02.
+ * - ABA6/manikin.js entra entre os blocos 06 e 08 (bloco 07).
+ *
+ * IMPORTANTES:
+ * - Preservar esta ordem e os escopos existentes (incluindo as IIFEs).
+ * - As diretivas de inclusao sao resolvidas por tools/build.py: nao adicionar
+ *   tags de script independentes para essas dependencias.
+ * - Alterar aparencia CSS em source/css; este motor desenha via Canvas 2D.
+ * - A documentacao abaixo organiza o codigo; nao altera formulas ou desenho.
+ */
+
 
 
         // =========================================================================
+
+// =============================================================================
+// BLOCO 01/08 - PALETA CANVAS DA SIMULACAO BIOMECANICA
+// Intercepta cores/desenhos do Canvas 2D para o visual escuro.
+// Preserva cores de destaque e diferencia boneco, bin e mala.
+// =============================================================================
         // PALETA ESCURA da simulação biomecânica (fundo #000223 · #5b7b9e · #9ba9b5 · #bababa)
         // Enquanto window.ERGO_DARK estiver ativo, tudo o que o canvas desenha é remapeado por luminância.
         // Cores de status saturadas (verde / vermelho / laranja) são preservadas.
@@ -83,6 +117,12 @@
             traceBinAlphaProfile = wrapIn(traceBinAlphaProfile, 'bin');
             drawRealisticSuitcase = wrapIn(drawRealisticSuitcase, 'bin');
         })();
+
+// =============================================================================
+// BLOCO 02/08 - UNIDADES, NAVEGACAO, CONTROLADOR E GEOMETRIA GERAL
+// Converte cm para polegadas e inclui navigation.js e ABA6/controller.js
+// antes dos calculos e do desenho CAD.
+// =============================================================================
         // Unidade de exibição: polegadas (pol). Os cálculos internos continuam em cm;
         // só o que aparece na tela é convertido por esta função.
         const CM_PER_IN = 2.54;
@@ -90,6 +130,11 @@
 @@APHA_INCLUDE:source/js/core/navigation.js@@@@APHA_INCLUDE:source/html/ABA6/controller.js@@        // -------------------------------------------------------------------------
         // MÓDULO 1: GEOMETRIA CAD 2D (APÊNDICE A)
         // -------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------
+// SUBBLOCO 02.1 - Geometria de referencia e capacidades
+// Calcula posicoes, folgas e dimensoes do Alpha e convencional.
+// -----------------------------------------------------------------------------
         function computeAllGeometries() {
             const R = APHA_CABIN_GEOMETRY.fuselageRadiusCm; // 54.00" (Fuselagem E195-E2)
             const x_livre = 25.4;          // 10.00"
@@ -159,6 +204,11 @@
         }
 
         // Constantes de tempo/easing do contorno CAD (reutilizadas pela Simulação Integrada)
+
+// -----------------------------------------------------------------------------
+// SUBBLOCO 02.2 - Tempo de animacao e cotas tecnicas
+// Easing, duracao do CAD e desenho unificado de linhas de dimensao.
+// -----------------------------------------------------------------------------
         const CAD_STAGE_SEC = 1.35;
         const cadAnim = { t: 4 };
         const cadEase = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
@@ -231,6 +281,11 @@
         }
 
                 // Polígono fechado com cantos levemente arredondados (só nos vértices vivos; curvas amostradas ficam intactas)
+
+// -----------------------------------------------------------------------------
+// SUBBLOCO 02.3 - Utilitarios geometricos 2D
+// Arredonda vertices e interpola pontos em curvas quadraticas.
+// -----------------------------------------------------------------------------
         function roundedPoly(ctx, pts, r) {
             const n = pts.length, out = [];
             const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
@@ -256,6 +311,12 @@
         }
 
         // =====================================================================
+
+// =============================================================================
+// BLOCO 03/08 - PERFIS VETORIAIS DOS BINS E MALAS
+// Usa os contornos como referencia de forma e dimensoes.
+// Inclui perfis Alpha/convencional e malas no Canvas.
+// =============================================================================
         // BINS VETORIZADOS (bins.pdf): contorno exato desenhado no CorelDRAW, usado na Simulação Integrada (BIN_SOLID).
         // Os dois contornos estão no mesmo quadro e na mesma escala do PDF (pontos): o corredor (x_livre) e o ápice da fuselagem
         // no corredor são a origem; k converte pontos do PDF em cm (bin Alpha = 35" de largura = 88,90 cm).
@@ -348,6 +409,11 @@
         }
 
         // Helper para desenhar Geometria Técnica Fiel do Bin Alpha (35" de largura radial, altura variando de 20" na frente a 25" no fundo)
+
+// -----------------------------------------------------------------------------
+// SUBBLOCO 03.1 - Perfil de referencia do bin Alpha
+// Desenha o perfil e fornece medidas para apoio das malas.
+// -----------------------------------------------------------------------------
         function traceBinAlphaProfile(ctx, toX, toY, xCorredor, yFlatFloor, sign = 1, scaleFactor = 1.0, R_fus = 137.16, fusCenterY = 0.0, flatBottom = false) {
             const rad17 = 17.0 * Math.PI / 180.0;
             const cos17 = Math.cos(rad17);
@@ -516,6 +582,11 @@
         }
 
         // Helper para desenhar Geometria Coerente do Bin Convencional Embraer (35" de largura radial, 22,5" de altura vertical)
+
+// -----------------------------------------------------------------------------
+// SUBBLOCO 03.2 - Perfil de referencia do bin convencional
+// Gera a geometria de referencia no mesmo sistema de coordenadas.
+// -----------------------------------------------------------------------------
         function traceEmbraerBinProfile(ctx, toX, toY, xCorredor, yPsuShelf, sign = -1, R_fus = 137.16, fusCenterY = 0.0, roundedDoor = false) {
             const scaleFactor = R_fus / 137.16;
             const xTopInnerAbs = xCorredor;
@@ -627,6 +698,11 @@
         }
 
         // Helper para desenhar Mala Realista estilo Embraer (Imagem 1) e Bin Alpha (Imagens 2/3)
+
+// -----------------------------------------------------------------------------
+// SUBBLOCO 03.3 - Desenho das malas
+// Desenha volume, orientacao e rotulos usados nas cenas.
+// -----------------------------------------------------------------------------
         function drawRealisticSuitcase(ctx, cx, cy, wPx, hPx, angleRad, label1, label2, isAlphaStyle = false, colorOverride = null) {
             if (colorOverride) {
                 // Mala em cor sólida personalizada (usada no Viewport CAD 2D da aba 1)
@@ -704,6 +780,12 @@
         }
 
         // =========================================================================
+
+// =============================================================================
+// BLOCO 04/08 - MANEQUINS TECNICOS ARTICULADOS
+// Juntas, membros, cabeca e tronco do boneco tecnico.
+// drawDummyFrontFigure monta a figura completa a partir desses componentes.
+// =============================================================================
         // MANEQUINS (DUMMIES) — estilo manequim articulado liso, com juntas visíveis
         //   'wood'  -> manequim de madeira bege (Imagem 1)
         //   'white' -> manequim branco com faixas cinzas nas juntas (Imagem 2)
@@ -935,6 +1017,11 @@
         // =========================================================================
         // FIGURA FRONTAL COMPLETA (sentada -> em pé) estilo manequim técnico ilustrado
         // =========================================================================
+
+// -----------------------------------------------------------------------------
+// SUBBLOCO 04.1 - Composicao do boneco completo
+// Calcula articulacoes e desenha a postura com sobreposicao correta.
+// -----------------------------------------------------------------------------
         function drawDummyFrontFigure(ctx, toX, toY, scale, o) {
             const __dkPrev = window.__dkRole; window.__dkRole = 'dummy';   // paleta escura da exportação: boneco
             const P = dummyPal();
@@ -1032,6 +1119,13 @@
         }
 
 
+
+// =============================================================================
+// BLOCO 05/08 - CAD EXATO DOS BINS E CINEMATICA DAS PORTAS
+// Conserva os perfis SVG, os calculos do convencional e a porta ALPHA.
+// Usa caches para angulos e contornos estaticos; alimenta as cotas.
+// Tem IIFE propria: manter os dados e as APIs publicas nesse escopo.
+// =============================================================================
 /* Aba 5: geometria CAD usada também pela Aba 6.
    Valores numéricos de posição/distância estão em centímetros na cena;
    sufixos legados "Mm" representam centímetros da geometria, e não mm
@@ -1129,6 +1223,11 @@ const CABIN_R = 137.00;
             ].join(' ');
         }
 
+
+// -----------------------------------------------------------------------------
+// SUBBLOCO 05.1 - Modelo CAD convencional e porta de referencia
+// Calcula a geometria legada fechada, reutilizada por cache.
+// -----------------------------------------------------------------------------
         function computeLeftBinAtY(baseY) {
             const wallX = -getFuselageX(baseY);
             const wallFix = { x: wallX, y: baseY };
@@ -1584,6 +1683,11 @@ const CABIN_R = 137.00;
 
         // Busca exata da Altura Y_esq que deixa o Bin o mais próximo possível da linha do corredor (X = -24,50 mm)
         
+
+// -----------------------------------------------------------------------------
+// SUBBLOCO 05.2 - Transformacao CAD Alpha e solucao angular
+// Aplica escala/rotacao e busca a altura-alvo do contorno.
+// -----------------------------------------------------------------------------
 function alphaTransformPoint(fx, fy, thetaDeg) {
             // arquivo -> CAD (melhor encaixe na fuselagem) e depois rotação em torno do centro da fuselagem
             const A = ALPHA_FIXED;
@@ -1699,6 +1803,11 @@ function alphaTransformPoint(fx, fy, thetaDeg) {
 
 
         
+
+// -----------------------------------------------------------------------------
+// SUBBLOCO 05.3 - Trilho da porta rolante e detalhes SVG
+// Amostra o trilho e preserva recortes e perfis estruturais.
+// -----------------------------------------------------------------------------
 const ALPHA_DOOR_FRACTION = 0.6;
         const ALPHA_TRACK = [[983.6, 18177.0], [934.5, 17988.6], [921.6, 17883.4], [908.6, 17755.0], [895.6, 17603.3], [894.3, 17440.8], [893.4, 17278.2], [893.0, 17115.7], [893.0, 16953.1], [893.3, 16790.5], [893.8, 16627.9], [894.5, 16465.4], [895.4, 16302.8], [896.4, 16140.2], [897.5, 15977.7], [898.7, 15815.1], [899.9, 15652.5], [901.1, 15490.0], [902.3, 15327.4], [903.5, 15164.8], [904.5, 15002.3], [905.1, 14839.7], [905.5, 14677.2], [905.7, 14514.6], [905.7, 14352.0], [905.5, 14189.5], [905.2, 14026.9], [905.0, 13864.3], [905.0, 13701.8], [905.2, 13539.2], [905.5, 13376.6], [906.0, 13214.1], [906.8, 13051.5], [907.7, 12888.9], [908.8, 12726.4], [910.1, 12563.8], [911.7, 12401.2], [913.6, 12238.7], [915.7, 12076.1], [918.1, 11913.6], [921.0, 11751.1], [925.7, 11588.6], [935.3, 11426.8], [952.1, 11266.5], [978.2, 11108.4], [1015.3, 10953.6], [1064.7, 10803.1], [1127.3, 10657.6], [1203.0, 10518.3], [1289.7, 10385.5], [1385.8, 10259.7], [1490.2, 10141.0], [1602.1, 10029.8], [1720.6, 9926.5], [1845.5, 9831.6], [1976.0, 9745.7], [2111.9, 9669.5], [2252.5, 9603.7], [2397.3, 9549.4], [2545.6, 9506.9], [2696.6, 9475.1], [2849.7, 9452.7], [3004.1, 9438.0], [3159.3, 9429.5], [3315.0, 9425.1], [3470.8, 9422.9], [3626.6, 9421.3], [3782.4, 9420.1], [3938.2, 9419.2], [4094.0, 9418.5], [4249.8, 9418.1], [4405.6, 9418.0], [4561.5, 9418.0], [4717.3, 9418.3], [4873.1, 9418.7], [5028.9, 9419.4], [5184.7, 9420.1], [5340.5, 9421.1], [5496.3, 9422.2], [5652.1, 9423.5], [5807.9, 9424.9], [5963.7, 9426.5], [6119.5, 9428.2], [6275.3, 9430.2], [6431.1, 9432.4], [6586.9, 9434.9], [6742.3, 9440.0], [6896.2, 9453.2], [7048.7, 9474.5], [7199.4, 9504.3], [7348.4, 9542.8], [7495.5, 9590.1], [7640.7, 9646.4], [7784.3, 9709.5], [7927.2, 9774.1], [8069.5, 9840.3], [8211.2, 9907.7], [8352.4, 9976.4], [8493.1, 10046.2], [8633.3, 10117.1], [8773.1, 10188.9], [8912.4, 10261.7], [9051.3, 10335.4], [9189.8, 10409.9], [9327.8, 10485.1], [9465.5, 10561.2], [9602.9, 10637.9], [9739.9, 10715.4], [9876.5, 10793.6], [10012.7, 10872.4], [10148.7, 10951.9], [10284.2, 11031.9], [10419.5, 11112.6], [10554.4, 11193.9], [10689.0, 11275.8], [10823.3, 11358.2], [10957.3, 11441.2], [11090.9, 11524.8], [11224.2, 11608.9], [11357.2, 11693.6], [11489.9, 11778.9], [11622.2, 11864.7], [11754.2, 11951.1], [11885.8, 12038.1], [12017.1, 12125.7], [12147.9, 12213.9], [12278.4, 12302.8], [12408.4, 12392.3], [12538.0, 12482.5], [12667.1, 12573.5], [12795.7, 12665.3], [12923.7, 12758.0], [13051.1, 12851.6], [13177.7, 12946.3], [13303.4, 13042.3], [13428.1, 13139.7], [13551.2, 13239.1], [13656.3, 13325.1], [13743.3, 13397.3], [13914.6, 13545.5]];
         const ALPHA_TRACK_CUM = (() => {
@@ -1750,6 +1859,11 @@ function paintPath(ctx, d, fill, stroke, lw, evenodd) {
 // sem recorrer aos vetores aproximados da versão anterior dos bins.
 // O intradorso convencional é calculado a partir das curvas cúbicas reais;
 // o perfil quadrático intermediário não é consumido pela API pública.
+
+// -----------------------------------------------------------------------------
+// SUBBLOCO 05.4 - Intradorso e folga ate a cabeca
+// Guarda o contorno inferior e consulta intersecoes para cotas.
+// -----------------------------------------------------------------------------
 let referenceBinUndersides = { alpha: [] };
 let cachedAlphaUnderside = null;
 function alphaUndersideForTheta(thetaDeg) {
@@ -1827,6 +1941,11 @@ window.getUniBinUndersideY = (x, isAlpha) =>
     isAlpha ? lowerBinSurfaceAtX(referenceBinUndersides.alpha, x) : exactConventionalUndersideY(x);
 
 // Telemetria HTML separada do desenho CAD; mantém as seis fórmulas originais.
+
+// -----------------------------------------------------------------------------
+// SUBBLOCO 05.5 - Indicadores numericos da Aba 5
+// Atualiza os seis valores de altura no HTML; nao altera o CAD.
+// -----------------------------------------------------------------------------
 function updateHeightReadouts(initialConv, alpha) {
     // Heights come from the closed door and the exact 1:10 source geometry.
     const highConv = initialConv.doorClosed.tip.y, lowConv = initialConv.wallFix.y;
@@ -1850,6 +1969,12 @@ function updateHeightReadouts(initialConv, alpha) {
 // antes da animação da porta; o contorno efetivo ainda é desenhado a cada frame.
 let cachedClosedConventional = null;
 
+
+// -----------------------------------------------------------------------------
+// SUBBLOCO 05.6 - Desenho final e abertura das portas
+// Compoe o convencional e o Alpha; respeita fade e progresso da porta.
+// A Aba 6 pode informar overrideDoorU sem mudar os indicadores da Aba 5.
+// -----------------------------------------------------------------------------
 function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
     const cabin = window.cabinSectionReference;
     if (!cabin) return;
@@ -2198,6 +2323,12 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
 window.drawUniReferenceBins = drawReferenceBins;
 })();
 
+
+// =============================================================================
+// BLOCO 06/08 - RENDERIZACAO DA SECAO CAD 2D
+// Desenha fuselagem, bins, malas, cotas e transicoes no viewport.
+// Aceita parametros de fade e tempo usados pela Simulacao Geral.
+// =============================================================================
         function drawCADCanvas(g, opts) {
             opts = opts || {};
             const T = opts.T != null ? opts.T : cadAnim.t;
@@ -2501,7 +2632,19 @@ window.drawUniReferenceBins = drawReferenceBins;
             ctx.restore();
         }
 
+
+// =============================================================================
+// BLOCO 07/08 - INCLUSAO DO MOTOR BIOMECANICO DA ABA 6
+// Seu controlador entra no bloco 02; a implementacao de manikin.js
+// entra aqui, antes da cabine sentada, no mesmo script montado.
+// =============================================================================
 @@APHA_INCLUDE:source/html/ABA6/manikin.js@@        // =====================================================================
+
+// =============================================================================
+// BLOCO 08/08 - CABINE SENTADA E MEDICAO DE FOLGAS
+// Preserva a IIFE de assentos e manequins e a distancia da cabeca
+// ao intradorso CAD dos bins; publica drawSeatedScene e SEATED_STAT.
+// =============================================================================
         // MÓDULO 4: ERGONOMIA SENTADO (v5) — escopo isolado (IIFE) para não
         // sobrescrever helpers/paleta de manequim usados nas outras seções.
         // =====================================================================
@@ -2516,6 +2659,11 @@ window.drawUniReferenceBins = drawReferenceBins;
         const NULLCTX = new Proxy(function () {}, { get: () => NULLCTX, apply: () => NULLCTX, set: () => true });
 
         // Cena da cabine (reutilizável): L = camadas ligadas/desligadas (0..1), o.map = mapeamento opcional
+
+// -----------------------------------------------------------------------------
+// SUBBLOCO 08.1 - Cena com assentos e passageiros
+// Distribui os quatro lugares e consulta o CAD real para headroom.
+// -----------------------------------------------------------------------------
         function drawSeatedScene(ctx, W, H, o) {
             const hAisle = o.hAisle, hWin = o.hWin;
             const backAng = (o.backAng != null) ? o.backAng : BACK_ANG_DEG;   // padrão TTL = 20° da vertical

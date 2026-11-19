@@ -43,6 +43,22 @@ HTML e recursos exclusivos ficam juntos:
 | `source/js/core/navigation.js` | Estado da aba ativa e função `switchTab()` para navegar entre as oito abas |
 | `source/js/engine/cabin-shared.js` | Motor CAD e biomecânico compartilhado pelas Abas 5 e 6 (reutilizado na Aba 8): paleta Canvas, geometria, perfis e malas, manequins, cinemática, renderização e ergonomia sentada |
 
+**Mapa interno do `cabin-shared.js` (19/11/2026):** o motor continua em **um único arquivo**, mas agora apresenta um índice e oito blocos numerados, com 14 subdivisões para localizar funções rapidamente. Os cabeçalhos são comentários: não foram movidas nem modificadas funções, variáveis, fórmulas, caminhos SVG ou diretivas de inclusão.
+
+| Bloco | Conteúdo | O que procurar |
+| --- | --- | --- |
+| 01 — Paleta Canvas | Remapeamento de cores para a simulação biomecânica | `installDarkPalette()` |
+| 02 — Geometria geral | Unidades, inclusão da navegação/controlador, geometria e cotas | `computeAllGeometries()`, `drawDimensionLine()` |
+| 03 — Bins e malas | Perfis Alpha/convencional, contornos e desenho das malas | `traceBinAlphaProfile()`, `traceEmbraerBinProfile()`, `drawRealisticSuitcase()` |
+| 04 — Manequins | Componentes articulados e boneco completo | `drawDummyFrontFigure()` |
+| 05 — Cinemática CAD | Geometria exata, portas, caches, intradorso e indicadores | `computeLeftBinAtY()`, `solveAlphaTheta()`, `drawReferenceBins()` |
+| 06 — Renderização CAD | Montagem visual da fuselagem, bins, malas e cotas | `drawCADCanvas()` |
+| 07 — Motor da Aba 6 | Inclusão de `ABA6/manikin.js` no ponto histórico | Diretiva de inclusão da Aba 6 |
+| 08 — Ergonomia sentada | Assentos, passageiros, folgas e estatísticas públicas | `drawSeatedScene()`, `SEATED_STAT` |
+
+**Como manter:** procure `BLOCO 05/08` para mudar a geometria CAD ou `BLOCO 06/08` para alterar sua composição visual. Preserve a ordem dos blocos e as três inclusões de `navigation.js`, `controller.js` e `manikin.js`. O verificador agora confere a posição e a existência desses comentários; essa documentação não substitui testes visuais em navegador.
+
+
 **Separação entre CSS e JavaScript (19/11/2026):** `source/css/global.css` define uma única paleta `:root` com tokens `--apha-*`; o CSS controla cores, quadriculado, bordas e aparência. `source/js/core/config.js` lê esses valores com `getComputedStyle` para o desenho Canvas e mantém geometria, temporizações e movimentos. A configuração de classes do Tailwind CDN foi isolada em `source/js/core/tailwind-theme.js`, embutida no mesmo bloco `<script>` por `@@APHA_INCLUDE`; por ser um requisito da biblioteca, permanece em JavaScript, mas consome a paleta do CSS. O `<style>` global fica antes do script de configuração para as cores estarem disponíveis imediatamente. A montagem continua em um único HTML, sem requisições adicionais, e mantém os mesmos valores de cor e parâmetros da simulação. As verificações de preservação conferem essa ligação.
 
 **CSS modular por aba:** os estilos visuais antes misturados em `source/css/global.css` foram colocados nas pastas das abas, com arquivos de responsabilidade específica:

@@ -138,6 +138,32 @@ def verify_engine(v: Checker) -> None:
         v.check("function switchTab(tab) {" not in engine,
                 "Navegação duplicada dentro do motor CAD")
         v.check("window.SEATED_STAT =" in engine, "Estado SEATED_STAT ausente")
+
+        # A ordenacao por blocos organiza a leitura sem mover instrucoes,
+        # escopos nem as inclusoes de navigation/controller/manikin.
+        headers = tuple(f"// BLOCO {n:02d}/08 -" for n in range(1, 9))
+        for marker in headers:
+            v.check(engine.count(marker) == 1,
+                    f"Bloco de documentacao ausente/duplicado: {marker}")
+        ordered_sections = (
+            headers[0], "(function installDarkPalette() {",
+            headers[1], "@@APHA_INCLUDE:source/js/core/navigation.js@@",
+            "function computeAllGeometries(",
+            headers[2], "const BIN_VEC = {",
+            headers[3], "const DUMMY_PALETTES = {",
+            headers[4], "const CABIN_R = 137.00;",
+            headers[5], "function drawCADCanvas(",
+            headers[6], "@@APHA_INCLUDE:source/html/ABA6/manikin.js@@",
+            headers[7], "function drawSeatedScene(",
+        )
+        v.order(engine, ordered_sections,
+                "Indice dos oito blocos nao corresponde a ordem real de execucao")
+        for subsection in ("02.1", "02.2", "02.3", "03.1", "03.2", "03.3",
+                           "04.1", "05.1", "05.2", "05.3", "05.4", "05.5",
+                           "05.6", "08.1"):
+            v.check(engine.count(f"// SUBBLOCO {subsection} -") == 1,
+                    f"Subbloco de documentacao ausente/duplicado: {subsection}")
+
     if navigation is not None:
         v.check(navigation.count("function switchTab(tab) {") == 1,
                 "switchTab ausente/duplicada na navegação")
