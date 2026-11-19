@@ -8006,6 +8006,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                 ctx.restore();
                 window.__dkRole = null;
 
+                // Aba 6: poltronas visiveis sem desenhar manequins invisiveis.
+                if (L.pax <= 0) return 0;
                 ctx.save(); ctx.globalAlpha *= L.pax;
                 // DUMMY POSTURE AJUSTADA PELA INCLINAÇÃO (TTL: 20° da vertical, assento a 16")
                 // O tronco tomba para trás, reduzindo a altura vertical projetada do passageiro.
