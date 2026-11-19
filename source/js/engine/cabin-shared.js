@@ -1295,6 +1295,37 @@ window.drawUniReferenceBins = drawReferenceBins;
 // Desenha fuselagem, bins, malas, cotas e transicoes no viewport.
 // Aceita parametros de fade e tempo usados pela Simulacao Geral.
 // =============================================================================
+        // O arco completo nao muda depois da revelacao. Cache em pixels CSS:
+        // a chave inclui o viewport e amostras do mapa, pois a exportacao 4K
+        // utiliza tamanho e transformacao diferentes da Aba 5 individual.
+        let cachedCompletedFuselageArc = null;
+        function getCompletedFuselageArc(g, toX, toY, W, H) {
+            const R = g.R, outerR = R + 5.5, N = 90;
+            const key = [W, H, R, toX(0), toY(0), toX(R), toY(R), toX(-R), toY(-R)].join('|');
+            if (cachedCompletedFuselageArc && cachedCompletedFuselageArc.key === key)
+                return cachedCompletedFuselageArc.paths;
+
+            const point = (r, i) => {
+                const th = Math.PI - Math.PI * i / N;
+                return [toX(r * Math.cos(th)), toY(r * Math.sin(th))];
+            };
+            const innerPts = Array.from({ length: N + 1 }, (_, i) => point(R, i));
+            const outerPts = Array.from({ length: N + 1 }, (_, i) => point(outerR, i));
+            const fill = new Path2D(), inner = new Path2D(), outer = new Path2D();
+            innerPts.forEach(([x, y], i) => {
+                if (i === 0) { fill.moveTo(x, y); inner.moveTo(x, y); }
+                else { fill.lineTo(x, y); inner.lineTo(x, y); }
+            });
+            for (let i = N; i >= 0; i--)
+                fill.lineTo(outerPts[i][0], outerPts[i][1]);
+            fill.closePath();
+            outerPts.forEach(([x, y], i) =>
+                i === 0 ? outer.moveTo(x, y) : outer.lineTo(x, y));
+            const paths = { fill, inner, outer };
+            cachedCompletedFuselageArc = { key, paths };
+            return paths;
+        }
+
         function drawCADCanvas(g, opts) {
             opts = opts || {};
             const T = opts.T != null ? opts.T : 4;
@@ -1351,14 +1382,24 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const pt = (r, th) => [toX(r * Math.cos(th)), toY(r * Math.sin(th))];
                 const th = i => Math.PI - (Math.PI - th1) * i / N;
                 if (p > 0 && FD.arc > 0.001) {
-                    ctx.save(); ctx.globalAlpha *= FD.arc; ctx.beginPath();
-                    for (let i = 0; i <= N; i++) { const [x, y] = pt(g.R, th(i)); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
-                    for (let i = N; i >= 0; i--) { const [x, y] = pt(R_ext, th(i)); ctx.lineTo(x, y); }
-                    ctx.closePath();
-                    ctx.fillStyle = APHA_CABIN_PALETTE.rgba('shellFill', 0.35); ctx.fill();
+                    ctx.save(); ctx.globalAlpha *= FD.arc;
+                    ctx.fillStyle = APHA_CABIN_PALETTE.rgba('shellFill', 0.35);
                     ctx.strokeStyle = APHA_CABIN_PALETTE.shellOutline; ctx.lineWidth = 2.5;
-                    [g.R, R_ext].forEach(rr => { ctx.beginPath(); for (let i = 0; i <= N; i++) { const [x, y] = pt(rr, th(i)); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); });
-                    if (p < 1) { const [x, y] = pt(g.R + 2.75, th1); ctx.beginPath(); ctx.arc(x, y, 6, 0, 7); ctx.fillStyle = '#2a1dc2'; ctx.fill(); }
+                    if (p >= 1) {
+                        const paths = getCompletedFuselageArc(g, toX, toY, W, H);
+                        ctx.fill(paths.fill);
+                        ctx.stroke(paths.inner);
+                        ctx.stroke(paths.outer);
+                    } else {
+                        ctx.beginPath();
+                        for (let i = 0; i <= N; i++) { const [x, y] = pt(g.R, th(i)); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+                        for (let i = N; i >= 0; i--) { const [x, y] = pt(R_ext, th(i)); ctx.lineTo(x, y); }
+                        ctx.closePath();
+                        ctx.fill();
+                        [g.R, R_ext].forEach(rr => { ctx.beginPath(); for (let i = 0; i <= N; i++) { const [x, y] = pt(rr, th(i)); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); });
+                        const [x, y] = pt(g.R + 2.75, th1);
+                        ctx.beginPath(); ctx.arc(x, y, 6, 0, 7); ctx.fillStyle = '#2a1dc2'; ctx.fill();
+                    }
                     ctx.restore();
                 }
             }
