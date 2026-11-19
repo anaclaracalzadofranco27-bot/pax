@@ -1512,7 +1512,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 window.__dkRole = null;
 
                 // Aba 6: poltronas visiveis sem desenhar manequins invisiveis.
-                if (L.pax <= 0) return 0;
+                if (L.pax <= 0) return;
                 ctx.save(); ctx.globalAlpha *= L.pax;
                 // DUMMY POSTURE AJUSTADA PELA INCLINAÇÃO (TTL: 20° da vertical, assento a 16")
                 // O tronco tomba para trás, reduzindo a altura vertical projetada do passageiro.
@@ -1550,21 +1550,20 @@ window.drawUniReferenceBins = drawReferenceBins;
                     ctx.restore();
                 }
 
-                                ctx.restore();
-                return clearance;
+                ctx.restore();
             };
 
-            const seatsOn = L.seats > 0 || L.pax > 0;
-            const clWinEmb = seatsOn ? drawEmbraerSeatAndDummy3D(-99.5, hWin, false) : 0;
-            const clAisleEmb = seatsOn ? drawEmbraerSeatAndDummy3D(-48.5, hAisle, false) : 0;
-            const clAisleAlpha = seatsOn ? drawEmbraerSeatAndDummy3D(48.5, hAisle, true) : 0;
-            const clWinAlpha = seatsOn ? drawEmbraerSeatAndDummy3D(99.5, hWin, true) : 0;
+            if (L.seats > 0 || L.pax > 0) {
+                drawEmbraerSeatAndDummy3D(-99.5, hWin, false);
+                drawEmbraerSeatAndDummy3D(-48.5, hAisle, false);
+                drawEmbraerSeatAndDummy3D(48.5, hAisle, true);
+                drawEmbraerSeatAndDummy3D(99.5, hWin, true);
+            }
 
             // Aba 5: as três cotas principais (altura, piso e corredor)
             // são desenhadas apenas em drawInteractiveStructureDims().
             // A anotação de reclinação é renderizada por drawSeatbackLeader().
 
-            return { clWinEmb, clAisleEmb, clAisleAlpha, clWinAlpha };
         }
 
                     
