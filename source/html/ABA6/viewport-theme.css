@@ -1,3 +1,4 @@
-        #aba6-module-ergo .sim-bg{background:var(--apha-bg)}   /* viewport biomecânico: fundo escuro (mesma paleta da simulação integrada) */
-        #aba6-module-ergo .sim-card > div:first-child{background:var(--apha-bg);border-color:var(--apha-mid-45)}
+        /* Aba 6 individual: herda o fundo quadriculado global (.sim-bg) na área
+           inteira do viewport. O canvas é transparente fora da geometria.
+           No tour, apenas a malha fixa do #tour-stage continua ativa. */
         #aba6-module-ergo .sim-card > div:first-child span, #aba6-module-ergo .sim-card > div:first-child div{color:var(--apha-muted)}

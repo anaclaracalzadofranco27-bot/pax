@@ -68,6 +68,27 @@ for css_path in css_paths:
 assert "body {" in css_source and "html, body {" in css_source, "Global theme moved out"
 assert "source/html/ABA1/styles.css" not in css_source, "PAX iframe styles must remain isolated"
 
+# Standalone Aba 5 and Aba 6: a single continuous 48px blueprint grid is
+# drawn by .sim-bg *behind* transparent canvases, not in camera coordinates.
+aba5_theme = (ROOT / "source/html/ABA5/viewport-theme.css").read_text(encoding="utf-8")
+aba6_theme = (ROOT / "source/html/ABA6/viewport-theme.css").read_text(encoding="utf-8")
+aba5_sim = (ROOT / "source/html/ABA5/unified-simulation.js").read_text(encoding="utf-8")
+aba6_manikin = (ROOT / "source/html/ABA6/manikin.js").read_text(encoding="utf-8")
+tour_frame_css = (ROOT / "source/html/ABA8/tour-frame.css").read_text(encoding="utf-8")
+assert ".sim-bg{background-color:var(--apha-bg);background-image:" in css_source, "Global blueprint grid missing"
+assert "background-size:48px 48px" in css_source, "Full-viewport blueprint grid spacing changed"
+assert "#module-unified .sim-bg{background:var(--apha-bg)}" not in aba5_theme, "ABA5 still overrides CSS grid"
+assert "#aba6-module-ergo .sim-bg{background:var(--apha-bg)}" not in aba6_theme, "ABA6 still overrides CSS grid"
+assert "#aba6-module-ergo .sim-card > div:first-child{background:" not in aba6_theme, "ABA6 first-child still hides the viewport grid"
+assert "cssGridBackdrop: !inTourView()" in aba5_sim, "ABA5 standalone canvas grid opt-in lost"
+assert "drawUnifiedCabinBackground(ctx, m.W, m.H, { paint: false, toX, toY });" not in aba5_sim, "ABA5 draws duplicate camera grid"
+assert "paint: !opts.cssGridBackdrop" in cabin_source, "Shared CAD engine still paints over CSS grid"
+assert "ctx.canvas.id !== 'aba6-manikinCanvas'" in aba6_manikin, "ABA6 overlays camera grid"
+assert "tour: !!canvas.closest('#tour-stage'), paint: false" in aba6_manikin, "ABA6 canvas still paints opaque background"
+assert "#tour-stage .sim-bg{background:none}" in tour_frame_css, "Tour must retain a single stationary blueprint grid"
+assert "#tour-stage #module-unified .sim-bg" in (ROOT / "source/html/ABA5/tour-layout.css").read_text(encoding="utf-8"), "ABA5 tour layout moved"
+
+
 # The standalone biomechanical tab has its own heading, hidden during the tour.
 # Recording CSS's Aba 6 include is nested inside the shared recording fragment,
 # so it must not be counted among global.css's immediate imports.

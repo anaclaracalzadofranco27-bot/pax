@@ -185,10 +185,9 @@
             const inTourView = () => !!document.querySelector('#tour-stage #uniCanvas');
             function before(ctx, m) {
                 const { toX, toY, scale } = m4(m.W, m.H);   // eixo com y=0 no piso
-                if (!U.exporting && !inTourView()) {
-                    // Referencial idêntico ao do manikin e à ponte da câmera.
-                    drawUnifiedCabinBackground(ctx, m.W, m.H, { paint: false, toX, toY });
-                }
+                // A grade de fundo pertence ao .sim-bg na aba individual e ao
+                // #tour-stage na Simulação Geral: não desenhar a grade física
+                // recortada no centro da câmera sobre o mesmo canvas.
                 const p = cl((U.t - TL.ring) / 0.8);          // trechos laterais da fuselagem até o piso (y=0), sem porão
                 if (p > 0) {
                     const shellR = APHA_CABIN_GEOMETRY.fuselageRadiusCm;
@@ -333,6 +332,7 @@
                 try {
                     drawCADCanvas(U.g, { canvasId: 'uniCanvas', referenceBins: true,
                         unifiedCabinBackground: true, tourBackdrop: inTourView(),
+                        cssGridBackdrop: !inTourView(),  // Aba 5 individual: canvas transparente sobre .sim-bg
                         noBags: true, noLegend: inTourView(), finalDims: true, minimalDims: true, T: T1, map: m1, camera:cinematicCamera, noGrid: true, dimFade: 1 - ph(TL.ring, 0.5), fade: U.fx || null, before, after });
                     if (U.focus > 0) {   // foco no passageiro da janela (ponta esquerda): o resto do desenho cai para ~18% de opacidade (a malha do quadro não muda)
                         const cvs = document.getElementById('uniCanvas'), box = cvs.parentElement, W = box.offsetWidth, H = box.offsetHeight;

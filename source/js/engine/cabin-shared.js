@@ -2226,7 +2226,11 @@ window.drawUniReferenceBins = drawReferenceBins;
                 ctx.fillStyle = opts.bgFill;
                 ctx.fillRect(0, 0, W, H);
             } else if (opts.unifiedCabinBackground) {
-                drawUnifiedCabinBackground(ctx, W, H, { tour: !!opts.tourBackdrop });
+                // Apenas a Aba 5 individual usa o quadriculado CSS sob o canvas.
+                // O tour conserva sua própria malha; os demais usos mantêm o fundo original.
+                drawUnifiedCabinBackground(ctx, W, H, {
+                    tour: !!opts.tourBackdrop, paint: !opts.cssGridBackdrop
+                });
             }
 
             const xMin = -(g.R + 4);

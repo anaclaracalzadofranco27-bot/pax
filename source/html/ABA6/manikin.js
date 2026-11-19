@@ -979,16 +979,18 @@
             const binFloor = cabin ? cabin.binFloorY()
                 : centerY + Math.sqrt(R * R - aisle * aisle) - 20.0 * CM_PER_IN;
 
-            // O mesmo grid físico da Aba 5 acompanha a câmera, sem salto de passo/cor.
-            // Figure Export permanece em PNG transparente, sem fundo nem grid.
+            // No canvas principal da Aba 6, a malha uniforme está no CSS
+            // do viewport. Não desenhar outra grade, limitada às coordenadas
+            // da cabine ou sujeita ao movimento da câmera. A Figura PNG
+            // permanece transparente; no tour a grade pertence ao #tour-stage.
             if (!window.__mkExport) {
-                // O grid do roteiro é fixo na moldura: não deve acompanhar a
-                // câmera móvel nem ser desenhado uma segunda vez sobre ela.
                 const tourBackdrop = !!(ctx.canvas && (
                     ctx.canvas.id === 'apha-continuous-cabin' || ctx.canvas.closest('#tour-stage')));
-                drawUnifiedCabinBackground(ctx, W, H, {
-                    tour: tourBackdrop, paint: false, toX, toY
-                });
+                if (ctx.canvas && ctx.canvas.id !== 'aba6-manikinCanvas') {
+                    drawUnifiedCabinBackground(ctx, W, H, {
+                        tour: tourBackdrop, paint: false, toX, toY
+                    });
+                }
                 if (cabin) withAba5CabinColors(() => cabin.drawShell(ctx, toX, toY, scale));
             }
 
@@ -1355,8 +1357,10 @@
             }
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             const W = rect.width, H = rect.height;
+            // Transparente na aba individual: o CSS desenha a malha em toda
+            // a extensão do cartão. Na Aba 8, a pintura fixa é do #tour-stage.
             drawUnifiedCabinBackground(ctx, W, H, {
-                tour: !!canvas.closest('#tour-stage')
+                tour: !!canvas.closest('#tour-stage'), paint: false
             });
 
             // O relógio é único: a fase global é a fração do ciclo do percentil mais lento.

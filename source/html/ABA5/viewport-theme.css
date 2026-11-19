@@ -1,6 +1,8 @@
         #module-unified aside, #module-unified .sim-card > div:last-child{background:var(--apha-bg);border-color:var(--apha-mid-45)}
         #module-unified aside .font-mono, #module-unified .sim-card > div:last-child span{color:var(--apha-muted)}
-        #module-unified .sim-bg{background:var(--apha-bg)}   /* simulação integrada: fundo escuro (mesma paleta da exportação P95) */
+        /* Aba 5 individual: a classe global .sim-bg desenha a malha blueprint
+           de 48 px por toda a área do canvas. Não sobrescrever com background liso.
+           Na Aba 8, #tour-stage controla uma única malha fixa. */
         /* When the camera zooms into opening bins, hide the stature scale without changing canvas dimensions. */
         #module-unified aside{transition:opacity .28s ease,visibility 0s linear .28s}
         #module-unified.uni-bin-zoom aside{opacity:0 !important;visibility:hidden !important;pointer-events:none !important}
