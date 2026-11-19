@@ -37,7 +37,6 @@ HTML e recursos exclusivos ficam juntos:
 | --- | --- |
 | `source/page.template.html` | Estrutura principal, ordem de inclusão e navegação |
 | `source/css/global.css` | Regras globais e inclusões ordenadas de CSS específico |
-| `source/css/shared-viewport.css` | Ajustes compartilhados de painéis das simulações |
 | `source/css/recording-and-transitions.css` | Ajustes do quadro de vídeo, modo de gravação, enquadramento 16:9 e cursor |
 | `source/js/core/config.js` | Paleta, geometria, linha do tempo e configurações comuns |
 | `source/js/core/navigation.js` | Estado da aba ativa e função `switchTab()` para navegar entre as oito abas |
@@ -54,9 +53,11 @@ HTML e recursos exclusivos ficam juntos:
 - `source/html/ABA7/`: `closing-frame.css`, `closing-scenes.css` e `closing-illustrations.css` (encerramento).
 - `source/html/ABA8/`: `tour-frame.css`, `tour-controls-hidden.css`, `tour-pax.css`, `tour-buttons.css` e `tour-closing.css` (direção e montagem das cenas).
 
-O `global.css` é o único ponto de entrada do CSS principal e conserva as regras gerais. Ele referencia os novos arquivos por meio de `@@APHA_INCLUDE`, **sem mudar a ordem original das declarações**; o `tools/build.py` gera exatamente o mesmo HTML autossuficiente, com as mesmas prioridades CSS. `source/css/shared-viewport.css` guarda o que pertence às Abas 5 e 6, e `source/css/recording-and-transitions.css` concentra os estilos gerais do modo de gravação. **Não** importe os arquivos novamente com `<link>` ou outras tags `<style>`: eles já são embutidos pelo montador.
+O `global.css` é o único ponto de entrada do CSS principal e conserva as regras gerais. Ele referencia os novos arquivos por meio de `@@APHA_INCLUDE`, **sem mudar a ordem original das declarações**; o `tools/build.py` gera exatamente o mesmo HTML autossuficiente, com as mesmas prioridades CSS. `ABA5/viewport-theme.css` também guarda a regra exclusiva que oculta o painel de título legado da Aba 5, enquanto `source/css/recording-and-transitions.css` concentra os estilos gerais do modo de gravação. **Não** importe os arquivos novamente com `<link>` ou outras tags `<style>`: eles já são embutidos pelo montador.
 
 **CSS de gravação por aba:** as regras específicas do CAD 3D e da comparação dos bins foram transferidas para `ABA2/recording-layout.css` e `ABA3/recording-layout.css`. O arquivo `source/css/recording-and-transitions.css` mantém apenas os estilos compartilhados e três inclusões aninhadas, na ordem original: ABA2 → ABA3 → ABA6. O montador preserva as regras e o CSS final **byte a byte**, sem alterar enquadramentos, transições ou takes.
+
+**Remoção de CSS compartilhado residual:** `source/css/shared-viewport.css` foi excluído, pois continha somente uma regra exclusiva da Aba 5 e uma declaração `row-gap:0` sem efeito nos contêineres de bloco atuais. A regra do painel de título da Aba 5 foi movida para `ABA5/viewport-theme.css`; o cabeçalho da Aba 6 e a visualização sem título na Simulação Geral continuam com seus próprios estilos. A importação e as verificações antigas foram removidas.
 
 **Malha blueprint nas Abas 5 e 6:** na visualização individual, os viewports `.sim-bg` usam a grade CSS uniforme de 48 × 48 px em **toda** a extensão, sem os antigos overrides de fundo liso. Os canvases dessas abas deixam a camada de fundo transparente e não duplicam a grade física restrita à câmera. Na **Simulação Geral (Aba 8)**, só a malha fixa de `#tour-stage` é exibida; o desenho do CAD, os manequins, as transições e as exportações isoladas permanecem coordenados pelos motores atuais. Arquivos relevantes: `ABA5/viewport-theme.css`, `ABA5/unified-simulation.js`, `ABA6/viewport-theme.css`, `ABA6/manikin.js` e `source/js/engine/cabin-shared.js`.
 

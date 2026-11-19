@@ -1,3 +1,6 @@
+        /* Aba 5: o cabeçalho interno legado permanece oculto.
+           A regra pertence somente a esta aba; não esconde o título da Aba 6. */
+        #module-unified > .bg-cad-panel:first-of-type { display:none !important; }
         #module-unified aside, #module-unified .sim-card > div:last-child{background:var(--apha-bg);border-color:var(--apha-mid-45)}
         #module-unified aside .font-mono, #module-unified .sim-card > div:last-child span{color:var(--apha-muted)}
         /* Aba 5 individual: a classe global .sim-bg desenha a malha blueprint

@@ -1,5 +1,0 @@
-        /* O painel de título legado da Aba 5 continua oculto.
-           O cabeçalho próprio da Aba 6 (#aba6-header) deve ficar visível
-           na aba individual e é ocultado apenas dentro de #tour-stage. */
-        #module-unified > .bg-cad-panel:first-of-type { display:none !important; }
-        #aba6-module-ergo, #module-unified { row-gap:0 !important; }

@@ -51,7 +51,6 @@ css_paths = (
     "source/html/ABA1/presentation.css",
     "source/html/ABA8/tour-pax.css",
     "source/html/ABA6/fullscreen.css",
-    "source/css/shared-viewport.css",
     "source/html/ABA8/tour-buttons.css",
     "source/css/recording-and-transitions.css",
     "source/html/ABA7/closing-frame.css",
@@ -105,8 +104,11 @@ assert "height:clamp(480px, 70vh, 740px)" in aba6_fullscreen_css, "ABA6 standalo
 assert "body.apha-simulation-view > header" not in aba6_fullscreen_css, "ABA6 still hides the shared navigation header"
 assert "body.apha-simulation-view > main" not in aba6_fullscreen_css, "ABA6 still overrides the shared page layout"
 assert "body.apha-simulation-view #apha-return-tabs" not in aba6_fullscreen_css, "Redundant return-tabs control shown"
-shared_viewport_css = (ROOT / "source/css/shared-viewport.css").read_text(encoding="utf-8")
-assert "#aba6-module-ergo > .bg-cad-panel:first-child" not in shared_viewport_css, "ABA6 title still hidden by shared CSS"
+assert "#module-unified > .bg-cad-panel:first-of-type { display:none !important; }" in aba5_theme, "ABA5 legacy heading rule not moved to its own theme"
+assert css.count("#module-unified > .bg-cad-panel:first-of-type { display:none !important; }") == 1, "ABA5 heading rule missing or duplicated"
+assert "#aba6-module-ergo > .bg-cad-panel:first-child" not in css, "ABA6 title still hidden by CSS"
+assert "#aba6-module-ergo, #module-unified { row-gap:0 !important; }" not in css, "Obsolete row-gap override still present"
+assert "@@APHA_INCLUDE:source/css/shared-viewport.css@@" not in css_source, "Obsolete shared viewport include"
 assert "#tour-stage #aba6-header{display:none !important;}" in aba6_tour_css, "ABA6 title must remain hidden in tour"
 assert '<header class="bg-cad-panel/95' in template, "Global tab navigation header missing"
 assert recording_css.count("@@APHA_INCLUDE:source/html/ABA6/recording-layout.css@@") == 1, "ABA6 recording CSS not in original cascade position"
