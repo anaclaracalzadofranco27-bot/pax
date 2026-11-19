@@ -22,7 +22,7 @@
         //   5) Soltura: mão larga a mala; braços retornam ao repouso
         // A fase (0–1) é a mesma do slider "Fase Cinemática".
         // =========================================================================
-        const ergoClamp01 = (t) => Math.max(0, Math.min(1, t));
+        const ergoClamp01 = aphaClamp01;
         const ergoSmooth = (t) => { t = ergoClamp01(t); return t * t * (3 - 2 * t); };
 
 
@@ -945,8 +945,8 @@
         // UMA única câmera virtual 2D: plano aberto -> dolly -> ângulo inferior
         // aproximado por panorâmica/zoom e leve inclinação -> retorno ao plano aberto.
         // Cada canal usa cubic ease-in-out e, portanto, não há cortes entre câmeras.
-        const cineClamp = v => Math.max(0, Math.min(1, v));
-        const cineEase = v => { v = cineClamp(v); return v < .5 ? 4*v*v*v : 1-Math.pow(-2*v+2,3)/2; };
+        const cineClamp = aphaClamp01;
+        const cineEase = aphaEaseCubic;
         const cineWindow = (t, start, end) => cineEase((t-start) / Math.max(.001,end-start));
         function cinematicFrame(phase) {
             const tl = APHA_CINE_TIMELINE;
@@ -1238,8 +1238,8 @@
         function drawManikinFallback(ctx, W, H, phase, tBack, tFront, drawCabin = false) {
             // Fallback compartilhado pelo viewport e pelo canvas contínuo.
             // Cobre as DUAS malas e mantém o braço em retorno até o fim do ciclo.
-            const clamp = v => Math.max(0, Math.min(1, v));
-            const ease = v => { const u = clamp(v); return u * u * (3 - 2 * u); };
+            const clamp = aphaClamp01;
+            const ease = ergoSmooth;
             const ratio = tBack / (tBack + tFront);
             const split = Number.isFinite(ratio) && ratio > 0 && ratio < 1 ? ratio : .5;
             const second = phase >= split;
