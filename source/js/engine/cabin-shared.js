@@ -1,6 +1,5 @@
 /**
  * OVERHEAD BIN ALPHA - MOTOR CAD E ERGONOMICO COMPARTILHADO
- * Arquivo unico: source/js/engine/cabin-shared.js
  *
  * INDICE (a ordem abaixo e relevante para a montagem do HTML):
  * 01 - Paleta e interceptacao do Canvas para a vista biomecanica
