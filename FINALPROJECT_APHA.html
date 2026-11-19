@@ -183,7 +183,7 @@
         .cad3d-balloons .cb-iata p{margin:0;line-height:1.15}
         .cad3d-balloons .cb-iata p + p{margin-top:.8cqw;line-height:1.1;font-size:1.3cqw;font-weight:700;color:#f8fafc;letter-spacing:.04em}
         .cad3d-balloons .cb-iata u{text-decoration:none;color:#f8fafc}
-        @keyframes cbIn{from{opacity:0;transform:translateY(.8cqw) scale(.97)}to{opacity:1;transform:none}}
+
         /* Vista Superior no roteiro: sem cabeçalho, sem controles e sem moldura */
         #tour-stage #top-card{border:0;border-radius:0;box-shadow:none;background:transparent}
         #tour-stage #top-card > div:nth-child(1),#tour-stage #top-card > div:nth-child(2){display:none}
@@ -327,6 +327,8 @@
            Mantém o manequim dentro da área segura sem alterar o canvas exportado. */
         #tour-stage.rec #aba6-module-ergo .sm\:h-\[740px\] { height: calc(var(--rec-h, 819px) * 0.956) !important; }
 
+        /* Entrada compartilhada: HUD da Aba 2 e titulos da Aba 5 no roteiro. */
+        @keyframes cbIn{from{opacity:0;transform:translateY(.8cqw) scale(.97)}to{opacity:1;transform:none}}
         /* ====== TEMA ESCURO GLOBAL (paleta das abas Biomecânica e Simulação Integrada) ====== */
         html, body { background-color:var(--apha-bg); color:#d4dce6; color-scheme:dark; }
         header img[alt="Alpha"] { filter: brightness(0) invert(.82); }
