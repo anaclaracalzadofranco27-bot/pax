@@ -53,4 +53,4 @@
         .cad3d-balloons .cb-iata p{margin:0;line-height:1.15}
         .cad3d-balloons .cb-iata p + p{margin-top:.8cqw;line-height:1.1;font-size:1.3cqw;font-weight:700;color:#f8fafc;letter-spacing:.04em}
         .cad3d-balloons .cb-iata u{text-decoration:none;color:#f8fafc}
-        @keyframes cbIn{from{opacity:0;transform:translateY(.8cqw) scale(.97)}to{opacity:1;transform:none}}
+
