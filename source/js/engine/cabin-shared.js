@@ -712,49 +712,32 @@ function alphaTransformPoint(fx, fy, thetaDeg) {
         // as malas: não unificar esses filtros sem revisar a geometria física.
         const ALPHA_UNDERSIDE = ALPHA_OUTLINE.filter(p => p[0] >= 1354 && p[0] <= 14462 && p[1] >= 18690);
 
-        function alphaFloorHighPoint(thetaDeg) {
-            // ponto mais alto do chão do bin (menor y no SVG)
-            let best = null;
+        // A geometria Alpha atual calibra somente a altura do piso.
+        function alphaFloorHighY(thetaDeg) {
+            let minYs = Infinity;
             for (const p of ALPHA_UNDERSIDE) {
                 const q = alphaTransformPoint(p[0], p[1], thetaDeg);
-                if (best === null || q.ys < best.ys) best = q;
-            }
-            return { x: best.x, y: -best.ys };
-        }
-
-        function alphaExtremeYAtTheta(thetaDeg, kind) {
-            // 'floor' = chão do bin no ponto mais alto ; 'base' = ponto mais baixo ; 'top' = ponto mais alto (Y CAD, distância do chão da cabine)
-            if (kind === 'floor') return alphaFloorHighPoint(thetaDeg).y;
-            let maxYs = -Infinity, minYs = Infinity;
-            for (const p of ALPHA_OUTLINE) {
-                const q = alphaTransformPoint(p[0], p[1], thetaDeg);
-                if (q.ys > maxYs) maxYs = q.ys;
                 if (q.ys < minYs) minYs = q.ys;
             }
-            return kind === 'top' ? -minYs : -maxYs;
+            return -minYs;
         }
-
-        // O ângulo depende só do alvo e do tipo de extremo, não da animação.
-        // Cache de uma entrada: mudanças futuras de parâmetros o invalidam.
         let cachedAlphaTheta = null;
-        function solveAlphaTheta(targetY, kind) {
-            if (cachedAlphaTheta && cachedAlphaTheta.targetY === targetY &&
-                cachedAlphaTheta.kind === kind) return cachedAlphaTheta.thetaDeg;
-            // Y diminui quando theta aumenta (horário no SVG); bisseção original.
-            let lo = (kind === 'top') ? -9 : (kind === 'floor') ? -20 : -15, hi = 30;
+        function solveAlphaTheta() {
+            if (cachedAlphaTheta !== null) return cachedAlphaTheta;
+            let lo = -20, hi = 30;
             for (let i = 0; i < 50; i++) {
                 const mid = (lo + hi) / 2;
-                if (alphaExtremeYAtTheta(mid, kind) > targetY) lo = mid; else hi = mid;
+                if (alphaFloorHighY(mid) > ALPHA_CAD_FLOOR_TARGET_Y_CM) lo = mid;
+                else hi = mid;
             }
-            const thetaDeg = (lo + hi) / 2;
-            cachedAlphaTheta = { targetY, kind, thetaDeg };
-            return thetaDeg;
+            cachedAlphaTheta = (lo + hi) / 2;
+            return cachedAlphaTheta;
         }
 
         // Reutiliza os mesmos extremos CAD quando o theta geométrico não muda.
         let cachedAlphaGeometry = null;
         function computeRightAlphaLocked() {
-            const thetaDeg = solveAlphaTheta(ALPHA_CAD_FLOOR_TARGET_Y_CM, 'floor');
+            const thetaDeg = solveAlphaTheta();
             if (!cachedAlphaGeometry || cachedAlphaGeometry.thetaDeg !== thetaDeg)
                 cachedAlphaGeometry = { thetaDeg };
             return cachedAlphaGeometry;
