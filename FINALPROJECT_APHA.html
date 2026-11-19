@@ -211,8 +211,7 @@
         .uni-titles{display:none}
         #tour-stage .uni-titles{display:block;position:absolute;left:0;top:0;width:100%;height:100%;margin:0 !important;pointer-events:none;z-index:2;font-family:'Montserrat','Inter',sans-serif;font-weight:700;animation:cbIn .7s ease .2s both}
         /* Oculta controles interativos remanescentes durante o roteiro */
-        #tour-stage #module-cad3d > div:first-child .bg-cad-bg,
-        #tour-stage #module-cad3d [data-cad3d-v] { display: none !important; }
+        #tour-stage #module-cad3d > div:first-child .bg-cad-bg { display: none !important; }
         /* Export controls stay available in their own tabs, but are hidden in the full-tour viewport. */
         #module-tour #tour-snap, #module-tour #tour-figure-export,
         #tour-stage #cad3d-export,
@@ -9327,9 +9326,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 upd();
             }, {passive:false});
 
-            document.querySelectorAll('[data-cad3d-v]').forEach(b=>{
-                b.onclick=()=>{ [az, el, R] = views[b.dataset.cad3dV]; upd(); };
-            });
+
 
 
 
