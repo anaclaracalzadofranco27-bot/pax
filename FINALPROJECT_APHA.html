@@ -5352,13 +5352,6 @@ function xrayRun(ms) {
                 const m = V.map(kind, px, py);   // [distância a partir do corredor, queda a partir do ápice] em cm
                 return [toX((xCorredor + m[0] * sf) * sign), toY(yApex - m[1] * sf)];
             };
-            ctx.beginPath();
-            V[kind].forEach(s => {
-                if (s[0] === 'M') { const a = P(s[1], s[2]); ctx.moveTo(a[0], a[1]); }
-                else if (s[0] === 'L') { const a = P(s[1], s[2]); ctx.lineTo(a[0], a[1]); }
-                else { const a = P(s[1], s[2]), b = P(s[3], s[4]), c = P(s[5], s[6]); ctx.bezierCurveTo(a[0], a[1], b[0], b[1], c[0], c[1]); }
-            });
-            ctx.closePath();
             ctx.save();
             // o bin nunca ultrapassa a parede interna da fuselagem
             ctx.beginPath(); ctx.arc(toX(0), toY(cyW), Math.abs(toX(Rw) - toX(0)), 0, Math.PI * 2); ctx.clip();
@@ -5374,33 +5367,6 @@ function xrayRun(ms) {
             ctx.fill();
             ctx.stroke();
             ctx.restore();
-        }
-
-        // Borda inferior do bin vetorizado em |x| (cm a partir do eixo): devolve a cota Y do fundo do bin (usada pelas cotas de folga da cabeça).
-        // Devolve null fora da largura do bin (aí vale o modelo antigo).
-        const BIN_VEC_POLY = {};
-        function vectorBinUnderY(kind, xAbs, xCorredor, yApex, sf) {
-            const V = BIN_VEC;
-            if (!BIN_VEC_POLY[kind]) {
-                const pts = []; let cur = null;
-                V[kind].forEach(sg => {
-                    const Q = (px, py) => V.map(kind, px, py);   // mesma transformação (nos pontos de controle) usada no desenho
-                    if (sg[0] === 'M' || sg[0] === 'L') { cur = Q(sg[1], sg[2]); pts.push(cur); }
-                    else {
-                        const p0 = cur, p1 = Q(sg[1], sg[2]), p2 = Q(sg[3], sg[4]), p3 = Q(sg[5], sg[6]);
-                        for (let i = 1; i <= 60; i++) { const t = i / 60, u = 1 - t; pts.push([u*u*u*p0[0] + 3*u*u*t*p1[0] + 3*u*t*t*p2[0] + t*t*t*p3[0], u*u*u*p0[1] + 3*u*u*t*p1[1] + 3*u*t*t*p2[1] + t*t*t*p3[1]]); }
-                        cur = p3;
-                    }
-                });
-                BIN_VEC_POLY[kind] = pts;   // já em cm, idêntico ao contorno desenhado
-            }
-            const pts = BIN_VEC_POLY[kind], u = (xAbs - xCorredor) / sf;
-            let vmax = -Infinity;
-            for (let i = 0; i < pts.length; i++) {
-                const a = pts[i], b = pts[(i + 1) % pts.length];
-                if ((a[0] - u) * (b[0] - u) <= 0 && a[0] !== b[0]) { const v = a[1] + (b[1] - a[1]) * ((u - a[0]) / (b[0] - a[0])); if (v > vmax) vmax = v; }
-            }
-            return vmax === -Infinity ? null : yApex - vmax * sf;
         }
 
         // Helper para desenhar Geometria Técnica Fiel do Bin Alpha (35" de largura radial, altura variando de 20" na frente a 25" no fundo)
@@ -5495,7 +5461,7 @@ function xrayRun(ms) {
             }
 
             if (!window.BIN_SOLID) {
-            ctx.fillStyle = flatBottom ? 'rgba(255, 255, 255, 0.10)' : (window.BIN_SOLID ? 'rgba(241, 245, 249, 0.94)' : '#ffffff');
+            ctx.fillStyle = flatBottom ? 'rgba(255, 255, 255, 0.10)' : '#ffffff';
             ctx.strokeStyle = flatBottom ? '#2e3154' : '#334155';
             ctx.lineWidth = flatBottom ? 1.3 : 1.8;
             ctx.beginPath();
@@ -5650,7 +5616,7 @@ function xrayRun(ms) {
             }
 
             if (!window.BIN_SOLID) {
-            ctx.fillStyle = window.BIN_SOLID ? 'rgba(203, 213, 225, 0.90)' : '#ffffff';
+            ctx.fillStyle = '#ffffff';
             ctx.strokeStyle = '#475569';
             ctx.lineWidth = 1.6;
             ctx.beginPath();
@@ -5781,10 +5747,8 @@ function xrayRun(ms) {
 // Juntas, membros, cabeca e tronco do boneco tecnico.
 // drawDummyFrontFigure monta a figura completa a partir desses componentes.
 // =============================================================================
-        // MANEQUINS (DUMMIES) — estilo manequim articulado liso, com juntas visíveis
-        //   'wood'  -> manequim de madeira bege (Imagem 1)
-        //   'white' -> manequim branco com faixas cinzas nas juntas (Imagem 2)
-        // Para trocar a aparência de todos os manequins, mude apenas DUMMY_STYLE.
+        // Manequim Android: paleta unica compartilhada com os assentos.
+        // Estilos antigos de madeira e branco foram retirados anteriormente.
         // =========================================================================
         const DUMMY_PALETTES = {
             android: { hi: '#ffffff', light: '#f4f7fa', mid: '#e2e8f0', dark: '#cbd5e1', edge: '#1e293b', seam: '#1e293b', joint: '#94a3b8', jointDark: '#64748b' }
@@ -5811,7 +5775,7 @@ function xrayRun(ms) {
         }
 
         // Segmento de membro estilo manequim ergonômico ilustrado (branco-gelo, contorno nítido e sombreamento cel-shaded suave)
-        function drawDummyLimbSegment(ctx, x1, y1, x2, y2, r1Px, r2Px, rings = 0) {
+        function drawDummyLimbSegment(ctx, x1, y1, x2, y2, r1Px, r2Px) {
             const dx = x2 - x1, dy = y2 - y1;
             const len = Math.hypot(dx, dy);
             if (len < 1) return;
@@ -6026,7 +5990,7 @@ function xrayRun(ms) {
             const lerp = (a, b, k) => a + (b - a) * k;
             const K = (o.slim !== undefined) ? o.slim : 0.74;
             const seg = (x1, y1, x2, y2, r1, r2) =>
-                drawDummyLimbSegment(ctx, toX(x1), toY(y1), toX(x2), toY(y2), r1 * K * scale, r2 * K * scale, 0);
+                drawDummyLimbSegment(ctx, toX(x1), toY(y1), toX(x2), toY(y2), r1 * K * scale, r2 * K * scale);
             const ball = (x, y, r) =>
                 drawDummyJointBall(ctx, toX(x), toY(y), r * K * scale);
 
@@ -6117,7 +6081,7 @@ function xrayRun(ms) {
 
 // =============================================================================
 // BLOCO 05/08 - CAD EXATO DOS BINS E CINEMATICA DAS PORTAS
-// Conserva os perfis SVG, os calculos do convencional e a porta ALPHA.
+// Conserva os perfis SVG e o casco convencional realmente desenhado.
 // Usa caches para angulos e contornos estaticos; alimenta as cotas.
 // Tem IIFE propria: manter os dados e as APIs publicas nesse escopo.
 // =============================================================================
@@ -6129,7 +6093,11 @@ function xrayRun(ms) {
 (function () {
 const CABIN_R = APHA_CABIN_GEOMETRY.fuselageRadiusCm;
         const CABIN_YC = APHA_CABIN_GEOMETRY.fuselageCenterYCm;
-        const CORRIDOR_LEFT_X = -24.50;
+        // Medidas obtidas da geometria realmente desenhada: porta de 82 graus.
+        // O mecanismo legado de 39 graus foi removido: nao desenhava essa porta.
+        const CONV_CAD_BASE_Y_CM = 138.50;
+        const CONV_CAD_TIP_Y_CM = 153.04;
+        const ALPHA_CAD_FLOOR_TARGET_Y_CM = 148.70;
 
         const ALPHA_FIXED = Object.freeze({
             // Transformação arquivo -> CAD (x_cad = SCALE_X*fx + TX ; y_svg = SCALE_Y*fy + TY), ajustada ao arco da fuselagem
@@ -6145,542 +6113,8 @@ const CABIN_R = APHA_CABIN_GEOMETRY.fuselageRadiusCm;
         // Contorno externo amostrado do alphaa.svg (coords do arquivo) — usado para achar o ponto mais baixo / extremos ao girar
         const ALPHA_OUTLINE = [[658,7389],[657,8175],[657,9009],[657,9883],[656,10787],[656,11711],[655,12646],[654,13583],[653,14511],[651,15422],[650,16306],[648,17154],[647,17956],[646,18069],[645,18171],[648,18264],[658,18346],[678,18420],[711,18484],[760,18539],[828,18585],[918,18623],[1034,18653],[1178,18676],[1354,18691],[1879,18725],[2433,18767],[3001,18815],[3571,18867],[4127,18921],[4657,18975],[5146,19026],[5581,19072],[5948,19113],[6234,19144],[6424,19165],[6504,19173],[6711,19218],[7144,19335],[7759,19511],[8514,19733],[9366,19988],[10272,20262],[11191,20542],[12078,20815],[12891,21068],[13588,21287],[14126,21459],[14462,21571],[14551,21571],[14798,21571],[15172,21571],[15640,21571],[16171,21571],[16734,21571],[17297,21571],[17828,21571],[18296,21571],[18670,21571],[18917,21571],[19007,21571],[19062,21553],[19140,21523],[19237,21481],[19351,21429],[19478,21370],[19616,21305],[19761,21235],[19911,21163],[20063,21090],[20214,21018],[20361,20948],[20501,20883],[20535,20867],[20562,20855],[20583,20844],[20598,20834],[20608,20824],[20612,20813],[20612,20800],[20607,20785],[20597,20767],[20584,20745],[20566,20717],[20545,20683],[19224,18736],[17797,16956],[16279,15338],[14683,13877],[13023,12568],[11315,11406],[9572,10387],[7807,9505],[6036,8756],[4273,8135],[2531,7637],[825,7258],[784,7249],[751,7242],[725,7237],[704,7234],[688,7234],[676,7238],[668,7247],[663,7262],[660,7282],[659,7310],[658,7345],[658,7389]];
 
-        const SUITCASE = Object.freeze({
-            wMm: 55.88,               // 22" = 55,88 cm
-            hMm: 25.40,               // 10" = 25,40 cm
-            fixedTiltDeg: 15.0,       // Angulação fixada em 15,0°
-            operationalClearMm: 2.54, // Folga operacional de 1,0" = 2,54 cm (2,54 mm no CAD 1:10)
-            minBinToBagHeightMm: 2.54,// Altura mínima da base do bin para a mala: 1,0" = 2,54 cm (2,54 mm no CAD)
-            maxDoorBulgeXMm: 1.27     // Avanço horizontal máximo permitido para arredondar a porta: 0,5" = 1,27 cm
-        });
-
-        const DOOR_KINEMATIC_DELTA = Object.freeze({
-            inchMm: 2.54              // 1" = 2,54 cm (2,54 mm no CAD 1:10) abaixo do fim da mala
-        });
-
-        const state = {
-            zoomMode: 'bin',
-            leftBaseY: 138.50,
-            alphaMode: 'floor',     // extremo que o usuário define: 'floor' (piso do bin), 'base' ou 'top'
-            alphaTargetY: 148.70,    // distância do chão da cabine até o piso do bin no ponto mais alto (cm)
-            bagTiltDeg: SUITCASE.fixedTiltDeg,
-            thetaDeg: 0.0,
-            alphaDoorU: 0.0,
-            maxOpenAngleDeg: 92.0,
-            bagInsertPct: 100,
-            isAnimating: false,
-            animDir: 1
-        };
-
-
-        function getFuselageX(yMm) {
-            const dy = yMm - CABIN_YC;
-            const inside = Math.max(0, CABIN_R * CABIN_R - dy * dy);
-            return Math.sqrt(inside);
-        }
-
-        function rotatePointAroundPivot(pt, pivot, angleDeg) {
-            const rad = angleDeg * Math.PI / 180.0;
-            const cosA = Math.cos(rad);
-            const sinA = Math.sin(rad);
-            const dx = pt.x - pivot.x;
-            const dy = pt.y - pivot.y;
-            return {
-                x: pivot.x + (dx * cosA - dy * sinA),
-                y: pivot.y + (dx * sinA + dy * cosA)
-            };
-        }
-
-        function buildRoundedRectPath(bL, bR, tR, tL, tx, ty, nx, ny, rCorner) {
-            const r = Math.max(0, rCorner);
-            if (r <= 0.05) {
-                return `M ${bL.x.toFixed(2)} ${(-bL.y).toFixed(2)} L ${bR.x.toFixed(2)} ${(-bR.y).toFixed(2)} L ${tR.x.toFixed(2)} ${(-tR.y).toFixed(2)} L ${tL.x.toFixed(2)} ${(-tL.y).toFixed(2)} Z`;
-            }
-            const p1 = { x: bL.x + r * tx, y: bL.y + r * ty };
-            const p2 = { x: bR.x - r * tx, y: bR.y - r * ty };
-            const p3 = { x: bR.x + r * nx, y: bR.y + r * ny };
-            const p4 = { x: tR.x - r * nx, y: tR.y - r * ny };
-            const p5 = { x: tR.x - r * tx, y: tR.y - r * ty };
-            const p6 = { x: tL.x + r * tx, y: tL.y + r * ty };
-            const p7 = { x: tL.x - r * nx, y: tL.y - r * ny };
-            const p8 = { x: bL.x + r * nx, y: bL.y + r * ny };
-            return [
-                `M ${p1.x.toFixed(2)} ${(-p1.y).toFixed(2)}`,
-                `L ${p2.x.toFixed(2)} ${(-p2.y).toFixed(2)}`,
-                `Q ${bR.x.toFixed(2)} ${(-bR.y).toFixed(2)} ${p3.x.toFixed(2)} ${(-p3.y).toFixed(2)}`,
-                `L ${p4.x.toFixed(2)} ${(-p4.y).toFixed(2)}`,
-                `Q ${tR.x.toFixed(2)} ${(-tR.y).toFixed(2)} ${p5.x.toFixed(2)} ${(-p5.y).toFixed(2)}`,
-                `L ${p6.x.toFixed(2)} ${(-p6.y).toFixed(2)}`,
-                `Q ${tL.x.toFixed(2)} ${(-tL.y).toFixed(2)} ${p7.x.toFixed(2)} ${(-p7.y).toFixed(2)}`,
-                `L ${p8.x.toFixed(2)} ${(-p8.y).toFixed(2)}`,
-                `Q ${bL.x.toFixed(2)} ${(-bL.y).toFixed(2)} ${p1.x.toFixed(2)} ${(-p1.y).toFixed(2)}`,
-                `Z`
-            ].join(' ');
-        }
-
-
 // -----------------------------------------------------------------------------
-// SUBBLOCO 05.1 - Modelo CAD convencional e porta de referencia
-// Calcula a geometria legada fechada, reutilizada por cache.
-// -----------------------------------------------------------------------------
-        function computeLeftBinAtY(baseY) {
-            const wallX = -getFuselageX(baseY);
-            const wallFix = { x: wallX, y: baseY };
-
-            const tiltDeg = SUITCASE.fixedTiltDeg; // 15.0°
-            const alphaRad = tiltDeg * Math.PI / 180.0;
-            const tx = Math.cos(alphaRad);
-            const ty = Math.sin(alphaRad);
-            const nx = -Math.sin(alphaRad);
-            const ny = Math.cos(alphaRad);
-
-            // =========================================================================
-            // 1. POSICIONAMENTO DA MALA COM:
-            //    - Altura mínima da base do bin para a mala = 1,0" (2,54 mm)
-            //    - Folga operacional exata da fuselagem = 1,0" (2,54 mm)
-            // =========================================================================
-            const targetRadius = CABIN_R - SUITCASE.operationalClearMm; // 137.00 - 2.54 = 134.46 mm
-            const bagBotLeftY = baseY + SUITCASE.minBinToBagHeightMm;   // Exatamente 1,0" (2,54 mm) acima da base Y do bin
-            const bagTopLeftY = bagBotLeftY + SUITCASE.hMm * ny;
-
-            // Para que o canto superior esquerdo (`bagSeatedTopLeft`) e o canto inferior esquerdo (`seatedBagBotLeft`)
-            // respeitem exatamente 1,0" (2,54 mm) de distância radial até a circunferência da fuselagem:
-            const maxAllowTopLeftX = -Math.sqrt(Math.max(0, targetRadius * targetRadius - Math.pow(bagTopLeftY - CABIN_YC, 2)));
-            const maxAllowBotLeftX = -Math.sqrt(Math.max(0, targetRadius * targetRadius - Math.pow(bagBotLeftY - CABIN_YC, 2)));
-
-            const seatedBagBotLeftX = Math.max(
-                maxAllowBotLeftX,
-                maxAllowTopLeftX - SUITCASE.hMm * nx
-            );
-
-            const seatedBagBotLeft = {
-                x: seatedBagBotLeftX,
-                y: bagBotLeftY
-            };
-            const seatedBagBotRight = {
-                x: seatedBagBotLeft.x + SUITCASE.wMm * tx,
-                y: seatedBagBotLeft.y + SUITCASE.wMm * ty
-            };
-            const bagSeatedTopLeft = {
-                x: seatedBagBotLeft.x + SUITCASE.hMm * nx,
-                y: seatedBagBotLeft.y + SUITCASE.hMm * ny
-            };
-            const seatedBagTopRight = {
-                x: seatedBagBotRight.x + SUITCASE.hMm * nx,
-                y: seatedBagBotRight.y + SUITCASE.hMm * ny
-            };
-
-            const rTopLeftActual = Math.hypot(bagSeatedTopLeft.x, bagSeatedTopLeft.y - CABIN_YC);
-            const rBotLeftActual = Math.hypot(seatedBagBotLeft.x, seatedBagBotLeft.y - CABIN_YC);
-            const bagWallClearanceMm = CABIN_R - Math.max(rTopLeftActual, rBotLeftActual);
-            const bagBaseClearanceMm = seatedBagBotLeft.y - baseY; // Exatos 2,54 mm (1,0")
-
-            // Posição animada da mala (conforme slider de inserção 0% a 100%)
-            const slideOutDist = (1.0 - state.bagInsertPct / 100.0) * 30.0;
-            const bagBotLeft = {
-                x: seatedBagBotLeft.x + slideOutDist * tx,
-                y: seatedBagBotLeft.y + slideOutDist * ty
-            };
-            const bagBotRight = {
-                x: seatedBagBotRight.x + slideOutDist * tx,
-                y: seatedBagBotRight.y + slideOutDist * ty
-            };
-            const bagTopLeft = {
-                x: bagSeatedTopLeft.x + slideOutDist * tx,
-                y: bagSeatedTopLeft.y + slideOutDist * ty
-            };
-            const bagTopRight = {
-                x: seatedBagTopRight.x + slideOutDist * tx,
-                y: seatedBagTopRight.y + slideOutDist * ty
-            };
-
-            const roundedBagPathD = buildRoundedRectPath(
-                bagBotLeft, bagBotRight, bagTopRight, bagTopLeft,
-                tx, ty, nx, ny, 0.85
-            );
-
-            // =========================================================================
-            // 2. CAVIDADE INTERNA DO BIN AO REDOR DA MALA:
-            // =========================================================================
-            const padBack = 0.65;
-            const padFloor = 0.55;
-            const padRoof = 0.65;
-            const padFront = 0.25;
-
-            const boxBotLeft = {
-                x: seatedBagBotLeft.x - padBack * tx - padFloor * nx,
-                y: seatedBagBotLeft.y - padBack * ty - padFloor * ny
-            };
-            const boxBotRight = {
-                x: seatedBagBotRight.x + padFront * tx - padFloor * nx,
-                y: seatedBagBotRight.y + padFront * ty - padFloor * ny
-            };
-            const boxTopLeft = {
-                x: bagSeatedTopLeft.x - padBack * tx + padRoof * nx,
-                y: bagSeatedTopLeft.y - padBack * ty + padRoof * ny
-            };
-            const boxTopRight = {
-                x: seatedBagTopRight.x + padFront * tx + padRoof * nx,
-                y: seatedBagTopRight.y + padFront * ty + padRoof * ny
-            };
-
-            const roundedChamberPathD = buildRoundedRectPath(
-                boxBotLeft, boxBotRight, boxTopRight, boxTopLeft,
-                tx, ty, nx, ny, 1.15
-            );
-
-            // =========================================================================
-            // 3. PORTA ARREDONDADA AO MÁXIMO POSSÍVEL COM AVANÇO HORIZONTAL MÁXIMO DE 0,5" (1,27 mm)
-            //    E BARRIGA INFERIOR DO BIN REDUZIDA PARA 1,0" (2,54 mm) DA MALA:
-            // =========================================================================
-            const latchDropBelowBagMm = DOOR_KINEMATIC_DELTA.inchMm; // 2.54 mm (1")
-
-            const doorTipInner = {
-                x: seatedBagBotRight.x + 0.05 * tx - latchDropBelowBagMm * (-nx),
-                y: seatedBagBotRight.y - latchDropBelowBagMm
-            };
-            const doorTipOuter = {
-                x: doorTipInner.x + 1.35,
-                y: doorTipInner.y + 0.08
-            };
-
-            const doorLipBot = {
-                x: doorTipInner.x - 0.15,
-                y: doorTipInner.y - 0.05
-            };
-            const mouthStepIn = {
-                x: seatedBagBotRight.x + 0.05,
-                y: seatedBagBotRight.y - 0.25
-            };
-
-            // Bring the kinematic carriage towards the front lip: the oval door
-            // now rocks around a point closer to its edge rather than
-            // tilting far backwards around the rear of the bin.
-            const pvt = {
-                x: seatedBagTopRight.x - 5.65,
-                y: seatedBagTopRight.y + 4.00
-            };
-            // Retraction along the upper guide counters the outward
-            // swing; the articulated rod is constructed on the door below.
-            const carriageTravel = { x: -9.50, y: 5.20 };
-            // SVG porta(5): menor rotação, com deslocamento da folha para cima e para trás.
-            const CONVENTIONAL_DOOR_OPEN_DEG = 39.0;
-
-            // No vertical lip/step: the front door meets the continuous
-            // upper fuselage arc at this CAD-derived point.
-            // Preserve the roof seam in the exact same fuselage location even
-            // though the moving carriage has been relocated forwards.
-            const roofJoinX = seatedBagTopRight.x - 21.85;
-            const fuseTop = {
-                x: roofJoinX,
-                y: CABIN_YC + Math.sqrt(Math.max(0, CABIN_R * CABIN_R - roofJoinX * roofJoinX))
-            };
-            // Retained as metadata for the existing elevation calculation.
-            const rampTopEnd = { x: fuseTop.x, y: fuseTop.y };
-
-            // Extended, continuous shell-to-lip door: upper outer tip exactly
-            // touches the fuselage; inner face follows the curved panel.
-            const bladeTopOuter = { x: fuseTop.x, y: fuseTop.y };
-            const bladeTopInner = { x: fuseTop.x + 0.90, y: fuseTop.y - 1.10 };
-
-            // Keep the old design target for CAD metadata; the actual opening
-            // envelope is now solved from the complete moving quadratic surface.
-            const maxBulgeX = SUITCASE.maxDoorBulgeXMm;
-            const targetMaxDoorX = doorTipOuter.x + maxBulgeX;
-
-            // The shell seam will share the final door inner Bézier control,
-            // so the closed door joins the bottom lip without a visible step.
-            const mouthCurveCtrl = {
-                x: doorTipOuter.x + 1.00,
-                y: (bladeTopInner.y + doorTipInner.y) * 0.5 + 1.00
-            };
-
-                        // Barriga inferior enxuta: sai de psuBotCorner (1,0" abaixo do canto inferior esquerdo da mala)
-            // e sobe suavemente mantendo a espessura mínima de 1,0" (2,54 mm) abaixo da mala até doorLipBot
-            const psuBotCorner = {
-                x: seatedBagBotLeft.x,
-                y: baseY
-            };
-            const bellyCtrl = {
-                x: (psuBotCorner.x + doorLipBot.x) * 0.5 + 1.2,
-                y: (psuBotCorner.y + doorLipBot.y) * 0.5 - 0.35
-            };
-
-            const hornPeakY = Math.min(CABIN_YC + CABIN_R - 2.0, boxTopLeft.y + 5.2);
-            const hornPeak = { x: -getFuselageX(hornPeakY), y: hornPeakY };
-            const notchValley = {
-                x: boxTopLeft.x + 2.2 * tx + 0.35 * nx,
-                y: boxTopLeft.y + 2.2 * ty + 0.35 * ny
-            };
-            const notchCtrl = {
-                x: (hornPeak.x + notchValley.x) * 0.5 - 0.8,
-                y: (hornPeak.y + notchValley.y) * 0.5 - 0.8
-            };
-
-            const lugTopLeft = {
-                x: pvt.x - 2.4 * tx + 0.3 * nx,
-                y: pvt.y - 2.4 * ty + 0.3 * ny
-            };
-            const lugBotRight = {
-                x: pvt.x + 0.8 * tx - 1.15 * nx,
-                y: pvt.y + 0.8 * ty - 1.15 * ny
-            };
-
-            const brkHubLeft = {
-                x: pvt.x - 0.60 * tx + 0.65 * nx,
-                y: pvt.y - 0.60 * ty + 0.65 * ny
-            };
-            const brkHubBot = {
-                x: pvt.x - 0.20 * tx - 0.80 * nx,
-                y: pvt.y - 0.20 * ty - 0.80 * ny
-            };
-            const brkJoinTop = {
-                x: bladeTopInner.x + 0.08 * tx - 0.05 * nx,
-                y: bladeTopInner.y + 0.08 * ty - 0.05 * ny
-            };
-            const brkJoinBot = {
-                x: seatedBagTopRight.x + 1.45,
-                y: seatedBagTopRight.y - 2.00
-            };
-            const bladeMidInner = {
-                x: brkJoinBot.x,
-                y: brkJoinBot.y
-            };
-
-            // Door shaped after the yellow CAD sketch: a nearly horizontal
-            // shoulder at the roof, a broad oval transition, then an
-            // almost vertical front at the lower lip. Both skins follow
-            // the same curve model, preserving the panel thickness.
-            const doorOuterCtrl = {
-                x: doorTipOuter.x + 2.65,
-                y: (bladeTopOuter.y + doorTipOuter.y) * 0.5 + 1.55
-            };
-            const doorInnerCtrl = {
-                x: doorOuterCtrl.x - 1.65,
-                y: doorOuterCtrl.y - 0.75
-            };
-            mouthCurveCtrl.x = doorInnerCtrl.x;
-            mouthCurveCtrl.y = doorInnerCtrl.y;
-
-            // A single, asymmetric cubic provides a flatter top tangent
-            // and an upright nose. Subdivide it at t=.5 so the existing
-            // seven-point silhouette, swept envelope and export paths
-            // continue to sample exactly the same rigid oval door.
-            function makeFrontOvalProfile(top, tip) {
-                const dx = tip.x - top.x;
-                const drop = top.y - tip.y;
-                const p1 = {
-                    x: top.x + 0.34 * dx,
-                    y: top.y + 0.045 * drop
-                };
-                const p2 = {
-                    x: tip.x + 0.035 * dx,
-                    y: tip.y + 0.53 * drop
-                };
-                const half = (a, b) => ({
-                    x: (a.x + b.x) * 0.5,
-                    y: (a.y + b.y) * 0.5
-                });
-                const a = half(top, p1), b = half(p1, p2), c = half(p2, tip);
-                const d = half(a, b), e = half(b, c), crown = half(d, e);
-                // Adjacent cubic pieces are C1-continuous at the crown.
-                return [top, a, d, crown, e, c, tip];
-            }
-            const ovalOuter = makeFrontOvalProfile(bladeTopOuter, doorTipOuter);
-            const ovalInner = makeFrontOvalProfile(bladeTopInner, doorTipInner);
-
-            // Two revolute joints: a pin on the curved guide and a mounting
-            // pin rigidly attached to the *actual oval door*, SVG-style.
-            // The rod length stays constant; its angle is independent of
-            // the door's angle so it can articulate freely while following it.
-            const cubicPoint = (a, b, c, d, t) => {
-                const v = 1 - t;
-                return { x: v*v*v*a.x + 3*v*v*t*b.x + 3*v*t*t*c.x + t*t*t*d.x,
-                         y: v*v*v*a.y + 3*v*v*t*b.y + 3*v*t*t*c.y + t*t*t*d.y };
-            };
-            // Fix the moving linkage farther toward the FRONT END of the door,
-            // on its last curved section, matching the supplied red outline.
-            // The upper guide pin is raised inside the bin; the rod remains
-            // freely hinged and its guide follows the solved door motion.
-            const leverMountLocal = cubicPoint(
-                ovalInner[0], ovalInner[1], ovalInner[2], ovalInner[3], 0.18);
-            // Pino da guia alto, junto ao teto; articulação na parte superior
-            // frontal da folha, conforme as duas posições da referência SVG.
-            const leverPinClosed = {
-                x: leverMountLocal.x - 3.20,
-                y: leverMountLocal.y + 1.35
-            };
-            const leverDx = leverMountLocal.x - leverPinClosed.x;
-            const leverDy = leverMountLocal.y - leverPinClosed.y;
-            const leverLength = Math.hypot(leverDx, leverDy);
-            const leverStartAngle = Math.atan2(leverDy, leverDx);
-
-            const latchTopOuter = {
-                x: doorTipOuter.x + 0.25,
-                y: doorTipOuter.y + 2.65
-            };
-            const latchTopInner = {
-                x: doorTipInner.x + 0.25,
-                y: doorTipInner.y + 2.55
-            };
-            const latchHookIn = {
-                x: doorTipInner.x - 0.55 * tx + 0.55 * nx,
-                y: doorTipInner.y - 0.55 * ty + 0.55 * ny
-            };
-
-            function getDoorAtAngle(angDeg) {
-                // The door retains one rigid oval blade. Its carriage travels
-                // smoothly while a distinct hinged rod drives the visible pin
-                // along a curved locus (rather than welding it to the blade).
-                const u = Math.min(1, Math.max(0, angDeg / CONVENTIONAL_DOOR_OPEN_DEG));
-                const slideU = u*u*(3 - 2*u);
-                const carrier = {
-                    x: pvt.x + carriageTravel.x * slideU,
-                    y: pvt.y + carriageTravel.y * slideU
-                };
-                const move = (pt) => {
-                    const rotated = rotatePointAroundPivot(pt, pvt, angDeg);
-                    return { x: rotated.x + carrier.x - pvt.x,
-                             y: rotated.y + carrier.y - pvt.y };
-                };
-                // Both spherical/revolute joints are evaluated every frame;
-                // the pin trajectory is solved from the arm's exact length.
-                // The pin follows the raised upper guide while the door tip
-                // keeps precisely the original open-stop coordinates.
-                const leverMount = move(leverMountLocal);
-                // Articulação independente: o braço muda sua inclinação durante
-                // a abertura, mantendo exatamente o mesmo comprimento.
-                const leverAngle = leverStartAngle
-                    + (angDeg * Math.PI / 180) * 0.45;
-                const pin = {
-                    x: leverMount.x - leverLength * Math.cos(leverAngle),
-                    y: leverMount.y - leverLength * Math.sin(leverAngle)
-                };
-                const bHubL = move(brkHubLeft), bHubB = move(brkHubBot);
-                const bJoinT = move(brkJoinTop), bJoinB = move(brkJoinBot);
-                const topOut = move(bladeTopOuter), topIn = move(bladeTopInner);
-                const midIn = move(bladeMidInner);
-                const tip = move(doorTipOuter), tipIn = move(doorTipInner);
-                const outCurve = ovalOuter.map(move), inCurve = ovalInner.map(move);
-                const lTopOut = move(latchTopOuter), lTopIn = move(latchTopInner);
-                const lHook = move(latchHookIn);
-
-                let rightmostX = Math.max(tip.x, topOut.x, tipIn.x);
-                let highestY = Math.max(tip.y, topOut.y);
-                // Extremes use the SAME cubic elliptical curves rendered below.
-                for (const curve of [outCurve, inCurve]) {
-                    for (const j of [0, 3]) {
-                        const a = curve[j], c1 = curve[j+1], c2 = curve[j+2], b = curve[j+3];
-                        for (let i = 0; i <= 24; i++) {
-                            const u = i / 24, v = 1 - u;
-                            const bx = v*v*v*a.x + 3*v*v*u*c1.x + 3*v*u*u*c2.x + u*u*u*b.x;
-                            const by = v*v*v*a.y + 3*v*v*u*c1.y + 3*v*u*u*c2.y + u*u*u*b.y;
-                            rightmostX = Math.max(rightmostX, bx);
-                            highestY = Math.max(highestY, by);
-                        }
-                    }
-                }
-                return { pin, leverMount, leverAngle, leverLength,
-                    bHubL, bHubB, bJoinT, bJoinB,
-                    topOut, topIn, midIn, tip, tipIn, outCurve, inCurve,
-                    lTopOut, lTopIn, lHook, rightmostX, highestY };
-            }
-
-            function getDoorAtProgress(progress) {
-                const u = Math.max(0, Math.min(1, Number(progress) || 0));
-                return getDoorAtAngle(u * CONVENTIONAL_DOOR_OPEN_DEG);
-            }
-
-            function getDoorTipPosition(progress) {
-                return getDoorAtProgress(progress).tip;
-            }
-            // Construct the physical guide FROM the joint's actual locus.
-            // No separate fixed/circular track can desynchronise from it.
-            const railPath = [];
-            for (let i = 0; i <= 48; i++)
-                railPath.push(getDoorAtProgress(i / 48).pin);
-            const railStart = railPath[0], railEnd = railPath[railPath.length - 1];
-
-            // True motion: both the swept fill and the dashed boundary sample
-            // exactly these poses, never a fixed-radius or legacy-pivot sector.
-            const openLimitDeg = CONVENTIONAL_DOOR_OPEN_DEG;
-            const progress = Math.max(0, Math.min(1, state.thetaDeg / openLimitDeg));
-            const doorClosed = getDoorAtProgress(0);
-            const doorCurr = getDoorAtProgress(progress);
-            const doorOpen = getDoorAtProgress(1);
-            const trailSteps = Math.max(1, Math.ceil(progress / 0.02));
-            const doorTipTrail = [];
-            const doorPoseTrail = [];
-            for (let i = 0; i <= trailSteps; i++) {
-                const sampledProgress = progress * i / trailSteps;
-                doorTipTrail.push(getDoorTipPosition(sampledProgress));
-                doorPoseTrail.push(getDoorAtProgress(sampledProgress));
-            }
-            // Derive extrema and peak from the identical translated/rotated
-            // profile, including the oval shell and the lower moving tip.
-            let peakRightX = -Infinity, peakU = 0;
-            for (let i = 0; i <= 100; i++) {
-                const sampleU = i / 100;
-                const candidate = getDoorAtProgress(sampleU).rightmostX;
-                if (candidate > peakRightX) {
-                    peakRightX = candidate;
-                    peakU = sampleU;
-                }
-            }
-            const thetaPeakDeg = peakU * openLimitDeg;
-            const doorPeak = getDoorAtProgress(peakU);
-
-            const doorBulgeBeyondTipMm = doorClosed.rightmostX - doorTipOuter.x;
-            const corridorMarginPeakMm = CORRIDOR_LEFT_X - peakRightX; // > 0 = livre, 0 = colado na linha do corredor
-            const corridorMarginCurrMm = CORRIDOR_LEFT_X - doorCurr.rightmostX;
-
-            const widthClosedMm = doorClosed.rightmostX - wallX;
-            const widthPeakMm = peakRightX - wallX;
-            const widthOpenMm = doorOpen.rightmostX - wallX;
-            const widthCurrMm = doorCurr.rightmostX - wallX;
-
-            // Vão livre perpendicular à rampa quando totalmente aberta
-            const openTipProjN = (doorOpen.tipIn.x - seatedBagBotRight.x) * nx + (doorOpen.tipIn.y - seatedBagBotRight.y) * ny;
-            const maxMouthClearOpeningMm = openTipProjN;
-            const doorClearanceOverBagMm = openTipProjN - SUITCASE.hMm;
-
-            // Carenagem superior do bolsão 23
-            const shroudStart = { x: lugTopLeft.x - 1.5 * tx, y: lugTopLeft.y - 1.5 * ty };
-            const shroudStep = { x: shroudStart.x + 3.2 * nx, y: shroudStart.y + 3.2 * ny };
-            const shroudEnd = { x: doorOpen.tip.x + 1.8, y: doorOpen.tip.y + 2.2 };
-            const shroudCtrl = {
-                x: (shroudStep.x + shroudEnd.x) * 0.5 - 2.0,
-                y: Math.max(shroudStep.y, shroudEnd.y) + 4.8
-            };
-
-            const binTotalHeightMm = Math.max(hornPeak.y, rampTopEnd.y) - baseY;
-
-            return {
-                baseY, tiltDeg, wallFix, psuBotCorner,
-                boxBotLeft, boxBotRight, boxTopRight, boxTopLeft,
-                bagBotLeft, bagBotRight, bagTopLeft, bagTopRight,
-                roundedBagPathD, roundedChamberPathD,
-                seatedBagBotLeft, seatedBagBotRight, seatedBagTopRight, latchDropBelowBagMm,
-                bagSeatedTopLeft, bagWallClearanceMm, bagBaseClearanceMm, doorBulgeBeyondTipMm, targetMaxDoorX,
-                maxMouthClearOpeningMm, doorClearanceOverBagMm,
-                corridorMarginPeakMm, corridorMarginCurrMm,
-                hornPeak, notchValley, notchCtrl, rampTopEnd, fuseTop,
-                bellyCtrl, doorLipBot, mouthStepIn, mouthCurveCtrl,
-                pvt, railStart, railEnd, railPath, doorTipTrail, doorPoseTrail, getDoorTipPosition,
-                lugTopLeft, lugBotRight,
-                shroudStart, shroudStep, shroudEnd, shroudCtrl,
-                thetaPeakDeg, openLimitDeg,
-                doorClosed, doorPeak, doorOpen, doorCurr,
-                peakRightX, widthClosedMm, widthPeakMm, widthOpenMm, widthCurrMm,
-                binTotalHeightMm, tx, ty, nx, ny
-            };
-        }
-
-        // Busca exata da Altura Y_esq que deixa o Bin o mais próximo possível da linha do corredor (X = -24,50 mm)
-        
-
-// -----------------------------------------------------------------------------
-// SUBBLOCO 05.2 - Transformacao CAD Alpha e solucao angular
+// SUBBLOCO 05.1 - Transformacao CAD Alpha e solucao angular
 // Aplica escala/rotacao e busca a altura-alvo do contorno.
 // -----------------------------------------------------------------------------
 function alphaTransformPoint(fx, fy, thetaDeg) {
@@ -6745,7 +6179,7 @@ function alphaTransformPoint(fx, fy, thetaDeg) {
         let cachedAlphaGeometry = null;
         function computeRightAlphaLocked() {
             const A = ALPHA_FIXED;
-            const thetaDeg = solveAlphaTheta(state.alphaTargetY, state.alphaMode);
+            const thetaDeg = solveAlphaTheta(ALPHA_CAD_FLOOR_TARGET_Y_CM, 'floor');
             if (cachedAlphaGeometry && cachedAlphaGeometry.thetaDeg === thetaDeg)
                 return cachedAlphaGeometry.geometry;
             let minX = Infinity, maxX = -Infinity, minYs = Infinity, maxYs = -Infinity;
@@ -6783,8 +6217,6 @@ function alphaTransformPoint(fx, fy, thetaDeg) {
         // sua transformação/ordenação é feita apenas quando theta muda.
         let cachedAlphaFloor = null;
         window.getUniAlphaGeometry = () => {
-            state.alphaMode = 'floor';
-            state.alphaTargetY = 148.70;
             const alpha = computeRightAlphaLocked();
             if (cachedAlphaFloor && cachedAlphaFloor.thetaDeg === alpha.thetaDeg)
                 return cachedAlphaFloor.geometry;
@@ -6807,7 +6239,7 @@ function alphaTransformPoint(fx, fy, thetaDeg) {
         
 
 // -----------------------------------------------------------------------------
-// SUBBLOCO 05.3 - Trilho da porta rolante e detalhes SVG
+// SUBBLOCO 05.2 - Trilho da porta rolante e detalhes SVG
 // Amostra o trilho e preserva recortes e perfis estruturais.
 // -----------------------------------------------------------------------------
 const ALPHA_DOOR_FRACTION = 0.6;
@@ -6863,7 +6295,7 @@ function paintPath(ctx, d, fill, stroke, lw, evenodd) {
 // o perfil quadrático intermediário não é consumido pela API pública.
 
 // -----------------------------------------------------------------------------
-// SUBBLOCO 05.4 - Intradorso e folga ate a cabeca
+// SUBBLOCO 05.3 - Intradorso e folga ate a cabeca
 // Guarda o contorno inferior e consulta intersecoes para cotas.
 // -----------------------------------------------------------------------------
 let referenceBinUndersides = { alpha: [] };
@@ -6945,12 +6377,13 @@ window.getUniBinUndersideY = (x, isAlpha) =>
 // Telemetria HTML separada do desenho CAD; mantém as seis fórmulas originais.
 
 // -----------------------------------------------------------------------------
-// SUBBLOCO 05.5 - Indicadores numericos da Aba 5
+// SUBBLOCO 05.4 - Indicadores numericos da Aba 5
 // Atualiza os seis valores de altura no HTML; nao altera o CAD.
 // -----------------------------------------------------------------------------
-function updateHeightReadouts(initialConv, alpha) {
-    // Heights come from the closed door and the exact 1:10 source geometry.
-    const highConv = initialConv.doorClosed.tip.y, lowConv = initialConv.wallFix.y;
+function updateHeightReadouts(alpha) {
+    // Medidas do CAD exibido: 153,04 cm (ponta fechada) e 138,50 cm (base).
+    // O legado dava 153,0428 cm; toFixed(2) mostrava os mesmos 153,04.
+    const highConv = CONV_CAD_TIP_Y_CM, lowConv = CONV_CAD_BASE_Y_CM;
     const highAlpha = alpha.floorHighY, lowAlpha = alpha.baseY;
     const fmt = n => Number(n).toFixed(2);
     const vals = {
@@ -6967,13 +6400,9 @@ function updateHeightReadouts(initialConv, alpha) {
     }
 }
 
-// Geometria fechada constante do convencional: calculada apenas uma vez,
-// antes da animação da porta; o contorno efetivo ainda é desenhado a cada frame.
-let cachedClosedConventional = null;
-
 
 // -----------------------------------------------------------------------------
-// SUBBLOCO 05.6 - Desenho final e abertura das portas
+// SUBBLOCO 05.5 - Desenho final e abertura das portas
 // Compoe o convencional e o Alpha; respeita fade e progresso da porta.
 // A Aba 6 pode informar overrideDoorU sem mudar os indicadores da Aba 5.
 // -----------------------------------------------------------------------------
@@ -6983,17 +6412,7 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
     // A aba 6 move a porta independentemente, sem alterar a aba 5.
     const map = cabin.map(W, H);
     const u = clamp(Number(overrideDoorU == null ? window.__uniRefDoorProgress : overrideDoorU) || 0);
-    state.leftBaseY = 138.50;
-    state.alphaMode = 'floor';
-    state.alphaTargetY = 148.70;
-    state.bagInsertPct = 100;
-    state.thetaDeg = 0;
-    if (!cachedClosedConventional)
-        cachedClosedConventional = computeLeftBinAtY(state.leftBaseY);
-    const initialConv = cachedClosedConventional;
-    // O intradorso de medição será capturado do Path2D cúbico realmente desenhado.
-    referenceConventionalBelly = null;
-    state.thetaDeg = u * initialConv.openLimitDeg;
+    // Somente o CAD efetivo; sem atualizar estados de uma porta legada.
     const alpha = computeRightAlphaLocked();
 
     // A curva quadrática intermediária do convencional não era consumida:
@@ -7013,7 +6432,7 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
         ctx.save();
         ctx.globalAlpha *= clamp(fadeConv);
         // Usa o mesmo raio/centro da fuselagem compartilhada pelas Abas 5 e 6.
-        const R = CABIN_R, CY = CABIN_YC, bottomY = 138.50, floorY = 153.04;
+        const R = CABIN_R, CY = CABIN_YC, bottomY = CONV_CAD_BASE_Y_CM, floorY = CONV_CAD_TIP_Y_CM;
         const wallX = -Math.sqrt(R*R-(bottomY-CY)**2);
         const src = {x0:8322.484375, y1:21044.689453125,
                      xr:34924.74609375, yTip:15503};
@@ -7322,7 +6741,7 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
     }
     ctx.restore();
     if (overrideDoorU != null) return; // aba 6 não atualiza os indicadores da aba 5
-    updateHeightReadouts(initialConv, alpha);
+    updateHeightReadouts(alpha);
 }
 window.drawUniReferenceBins = drawReferenceBins;
 })();
@@ -9072,7 +8491,6 @@ window.drawUniReferenceBins = drawReferenceBins;
         const MIN_HEIGHT = 59.8 * CM_PER_IN; // 151.892 cm
         const MAX_HEIGHT = 73.4 * CM_PER_IN; // 186.436 cm
 
-        const NULLCTX = new Proxy(function () {}, { get: () => NULLCTX, apply: () => NULLCTX, set: () => true });
 
         // Cena da cabine (reutilizável): L = camadas ligadas/desligadas (0..1), o.map = mapeamento opcional
 
@@ -9101,7 +8519,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 typeof window.getUniBinUndersideY === 'function'
                     ? window.getUniBinUndersideY(xc, isRight) : null;
 
-            const drawEmbraerSeatAndDummy3D = (centerX, stature, label, isWindow, isRightSide) => {
+            const drawEmbraerSeatAndDummy3D = (centerX, stature, isRightSide) => {
                 const seatW = 46.0;
                 
                 // Padrão TTL: assento 16", estrutura do encosto 40", ângulo 20° da vertical
@@ -9219,10 +8637,10 @@ window.drawUniReferenceBins = drawReferenceBins;
             };
 
             const seatsOn = L.seats > 0 || L.pax > 0;
-            const clWinEmb = seatsOn ? drawEmbraerSeatAndDummy3D(-99.5, hWin, '1A (WIN)', true, false) : 0;
-            const clAisleEmb = seatsOn ? drawEmbraerSeatAndDummy3D(-48.5, hAisle, '1B (AIS)', false, false) : 0;
-            const clAisleAlpha = seatsOn ? drawEmbraerSeatAndDummy3D(48.5, hAisle, '1C (AIS)', false, true) : 0;
-            const clWinAlpha = seatsOn ? drawEmbraerSeatAndDummy3D(99.5, hWin, '1D (WIN)', true, true) : 0;
+            const clWinEmb = seatsOn ? drawEmbraerSeatAndDummy3D(-99.5, hWin, false) : 0;
+            const clAisleEmb = seatsOn ? drawEmbraerSeatAndDummy3D(-48.5, hAisle, false) : 0;
+            const clAisleAlpha = seatsOn ? drawEmbraerSeatAndDummy3D(48.5, hAisle, true) : 0;
+            const clWinAlpha = seatsOn ? drawEmbraerSeatAndDummy3D(99.5, hWin, true) : 0;
 
             // Aba 5: as três cotas principais (altura, piso e corredor)
             // são desenhadas apenas em drawInteractiveStructureDims().
