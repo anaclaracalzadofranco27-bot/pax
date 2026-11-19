@@ -5558,21 +5558,19 @@ function xrayRun(ms) {
         }
 
         // =========================================================================
-        // FIGURA FRONTAL COMPLETA (sentada -> em pé) estilo manequim técnico ilustrado
+        // FIGURA FRONTAL SENTADA, postura TTL, manequim técnico ilustrado
         // =========================================================================
 
 // -----------------------------------------------------------------------------
-// SUBBLOCO 04.1 - Composicao do boneco completo
+// SUBBLOCO 04.1 - Composicao do manequim sentado
 // Calcula articulacoes e desenha a postura com sobreposicao correta.
 // -----------------------------------------------------------------------------
         function drawDummyFrontFigure(ctx, toX, toY, scale, o) {
             const __dkPrev = window.__dkRole; window.__dkRole = 'dummy';   // paleta escura da exportação: boneco
             const P = dummyPal();
             const S = o.S, px = o.px;
-            const t = Math.min(1, Math.max(0, o.t || 0));
-            const ankleY = (o.ankleY !== undefined) ? o.ankleY : 5.5;
-            const lerp = (a, b, k) => a + (b - a) * k;
-            const K = (o.slim !== undefined) ? o.slim : 0.74;
+            const ankleY = 5.5;
+            const K = 0.74;
             const seg = (x1, y1, x2, y2, r1, r2) =>
                 drawDummyLimbSegment(ctx, toX(x1), toY(y1), toX(x2), toY(y2), r1 * K * scale, r2 * K * scale);
             const ball = (x, y, r) =>
@@ -5584,18 +5582,18 @@ function xrayRun(ms) {
             const shoulderTopY = o.headTopY - S * 0.175;       // base do pescoço
             const pelvisBotY = o.pelvisBotY;
             const hipJY = pelvisBotY + S * 0.062;              // centro da articulação do quadril
-            const kneeJY = lerp(hipJY - S * 0.04, ankleY + (hipJY - ankleY) * 0.5, t);
+            const kneeJY = hipJY - S * 0.04;
 
             // Posições laterais (cm, a partir da linha média)
             const hipX = S * 0.060 * K;
-            const kneeX = lerp(S * 0.072, S * 0.062, t) * K;
-            const ankX = lerp(S * 0.075, S * 0.060, t) * K;
+            const kneeX = S * 0.072 * K;
+            const ankX = S * 0.075 * K;
             const shJY = shoulderTopY - S * 0.04;
             const shJX = S * 0.106 * K;
             const elbX = S * 0.122 * K;
             const elbY = shJY - S * 0.186;
-            const handX = lerp(S * 0.088, S * 0.126, t) * K;
-            const handY = lerp(hipJY + S * 0.040, elbY - S * 0.150, t);
+            const handX = S * 0.088 * K;
+            const handY = hipJY + S * 0.040;
 
             // Pescoço cilíndrico cinza-azulado articulado (como na referência)
             const drawNeck = () => {
@@ -5648,13 +5646,12 @@ function xrayRun(ms) {
                 seg(px + sd * elbX, elbY, px + sd * handX, handY, S * 0.026, S * 0.020);
                 // Punho cinza-azulado + mão tipo luva arredondada
                 ball(px + sd * handX, handY, S * 0.020);
-                const hl = lerp(S * 0.032, S * 0.068, t);
-                seg(px + sd * handX, handY, px + sd * (handX - S * 0.012 * (1 - t)), handY - hl, S * 0.022, S * 0.018);
+                const hl = S * 0.032;
+                seg(px + sd * handX, handY, px + sd * (handX - S * 0.012), handY - hl, S * 0.022, S * 0.018);
             });
 
             drawNeck();
-            if (t >= 0.55) { drawShinsAndFeet(); drawThighs(); drawTorso(); }
-            else           { drawTorso(); drawShinsAndFeet(); drawThighs(); }
+            drawTorso(); drawShinsAndFeet(); drawThighs();
             drawUpperArms();
             drawForearmsAndHands();
             drawDummyHead3D(ctx, toX(px), toY(headCY), headR * 1.04 * scale);
@@ -7955,7 +7952,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const pelvisBotY = seatPanTopY + 2;
                 
                 drawDummyFrontFigure(ctx, toX, toY, scale, {
-                    px: px, S: stature, headTopY: currentHeadTopY, pelvisBotY: pelvisBotY, t: 0
+                    px: px, S: stature, headTopY: currentHeadTopY, pelvisBotY: pelvisBotY
                 });
 
                 const ceilingY = ceilingAtX(centerX, isRightSide);
