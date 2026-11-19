@@ -1056,7 +1056,7 @@
                 drawRealisticSuitcase(ctx,
                     toX(prof.m2Cx), toY(prof.m2Cy),
                     prof.m2W * scale, prof.m2H * scale,
-                    prof.rad17, '', '', true);
+                    prof.rad17);
             }
             const plan = ergoStowPlan(mode, prof, stature);
             const pose = ergoSolvePosture(stature, plan, localPhase);
@@ -1161,9 +1161,7 @@
                 })(),
                 plan.w * scale,
                 plan.h * scale,
-                currentBagAngleRad,
-                '', '',
-                true
+                currentBagAngleRad
             );
             ctx.restore();
 
