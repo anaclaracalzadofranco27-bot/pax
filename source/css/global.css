@@ -1,6 +1,28 @@
+        /* Tema visual da apresentação: fonte única para CSS, Canvas e Tailwind.
+           Mantenha aqui as cores compartilhadas; o JavaScript apenas as consulta. */
+        :root {
+            --apha-bg: #000223;
+            --apha-panel: #0a1a3a;
+            --apha-border: #2f4a6b;
+            --apha-cyan: #6d90b8;
+            --apha-mid: #5b7b9e;
+            --apha-neutral: #9ba9b5;
+            --apha-muted: #bababa;
+            --apha-text: #e2e8f0;
+            --apha-dark-outline: #08122a;
+            --apha-bin-outline: #273e57;
+            --apha-bin-cavity: #304054;
+            --apha-shell-fill: #94a3b8;
+            --apha-shell-outline: #1e293b;
+            --apha-floor-fill: #cbd5e1;
+            --apha-floor-outline: #64748b;
+            --apha-grid: rgba(91,123,158,0.12);
+            --apha-mid-45: rgba(91,123,158,0.45);
+        }
+
 
         body {
-            background-color: #000223;
+            background-color: var(--apha-bg);
             color: #d4dce6;
             overflow-x: hidden;
         }
@@ -10,14 +32,14 @@
             height: 6px;
         }
         ::-webkit-scrollbar-track {
-            background: #000223;
+            background: var(--apha-bg);
         }
         ::-webkit-scrollbar-thumb {
-            background: #5b7b9e;
+            background: var(--apha-mid);
             border-radius: 3px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #6d90b8;
+            background: var(--apha-cyan);
         }
         /* Range Sliders Styling */
         input[type=range] {
@@ -28,14 +50,14 @@
             width: 100%;
             height: 5px;
             cursor: pointer;
-            background: #5b7b9e;
+            background: var(--apha-mid);
             border-radius: 3px;
         }
         input[type=range]::-webkit-slider-thumb {
             height: 16px;
             width: 16px;
             border-radius: 50%;
-            background: #6d90b8;
+            background: var(--apha-cyan);
             cursor: pointer;
             -webkit-appearance: none;
             margin-top: -5.5px;
@@ -48,30 +70,30 @@
         /* Fundo único das simulações = plano quadriculado */
         .sim-bg{background-color:var(--apha-bg);background-image:linear-gradient(to right,var(--apha-grid) 1px,transparent 1px),linear-gradient(to bottom,var(--apha-grid) 1px,transparent 1px);background-size:48px 48px}
 @@APHA_INCLUDE:source/html/ABA6/viewport-theme.css@@@@APHA_INCLUDE:source/html/ABA5/viewport-theme.css@@        /* ===== Botões e Chips CAD ===== */
-        .cad-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:#6d90b8;color:#000223;font:600 12px 'JetBrains Mono',monospace;border:0;cursor:pointer;transition:background .2s}
-        .cad-btn:hover{background:#5b7b9e}
+        .cad-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:var(--apha-cyan);color:var(--apha-bg);font:600 12px 'JetBrains Mono',monospace;border:0;cursor:pointer;transition:background .2s}
+        .cad-btn:hover{background:var(--apha-mid)}
         .cad-btn:disabled{opacity:.55;cursor:default}
-        .cad-chip{padding:5px 10px;border-radius:999px;border:1px solid #5b7b9e;background:transparent;color:#d4dce6;font:500 11px 'JetBrains Mono',monospace;cursor:pointer;transition:background .25s,color .25s}
+        .cad-chip{padding:5px 10px;border-radius:999px;border:1px solid var(--apha-mid);background:transparent;color:#d4dce6;font:500 11px 'JetBrains Mono',monospace;cursor:pointer;transition:background .25s,color .25s}
         .cad-chip.done{background:rgba(91,123,158,0.14)}
-        .cad-chip.on{background:#6d90b8;color:#000223;border-color:#6d90b8}
-        .cad-btn:focus-visible,.cad-chip:focus-visible{outline:2px solid #6d90b8;outline-offset:2px}
+        .cad-chip.on{background:var(--apha-cyan);color:var(--apha-bg);border-color:var(--apha-cyan)}
+        .cad-btn:focus-visible,.cad-chip:focus-visible{outline:2px solid var(--apha-cyan);outline-offset:2px}
 
 @@APHA_INCLUDE:source/html/ABA8/tour-frame.css@@@@APHA_INCLUDE:source/html/ABA2/cad-hud.css@@@@APHA_INCLUDE:source/html/ABA4/tour-layout.css@@@@APHA_INCLUDE:source/html/ABA3/tour-layout.css@@@@APHA_INCLUDE:source/html/ABA5/tour-layout.css@@@@APHA_INCLUDE:source/html/ABA8/tour-controls-hidden.css@@@@APHA_INCLUDE:source/html/ABA6/tour-layout.css@@@@APHA_INCLUDE:source/html/ABA1/presentation.css@@@@APHA_INCLUDE:source/html/ABA8/tour-pax.css@@@@APHA_INCLUDE:source/html/ABA6/fullscreen.css@@@@APHA_INCLUDE:source/html/ABA8/tour-buttons.css@@@@APHA_INCLUDE:source/css/recording-and-transitions.css@@        /* ====== TEMA ESCURO GLOBAL (paleta das abas Biomecânica e Simulação Integrada) ====== */
-        html, body { background-color:#000223; color:#d4dce6; color-scheme:dark; }
+        html, body { background-color:var(--apha-bg); color:#d4dce6; color-scheme:dark; }
         header img[alt="Alpha"] { filter: brightness(0) invert(.82); }
-        ::selection { background:#5b7b9e; color:#000223; }
-        html body .text-slate-600{color:#9ba9b5 !important}
-        html body .text-slate-700{color:#bababa !important}
+        ::selection { background:var(--apha-mid); color:var(--apha-bg); }
+        html body .text-slate-600{color:var(--apha-neutral) !important}
+        html body .text-slate-700{color:var(--apha-muted) !important}
         html body .text-slate-800{color:#d4dce6 !important}
         html body .text-slate-900{color:#d4dce6 !important}
         html body .text-slate-950{color:#d4dce6 !important}
         html body .hover\:text-slate-900:hover{color:#d4dce6 !important}
         html body .hover\:bg-slate-200:hover{background-color:rgba(91,123,158,.25) !important}
         html body .bg-slate-200{background-color:#0d2040 !important}
-        html body .bg-white{background-color:#0a1a3a !important}
+        html body .bg-white{background-color:var(--apha-panel) !important}
         html body .bg-white\/90{background-color:rgba(0,2,35,.9) !important}
         html body .border-slate-300,html body .border-slate-400{border-color:rgba(91,123,158,.45) !important}
-        html body .text-white{color:#000223 !important}
+        html body .text-white{color:var(--apha-bg) !important}
         html body .bg-amber-500.text-slate-950,html body .bg-amber-500 .text-slate-950{color:#020617 !important}
 
 @@APHA_INCLUDE:source/html/ABA7/closing-frame.css@@@@APHA_INCLUDE:source/html/ABA8/tour-closing.css@@@@APHA_INCLUDE:source/html/ABA7/closing-scenes.css@@@@APHA_INCLUDE:source/html/ABA3/presentation.css@@@@APHA_INCLUDE:source/html/ABA7/closing-illustrations.css@@

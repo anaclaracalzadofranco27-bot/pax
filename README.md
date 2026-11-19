@@ -38,9 +38,12 @@ HTML e recursos exclusivos ficam juntos:
 | `source/page.template.html` | Estrutura principal, ordem de inclusão e navegação |
 | `source/css/global.css` | Regras globais e inclusões ordenadas de CSS específico |
 | `source/css/recording-and-transitions.css` | Ajustes do quadro de vídeo, modo de gravação, enquadramento 16:9 e cursor |
-| `source/js/core/config.js` | Paleta, geometria, linha do tempo e configurações comuns |
+| `source/js/core/config.js` | Leitura da paleta CSS para Canvas, geometria e tempos/câmera das animações |
+| `source/js/core/tailwind-theme.js` | Adaptador de classes de cor/fonte exigido pelo Tailwind CDN (embutido no script de `config.js`) |
 | `source/js/core/navigation.js` | Estado da aba ativa e função `switchTab()` para navegar entre as oito abas |
 | `source/js/engine/cabin-shared.js` | Geometria/CAD 2D, bins, malas, ergonomia sentada e desenho da cabine (Abas 5 e 6) |
+
+**Separação entre CSS e JavaScript (19/11/2026):** `source/css/global.css` define uma única paleta `:root` com tokens `--apha-*`; o CSS controla cores, quadriculado, bordas e aparência. `source/js/core/config.js` lê esses valores com `getComputedStyle` para o desenho Canvas e mantém geometria, temporizações e movimentos. A configuração de classes do Tailwind CDN foi isolada em `source/js/core/tailwind-theme.js`, embutida no mesmo bloco `<script>` por `@@APHA_INCLUDE`; por ser um requisito da biblioteca, permanece em JavaScript, mas consome a paleta do CSS. O `<style>` global fica antes do script de configuração para as cores estarem disponíveis imediatamente. A montagem continua em um único HTML, sem requisições adicionais, e mantém os mesmos valores de cor e parâmetros da simulação. As verificações de preservação conferem essa ligação.
 
 **CSS modular por aba:** os estilos visuais antes misturados em `source/css/global.css` foram colocados nas pastas das abas, com arquivos de responsabilidade específica:
 

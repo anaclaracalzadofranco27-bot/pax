@@ -155,6 +155,33 @@ def verify_css(v: Checker) -> None:
     v.check("body {" in manifest and "html, body {" in manifest, "Tema global ausente")
     v.check("source/html/ABA1/styles.css" not in manifest, "CSS isolado PAX no manifesto global")
     v.check("source/css/shared-viewport.css" not in manifest, "Include CSS obsoleto")
+    # CSS é a fonte única de cores. O motor Canvas lê esses tokens após o CSS
+    # ser processado, e o Tailwind CDN mantém seu adaptador JavaScript isolado.
+    config = v.read("source/js/core/config.js")
+    tailwind_theme = v.read("source/js/core/tailwind-theme.js")
+    if template is not None:
+        v.order(template, (
+            "<style>@@APHA_INCLUDE:source/css/global.css@@</style>",
+            "<script>@@APHA_INCLUDE:source/js/core/config.js@@</script>",
+        ), "CSS deve ser carregado antes do adaptador Canvas/Tailwind")
+    for color in ("bg","panel","border","cyan","mid","neutral","muted","text","dark-outline","bin-outline","bin-cavity","shell-fill","shell-outline","floor-fill","floor-outline","grid","mid-45"):
+        v.check(f"--apha-{color}:" in manifest,
+                f"Variável de cor CSS ausente: --apha-{color}")
+    if config is not None:
+        v.check("getComputedStyle(document.documentElement)" in config,
+                "Canvas não lê a paleta a partir do CSS")
+        v.check("document.documentElement.style.setProperty" not in config,
+                "JavaScript voltou a sobrescrever as variáveis do CSS")
+        v.check(config.count("@@APHA_INCLUDE:source/js/core/tailwind-theme.js@@") == 1,
+                "Adaptador Tailwind ausente ou duplicado")
+        v.check("tailwind.config =" not in config,
+                "Configuração visual Tailwind ainda misturada aos cálculos")
+    if tailwind_theme is not None:
+        v.check("tailwind.config =" in tailwind_theme,
+                "Configuração Tailwind ausente do arquivo visual")
+        v.check("APHA_CABIN_PALETTE" in tailwind_theme,
+                "Tailwind não utiliza a paleta compartilhada")
+
     css = v.css()
     if css is not None:
         v.check("#aba6-module-ergo > .bg-cad-panel:first-child" not in css,
