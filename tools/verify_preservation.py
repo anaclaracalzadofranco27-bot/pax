@@ -80,7 +80,14 @@ assert aba6_html.count('id="aba6-header"') == 1, "ABA6 heading missing or repeat
 assert "Biomechanical Validation &amp; Boarding Time" in aba6_html, "ABA6 title changed"
 assert "#tour-stage #aba6-header{display:none !important;}" in aba6_tour_css, "ABA6 title visible in tour"
 assert "--aba6-header-height:58px" in aba6_fullscreen_css, "ABA6 heading height missing"
-assert "height:calc(100vh - var(--aba6-header-height)) !important;" in aba6_fullscreen_css, "ABA6 viewport may overlap heading"
+assert "height:clamp(480px, 70vh, 740px)" in aba6_fullscreen_css, "ABA6 standalone viewport height not constrained"
+assert "body.apha-simulation-view > header" not in aba6_fullscreen_css, "ABA6 still hides the shared navigation header"
+assert "body.apha-simulation-view > main" not in aba6_fullscreen_css, "ABA6 still overrides the shared page layout"
+assert "body.apha-simulation-view #apha-return-tabs" not in aba6_fullscreen_css, "Redundant return-tabs control shown"
+shared_viewport_css = (ROOT / "source/css/shared-viewport.css").read_text(encoding="utf-8")
+assert "#aba6-module-ergo > .bg-cad-panel:first-child" not in shared_viewport_css, "ABA6 title still hidden by shared CSS"
+assert "#tour-stage #aba6-header{display:none !important;}" in aba6_tour_css, "ABA6 title must remain hidden in tour"
+assert '<header class="bg-cad-panel/95' in template, "Global tab navigation header missing"
 assert recording_css.count("@@APHA_INCLUDE:source/html/ABA6/recording-layout.css@@") == 1, "ABA6 recording CSS not in original cascade position"
 
 # Recording geometry for CAD3D (ABA2) and bin comparison (ABA3) belongs to
