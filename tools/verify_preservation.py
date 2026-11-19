@@ -358,6 +358,26 @@ def verify_bin_kinematics(v: Checker) -> None:
         v.check("function traceBinAlphaProfile(" not in kinetics and
                 "function traceEmbraerBinProfile(" not in kinetics,
                 "Modelos paralelos de bin reintroduzidos")
+        v.check("let cachedAlphaCadPaths = null;" in kinetics and
+                "function getAlphaCadPaths()" in kinetics and
+                "const alphaPaths = getAlphaCadPaths();" in kinetics,
+                "Caminhos estaticos do casco Alpha deixaram de ser cacheados")
+        render = kinetics.split("function drawReferenceBins(", 1)[-1].split(
+            "window.drawUniReferenceBins = drawReferenceBins;", 1)[0]
+        v.check(render.count("new Path2D(") == 1 and
+                "ctx.stroke(alphaPaths.track)" in render,
+                "Renderizador voltou a construir paths estaticos por quadro")
+        v.check("if (L.pax <= 0) return 0;" in kinetics,
+                "Passageiros sentados invisiveis voltaram a ser desenhados")
+        v.check("drawRealisticSuitcase(ctx, cx, cy, wPx, hPx, angleRad)" in kinetics and
+                "colorOverride" not in kinetics,
+                "Ramos antigos de mala foram reintroduzidos")
+        v.check("const aphaClamp01 =" in config and
+                "const aphaEaseCubic =" in config and
+                "const cadEase =" not in kinetics,
+                "Easing/clamp deixaram de usar as primitivas compartilhadas")
+        v.check("function drawDimensionLine(ctx, x1, y1, x2, y2, label, fontSize" in kinetics,
+                "Assinatura unificada das cotas foi alterada")
 
         for flag in ("__uniRefDoorProgress", "__aphaAlphaBodyOpacity",
                      "__aphaTambourOrange", "cabinSectionReference"):
@@ -369,6 +389,14 @@ def verify_bin_kinematics(v: Checker) -> None:
                 "Aba 5 não sincroniza o progresso da porta")
         v.check("__aphaTambourOrange" in kinetics,
                 "Motor compartilhado não respeita a exceção laranja da porta")
+        v.check("const cubic=x=>" not in aba5 and
+                "const cl = (x, a = 0" not in aba5 and
+                "__uniSweepProgress" not in aba5,
+                "Aba 5 voltou a definir helpers ou estados sem consumidor")
+        v.check("referenceBins: true" not in aba5 and
+                "noBags: true" not in aba5 and
+                "minimalDims: true" not in aba5,
+                "Flags CAD antigas reapareceram nas chamadas da Aba 5")
     if door is not None:
         v.check("window.__uniRefDoorProgress =" in door,
                 "Controle de porta da Aba 5 não inicializa seu estado")
@@ -377,6 +405,12 @@ def verify_bin_kinematics(v: Checker) -> None:
                      "cabinSectionReference"):
             v.check(name in aba6,
                     f"Aba 6 perdeu dependência do motor CAD: {name}")
+        v.check("cachedErgoCADProfile" in aba6 and
+                "return { ...cachedErgoCADProfile.profile };" in aba6,
+                "Perfil ergonomico reutiliza estado mutavel sem isolamento")
+        v.check("const cineEase = aphaEaseCubic;" in aba6 and
+                "const ergoClamp01 = aphaClamp01;" in aba6,
+                "Biomecanica voltou a duplicar easing e clamp")
     if aba8 is not None:
         v.check("__aphaAlphaBodyOpacity" in aba8,
                 "Aba 8 não ajusta a opacidade do corpo ALPHA")
