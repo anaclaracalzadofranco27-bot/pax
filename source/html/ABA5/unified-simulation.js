@@ -171,7 +171,7 @@
 
                 drawDimensionLine(ctx,
                     toX(-25.4), toY(212), toX(25.4), toY(212),
-                    '20"', DIMENSION_COLOR, 15, {x:0, y:-12});
+                    '20"', 15, {x:0, y:-12});
 
                 ctx.globalAlpha *= lowerFade;
                 const seatDimY = 16.8 * CM_PER_IN;
@@ -179,7 +179,7 @@
                 const seatDimX = seatWallX + outsideGapCm;
                 drawDimensionLine(ctx,
                     toX(seatDimX), toY(0), toX(seatDimX), toY(seatDimY),
-                    '16.8"', DIMENSION_COLOR, 15, {x:22, y:0},
+                    '16.8"', 15, {x:22, y:0},
                     {x1:toX(floorHalf), y1:toY(0), x2:toX(seatDimX), y2:toY(0)},
                     {x1:toX(seatWallX), y1:toY(seatDimY), x2:toX(seatDimX), y2:toY(seatDimY)});
 
@@ -188,7 +188,7 @@
                 const backDimX = backWallX - outsideGapCm;
                 drawDimensionLine(ctx,
                     toX(backDimX), toY(0), toX(backDimX), toY(backDimY),
-                    '40.0"', DIMENSION_COLOR, 15, {x:-21, y:0},
+                    '40.0"', 15, {x:-21, y:0},
                     {x1:toX(-floorHalf), y1:toY(0), x2:toX(backDimX), y2:toY(0)},
                     {x1:toX(backWallX), y1:toY(backDimY), x2:toX(backDimX), y2:toY(backDimY)});
                 ctx.restore();

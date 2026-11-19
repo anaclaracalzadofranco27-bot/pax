@@ -231,17 +231,15 @@
         // Cotas técnicas compartilhadas pela Aba 5, simulação integrada e exportações.
         // Cor técnica única, inclusive no modo de exportação BIN_DARK.
         const DIMENSION_COLOR = '#b0c4de';
-        function drawDimensionLine(ctx, x1, y1, x2, y2, label, color = DIMENSION_COLOR, fontSize = 15, labelOffset = {x: 0, y: 0}, ext1 = null, ext2 = null, cleanLabel = false) {
+        function drawDimensionLine(ctx, x1, y1, x2, y2, label, fontSize = 15, labelOffset = {x: 0, y: 0}, ext1 = null, ext2 = null) {
             ctx.save();
             const previousBinDark = window.BIN_DARK;
             try {
                 window.BIN_DARK = false;
-                // Unifica as cotas: cores antigas dos modelos não sobrescrevem o padrão técnico.
-                const lineInk = DIMENSION_COLOR;
-                const textInk = DIMENSION_COLOR;
+                // Todas as cotas visiveis usam a mesma cor tecnica.
                 ctx.setLineDash([]);
-                ctx.strokeStyle = lineInk;
-                ctx.fillStyle = lineInk;
+                ctx.strokeStyle = DIMENSION_COLOR;
+                ctx.fillStyle = DIMENSION_COLOR;
                 ctx.lineWidth = 1;
                 // As linhas auxiliares terminam nas superfícies geométricas reais.
                 for (const ext of [ext1, ext2]) {
@@ -282,12 +280,10 @@
                 ctx.shadowBlur = 3;
                 ctx.shadowOffsetX = 1;
                 ctx.shadowOffsetY = 1;
-                if (!cleanLabel) {
-                    ctx.lineWidth = 3;
-                    ctx.strokeStyle = 'rgba(0, 2, 35, 0.92)';
-                    ctx.strokeText(label, mx, my);
-                }
-                ctx.fillStyle = textInk;
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = 'rgba(0, 2, 35, 0.92)';
+                ctx.strokeText(label, mx, my);
+                ctx.fillStyle = DIMENSION_COLOR;
                 ctx.fillText(label, mx, my);
             } finally {
                 window.BIN_DARK = previousBinDark;
@@ -1574,7 +1570,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                         ctx,
                         toX(px), toY(currentHeadTopY),
                         toX(px), toY(ceilingY),
-                        cotaTxt, DIMENSION_COLOR, 12, {x: 20, y: 0},
+                        cotaTxt, 12, {x: 20, y: 0},
                         {x1: toX(px - 4), y1: toY(currentHeadTopY), x2: toX(px + 4), y2: toY(currentHeadTopY)},
                         // Marca curta centrada na interseção exata com a curva CAD.
                         {x1: toX(px - 2), y1: toY(ceilingY), x2: toX(px + 2), y2: toY(ceilingY)}
