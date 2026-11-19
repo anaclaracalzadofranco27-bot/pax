@@ -5,7 +5,7 @@
             const FC = APHA_CABIN_GEOMETRY.fuselageCenterYCm; // centro da fuselagem acima do piso (cm)
             // ---- Paleta lilás/roxa só nesta aba: enquanto BIN_SOLID está ativo (só durante o desenho da Simulação Integrada e da sua exportação), cinzas-azulados viram lilás ----
             // Filtros Canvas registrados uma unica vez no motor compartilhado.
-            const UNI_CAD_SEC = 0.4;                            // velocidade da construção da seção do bin nesta aba (a aba CAD 2D segue com CAD_STAGE_SEC)
+            const UNI_CAD_SEC = 0.4;                            // velocidade da construção da seção nesta aba
             const P1 = UNI_CAD_SEC * 4;                         // 1,6 s: contorno CAD 2D (bins surgem junto com a cota Ø 108")
             const TL = { ring: P1, floor: P1 + 0.6, seats: P1 + 1.1, pax: P1 + 1.6, stat: P1 + 2.3, dur: 3.4 };
             TL.pause=TL.stat+TL.dur; TL.zoom=TL.pause+0.5; TL.zoomDur=1.15; TL.open=TL.zoom+TL.zoomDur; TL.openDur=1.2;
@@ -13,11 +13,9 @@
             document.getElementById('uni-scrub').max = TOTAL;
             const PH = [['CAD 2D Outline', 0], ['Fuselage + floor', TL.ring], ['Seats + passengers', TL.seats], ['Stature variation', TL.stat], ['Door envelopes', TL.zoom]];
             const U = { t: 0, playing: false, last: 0, raf: 0, started: false, g: null };
-            const cl = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
-            const ph=(t0,d)=>cadEase(cl((U.t-t0)/d));
-            const cubic=x=>{x=cl(x);return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2};
-            const cameraAmount=()=>U.exportCabinWideFrame ? 0 : cubic((U.t-TL.zoom)/TL.zoomDur);
-            const doorAmount=()=>cubic((U.t-TL.open)/TL.openDur);
+            const ph=(t0,d)=>aphaEaseCubic((U.t-t0)/d);
+            const cameraAmount=()=>U.exportCabinWideFrame ? 0 : aphaEaseCubic((U.t-TL.zoom)/TL.zoomDur);
+            const doorAmount=()=>aphaEaseCubic((U.t-TL.open)/TL.openDur);
             const cinematicCamera=(W,H)=>{const a=cameraAmount(),k=1+(APHA_BRIDGE_CFG.startZoom-1)*a,cy=m4(W,H).toY(APHA_BRIDGE_CFG.binFocusYcm);return {k,x:W/2,y:H/2+(cy-H/2)*a}};
             
             // Snapshot da câmera REAL da Aba 5 para a emenda com a Aba 6.
@@ -73,7 +71,7 @@
             const phaseIdx = () => PH.reduce((a, p, i) => U.t >= p[1] ? i : a, 0);
             const stature = () => {
                 if (U.customStature != null) return U.customStature;
-                const u = cl((U.t - TL.stat) / TL.dur), MN = window.SEATED_STAT.min, MX = window.SEATED_STAT.max;
+                const u = aphaClamp01((U.t - TL.stat) / TL.dur), MN = window.SEATED_STAT.min, MX = window.SEATED_STAT.max;
                 return MN + (MX - MN) * (1 - Math.cos(Math.PI * u)) / 2;   // sobe do feminino ao masculino e para
             };
 
@@ -83,7 +81,7 @@
                 // A grade de fundo pertence ao .sim-bg na aba individual e ao
                 // #tour-stage na Simulação Geral: não desenhar a grade física
                 // recortada no centro da câmera sobre o mesmo canvas.
-                const p = cl((U.t - TL.ring) / 0.8);          // trechos laterais da fuselagem até o piso (y=0), sem porão
+                const p = aphaClamp01((U.t - TL.ring) / 0.8);          // trechos laterais da fuselagem até o piso (y=0), sem porão
                 if (p > 0) {
                     const shellR = APHA_CABIN_GEOMETRY.fuselageRadiusCm;
                     const shellOuterR = shellR + APHA_CABIN_GEOMETRY.shellThicknessCm;
@@ -283,7 +281,7 @@
                 { id: 'w', cm: WORLD_MEAN_CM, name: 'P50 World', col: '#9ba9b5' },
                 { id: 'm', cm: window.SEATED_STAT.max, name: 'P95 Male', col: '#d4dce6' }
             ];
-            const gp = cm => cl((cm - G_LO) / (G_HI - G_LO)) * 100;
+            const gp = cm => aphaClamp01((cm - G_LO) / (G_HI - G_LO)) * 100;
             const dec = v => v.toFixed(1);
             const gEl = document.getElementById('uni-gauge');
             gEl.innerHTML =
