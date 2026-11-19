@@ -24,7 +24,7 @@ jobs:
         run: python3 tools/build.py
       - name: Verify assembled file is in sync
         run: python3 tools/build.py --check
-      - name: Check assembled theme and config JavaScript syntax
+      - name: Check assembled theme, config and CAD engine JavaScript syntax
         shell: bash
         run: |
           python3 - <<'PY'
@@ -36,8 +36,15 @@ jobs:
           if config is None:
               raise SystemExit("Missing assembled Canvas/Tailwind configuration script")
           Path("/tmp/apha-assembled-config.js").write_text(config, encoding="utf-8")
+          engine = next((code for code in inline if
+                         "function drawCADCanvas(" in code and
+                         "window.drawSeatedScene = drawSeatedScene;" in code), None)
+          if engine is None:
+              raise SystemExit("Missing assembled CAD and seated-cabin engine")
+          Path("/tmp/apha-assembled-engine.js").write_text(engine, encoding="utf-8")
           PY
           node --check /tmp/apha-assembled-config.js
+          node --check /tmp/apha-assembled-engine.js
       - name: Check passenger JavaScript syntax
         run: node --check source/html/ABA1/js/passengers.js
       - name: Verify eight tabs, CSS, passengers, assets, transitions and Full HD takes
@@ -68,7 +75,7 @@ jobs:
         run: python3 tools/build.py
       - name: Verify assembled file
         run: python3 tools/build.py --check
-      - name: Check assembled theme and config JavaScript syntax
+      - name: Check assembled theme, config and CAD engine JavaScript syntax
         shell: bash
         run: |
           python3 - <<'PY'
@@ -80,8 +87,15 @@ jobs:
           if config is None:
               raise SystemExit("Missing assembled Canvas/Tailwind configuration script")
           Path("/tmp/apha-assembled-config.js").write_text(config, encoding="utf-8")
+          engine = next((code for code in inline if
+                         "function drawCADCanvas(" in code and
+                         "window.drawSeatedScene = drawSeatedScene;" in code), None)
+          if engine is None:
+              raise SystemExit("Missing assembled CAD and seated-cabin engine")
+          Path("/tmp/apha-assembled-engine.js").write_text(engine, encoding="utf-8")
           PY
           node --check /tmp/apha-assembled-config.js
+          node --check /tmp/apha-assembled-engine.js
       - name: Check passenger JavaScript syntax
         run: node --check source/html/ABA1/js/passengers.js
       - name: Verify eight tabs, CSS, passengers, assets, transitions and Full HD takes

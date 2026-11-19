@@ -98,31 +98,67 @@ def verify_tabs(v: Checker) -> None:
 
 def verify_engine(v: Checker) -> None:
     template = v.read("source/page.template.html")
-    engine = v.read("source/js/engine/cabin-shared.js")
-    nav = v.read("source/js/core/navigation.js")
+    assembly = v.read("source/js/engine/cabin-shared.js")
+    navigation = v.read("source/js/core/navigation.js")
+    # O arquivo cabin-shared.js monta as sete partes no MESMO <script>.
+    # Não usar <script> individuais nem mover os includes do controlador.
+    parts = (
+        "canvas-palette.js",
+        "cabin-geometry.js",
+        "bin-profiles.js",
+        "dummy-rendering.js",
+        "bin-kinematics.js",
+        "cad-rendering.js",
+        "seated-cabin.js",
+    )
+    modules = {
+        name: v.read(f"source/js/engine/{name}")
+        for name in parts
+    }
     if template is not None:
         v.check(template.count("@@APHA_INCLUDE:source/js/engine/cabin-shared.js@@") == 1,
-                "Motor compartilhado ausente/duplicado no template")
+                "Montador do motor ausente/duplicado no template")
         for obsolete in ("cad2d-and-shared.js", "sectioncabin.js"):
             v.check(f"@@APHA_INCLUDE:source/js/engine/{obsolete}@@" not in template,
                     f"Motor antigo referenciado: {obsolete}")
-    if engine is not None:
-        for marker in ("@@APHA_INCLUDE:source/js/core/navigation.js@@",
-                       "@@APHA_INCLUDE:source/html/ABA6/manikin.js@@"):
-            v.check(engine.count(marker) == 1, f"Include do motor ausente/duplicado: {marker}")
-        v.order(engine, ("@@APHA_INCLUDE:source/js/core/navigation.js@@",
-                         "@@APHA_INCLUDE:source/html/ABA6/controller.js@@",
-                         "function computeAllGeometries("),
-                "Ordem navegação/controlador/geometria alterada")
-        v.order(engine, ("function drawCADCanvas(",
-                         "@@APHA_INCLUDE:source/html/ABA6/manikin.js@@",
-                         "window.drawSeatedScene = drawSeatedScene;"),
-                "Ordem CAD/manequim/cabine alterada")
-        v.check("function switchTab(tab) {" not in engine, "switchTab duplicada no motor")
-        v.check("window.SEATED_STAT =" in engine, "Estado SEATED_STAT ausente")
-    if nav is not None:
-        v.check(nav.count("function switchTab(tab) {") == 1, "switchTab ausente/duplicada")
-
+    if assembly is not None:
+        required = tuple(f"@@APHA_INCLUDE:source/js/engine/{name}@@" for name in parts)
+        for marker in required:
+            v.check(assembly.count(marker) == 1,
+                    f"Fragmento do motor ausente/duplicado: {marker}")
+        manikin = "@@APHA_INCLUDE:source/html/ABA6/manikin.js@@"
+        v.check(assembly.count(manikin) == 1, "Manequim da Aba 6 ausente/duplicado")
+        v.order(assembly, required[:6] + (manikin, required[6]),
+                "Ordem dos sete módulos, CAD e manikin alterada")
+        v.check("function drawCADCanvas(" not in assembly,
+                "Código CAD voltou a ficar no montador")
+        v.check("function switchTab(tab) {" not in assembly,
+                "Navegação duplicada no montador")
+    geometry = modules["cabin-geometry.js"]
+    if geometry is not None:
+        nav_marker = "@@APHA_INCLUDE:source/js/core/navigation.js@@"
+        ctrl_marker = "@@APHA_INCLUDE:source/html/ABA6/controller.js@@"
+        v.check(geometry.count(nav_marker) == 1,
+                "Inclusão da navegação ausente/duplicada")
+        v.check(geometry.count(ctrl_marker) == 1,
+                "Inclusão do controlador da Aba 6 ausente/duplicada")
+        v.order(geometry, (nav_marker, ctrl_marker, "function computeAllGeometries("),
+                "Ordem navegação → controlador → geometria alterada")
+        v.check("function switchTab(tab) {" not in geometry,
+                "Navegação duplicada na geometria")
+    renderer = modules["cad-rendering.js"]
+    if renderer is not None:
+        v.check(renderer.count("function drawCADCanvas(") == 1,
+                "Renderizador CAD ausente/duplicado no módulo de desenho")
+    seated = modules["seated-cabin.js"]
+    if seated is not None:
+        v.check("window.drawSeatedScene = drawSeatedScene;" in seated,
+                "Desenho da cabine sentada ausente")
+        v.check("window.SEATED_STAT =" in seated,
+                "Estado SEATED_STAT ausente")
+    if navigation is not None:
+        v.check(navigation.count("function switchTab(tab) {") == 1,
+                "switchTab ausente/duplicada")
 
 def verify_css(v: Checker) -> None:
     template = v.read("source/page.template.html")
@@ -196,7 +232,7 @@ def verify_blueprint(v: Checker) -> None:
     theme6 = v.read("source/html/ABA6/viewport-theme.css")
     sim5 = v.read("source/html/ABA5/unified-simulation.js")
     manikin = v.read("source/html/ABA6/manikin.js")
-    engine = v.read("source/js/engine/cabin-shared.js")
+    engine = v.read("source/js/engine/cad-rendering.js")
     frame = v.read("source/html/ABA8/tour-frame.css")
     tour5 = v.read("source/html/ABA5/tour-layout.css")
     if manifest is not None:
@@ -432,7 +468,7 @@ def verify_aba4(v: Checker) -> None:
 
 def verify_aba6_controller(v: Checker) -> None:
     controller = v.read("source/html/ABA6/controller.js")
-    cabin = v.read("source/js/engine/cabin-shared.js")
+    cabin = v.read("source/js/engine/cabin-geometry.js")
     director = v.read("source/html/ABA8/director-and-recording.js")
     if cabin is not None:
         inc = "@@APHA_INCLUDE:source/html/ABA6/controller.js@@"
