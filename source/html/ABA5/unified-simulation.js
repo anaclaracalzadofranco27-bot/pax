@@ -329,7 +329,7 @@
             window.uniRefresh = refresh;
             window.uniEnter = () => { U.started = true; if (!U.playing) play(U.t >= TL.total - 0.05 ? 0 : U.t); else refresh(); };
             // roteiro (aba 8): zera sem autoplay e inicia uma única vez (evita começar, parar e reiniciar)
-            window.uniTourReset = () => { U.started = true; U.customStature = null; U.playing = false; cancelAnimationFrame(U.raf); U.t = 0; U.fx = null; U.focus = 0; window.__uniRefDoorProgress=0; window.__uniSweepProgress=0; refresh(); };
+            window.uniTourReset = () => { U.started = true; U.customStature = null; U.playing = false; cancelAnimationFrame(U.raf); U.t = 0; U.fx = null; U.focus = 0; window.__uniRefDoorProgress=0; refresh(); };
             window.uniTourStart = () => { U.started = true; if (!U.playing) play(0); };
             // Entregar ao plano único após zoom, antes da abertura das portas.
             window.uniTourBridgeReady = () => U.t >= TOTAL - .0001;
