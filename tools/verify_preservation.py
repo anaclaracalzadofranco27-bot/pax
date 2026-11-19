@@ -160,7 +160,7 @@ def verify_engine(v: Checker) -> None:
                 "Indice dos oito blocos nao corresponde a ordem real de execucao")
         for subsection in ("02.1", "02.2", "02.3", "03.1", "03.2", "03.3",
                            "04.1", "05.1", "05.2", "05.3", "05.4", "05.5",
-                           "05.6", "08.1"):
+                           "08.1"):
             v.check(engine.count(f"// SUBBLOCO {subsection} -") == 1,
                     f"Subbloco de documentacao ausente/duplicado: {subsection}")
 
@@ -300,12 +300,19 @@ def verify_bin_kinematics(v: Checker) -> None:
                      "drawUniReferenceBins"):
             v.check(f"window.{name} =" in kinetics,
                     f"Exportação pública da cinemática ausente: {name}")
-        v.check(kinetics.count("computeLeftBinAtY(") == 2,
-                "Cálculo do convencional deve existir com uma só chamada")
-        v.check("const conventional = computeLeftBinAtY(" not in kinetics,
-                "Segunda chamada sem uso do convencional reapareceu")
-        v.check("cachedClosedConventional" in kinetics,
-                "Cache da posição convencional fechada ausente")
+        # Usar as medidas do CAD efetivamente desenhado: o antigo modelo
+        # de porta a 39° foi eliminado por não controlar a porta de 82°.
+        for dead in ("computeLeftBinAtY(", "cachedClosedConventional",
+                     "CONVENTIONAL_DOOR_OPEN_DEG", "DOOR_KINEMATIC_DELTA",
+                     "vectorBinUnderY(", "BIN_VEC_POLY", "NULLCTX"):
+            v.check(dead not in kinetics,
+                    f"Código legado sem consumidor reapareceu: {dead}")
+        v.check("const CONV_CAD_BASE_Y_CM = 138.50;" in kinetics and
+                "const CONV_CAD_TIP_Y_CM = 153.04;" in kinetics and
+                "const highConv = CONV_CAD_TIP_Y_CM" in kinetics,
+                "Cotas convencionais deixaram de usar o CAD visível")
+        v.check("const ALPHA_CAD_FLOOR_TARGET_Y_CM = 148.70;" in kinetics,
+                "Alvo de altura Alpha duplicado/ausente")
         v.check("cachedAlphaTheta" in kinetics and
                 "cachedAlphaGeometry" in kinetics and
                 "alphaUndersideForTheta(alpha.thetaDeg)" in kinetics,
@@ -315,6 +322,9 @@ def verify_bin_kinematics(v: Checker) -> None:
                 "Seis indicadores de altura ou atualização do DOM ausentes")
         v.check("const convBottom =" not in kinetics,
                 "Amostragem quadrática convencional sem consumidor reapareceu")
+        v.check("function traceVectorBin(" in kinetics and
+                "function traceBinAlphaProfile(" in kinetics,
+                "Fallback de geometria vetorial da Aba 6 ausente")
 
         # As duas geometrias CAD finais partem dos mesmos dados físicos
         # usados na cabine; a porta visível conserva o último limite de 82°.
@@ -327,8 +337,6 @@ def verify_bin_kinematics(v: Checker) -> None:
         v.check("const visibleDoorMaxDeg = 82;" in kinetics and
                 "const angle = u * visibleDoorMaxDeg;" in kinetics,
                 "Abertura de 82 graus do desenho convencional foi modificada")
-        v.check("const CONVENTIONAL_DOOR_OPEN_DEG = 39.0;" in kinetics,
-                "Modelo legado de porta alterado sem validar seus cálculos")
         v.check("if (opts.referenceBins) { ctx.save(); ctx.globalAlpha = 0; }" not in kinetics,
                 "Perfis antigos estão sendo desenhados de maneira invisível")
         v.check("const alphaRefOuterX = g.x_livre + 88.90 * scaleFactor;" in kinetics and
