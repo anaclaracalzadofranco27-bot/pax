@@ -1302,7 +1302,6 @@ function paintPath(ctx, d, fill, stroke, lw, evenodd) {
 // SUBBLOCO 05.3 - Intradorso e folga ate a cabeca
 // Guarda o contorno inferior e consulta intersecoes para cotas.
 // -----------------------------------------------------------------------------
-let referenceBinUndersides = { alpha: [] };
 let cachedAlphaUnderside = null;
 function alphaUndersideForTheta(thetaDeg) {
     if (cachedAlphaUnderside && cachedAlphaUnderside.thetaDeg === thetaDeg)
@@ -1329,114 +1328,12 @@ function lowerBinSurfaceAtX(points, x) {
     }
     return Number.isFinite(lower) ? lower : null;
 }
-// Guarda os controles originais da curva inferior (quadrática) para que
-// a cota coincida com o CAD, sem erro de discretização dos 100 segmentos.
-let referenceConventionalBelly = null;
-function exactConventionalUndersideY(x) {
-    if (!Number.isFinite(x) || !referenceConventionalBelly) return null;
-    // Intersecta a vertical da cabeça com as curvas cúbicas efetivamente
-    // desenhadas no casco convencional (inclusive a barriga inferior).
-    const cubics = referenceConventionalBelly.cubics;
-    if (!cubics || !cubics.length) return null;
-    const candidates = [];
-    const bez = (a, b, c, d, t, axis) => {
-        const u = 1-t;
-        return u*u*u*a[axis] + 3*u*u*t*b[axis] + 3*u*t*t*c[axis] + t*t*t*d[axis];
-    };
-    for (const [p0, p1, p2, p3] of cubics) {
-        const A = -p0.x + 3*p1.x - 3*p2.x + p3.x;
-        const B = 3*p0.x - 6*p1.x + 3*p2.x;
-        const C = 3*(p1.x - p0.x);
-        // Dividir por extremos em X garante intervalos monotônicos da Bézier.
-        const stops = [0, 1];
-        const qa = 3*A, qb = 2*B, qc = C;
-        if (Math.abs(qa) < 1e-12) {
-            if (Math.abs(qb) > 1e-12) stops.push(-qc/qb);
-        } else {
-            const disc = qb*qb - 4*qa*qc;
-            if (disc >= 0) {
-                stops.push((-qb-Math.sqrt(disc))/(2*qa));
-                stops.push((-qb+Math.sqrt(disc))/(2*qa));
-            }
-        }
-        const ts = [...new Set(stops.filter(t => t >= 0 && t <= 1))].sort((a,b) => a-b);
-        for (let i=1; i<ts.length; i++) {
-            let lo=ts[i-1], hi=ts[i];
-            const xl=bez(p0,p1,p2,p3,lo,'x'), xh=bez(p0,p1,p2,p3,hi,'x');
-            if (x < Math.min(xl,xh)-1e-7 || x > Math.max(xl,xh)+1e-7) continue;
-            const ascending = xh >= xl;
-            for (let j=0; j<48; j++) {
-                const mid=(lo+hi)/2;
-                if ((bez(p0,p1,p2,p3,mid,'x') < x) === ascending) lo=mid;
-                else hi=mid;
-            }
-            candidates.push(bez(p0,p1,p2,p3,(lo+hi)/2,'y'));
-        }
-    }
-    return candidates.length ? Math.min(...candidates) : null;
-}
-window.getUniBinUndersideY = (x, isAlpha) =>
-    isAlpha ? lowerBinSurfaceAtX(referenceBinUndersides.alpha, x) : exactConventionalUndersideY(x);
-
-// Telemetria HTML separada do desenho CAD; mantém as seis fórmulas originais.
-
-// -----------------------------------------------------------------------------
-// SUBBLOCO 05.4 - Indicadores numericos da Aba 5
-// Atualiza os seis valores de altura no HTML; nao altera o CAD.
-// -----------------------------------------------------------------------------
-function updateHeightReadouts(alpha) {
-    // Medidas do CAD exibido: 153,04 cm (ponta fechada) e 138,50 cm (base).
-    // O legado dava 153,0428 cm; toFixed(2) mostrava os mesmos 153,04.
-    const highConv = CONV_CAD_TIP_Y_CM, lowConv = CONV_CAD_BASE_Y_CM;
-    const highAlpha = alpha.floorHighY, lowAlpha = alpha.baseY;
-    const fmt = n => Number(n).toFixed(2);
-    const vals = {
-        'uni-height-conv-high': fmt(highConv) + ' cm',
-        'uni-height-alpha-high': fmt(highAlpha) + ' cm',
-        'uni-height-delta-high': (highAlpha-highConv>=0?'+':'')+fmt(highAlpha-highConv)+' cm',
-        'uni-height-conv-low': fmt(lowConv) + ' cm',
-        'uni-height-alpha-low': fmt(lowAlpha) + ' cm',
-        'uni-height-delta-low': (lowAlpha-lowConv>=0?'+':'')+fmt(lowAlpha-lowConv)+' cm'
-    };
-    for (const [id, val] of Object.entries(vals)) {
-        const el = document.getElementById(id);
-        if (el) el.textContent = val;
-    }
-}
-
-
-// -----------------------------------------------------------------------------
-// SUBBLOCO 05.5 - Desenho final e abertura das portas
-// Compoe o convencional e o Alpha; respeita fade e progresso da porta.
-// A Aba 6 pode informar overrideDoorU sem mudar os indicadores da Aba 5.
-// -----------------------------------------------------------------------------
-function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
-    const cabin = window.cabinSectionReference;
-    if (!cabin) return;
-    // A aba 6 move a porta independentemente, sem alterar a aba 5.
-    const map = cabin.map(W, H);
-    const u = clamp(Number(overrideDoorU == null ? window.__uniRefDoorProgress : overrideDoorU) || 0);
-    // Somente o CAD efetivo; sem atualizar estados de uma porta legada.
-    const alpha = computeRightAlphaLocked();
-
-    // A curva quadrática intermediária do convencional não era consumida:
-    // a cota usa exactConventionalUndersideY(), baseada no próprio Path2D.
-    // O ALPHA reaproveita o contorno transformado enquanto theta não muda.
-    referenceBinUndersides.alpha = alphaUndersideForTheta(alpha.thetaDeg);
-
-    // Original CAD SVG has downward-positive Y. Map to existing Tab 5 cabin.
-    ctx.save();
-    ctx.translate(map.toX(0), map.toY(0));
-    ctx.scale(map.scale, map.scale);
-
-
-    if (fadeConv > 0.001) {
-        // Conventional bin replaced with the geometry and pivoted-door mechanism
-        // from bin_aeronave_simples.html (fixed CAD dimensions in centimetres).
-        ctx.save();
-        ctx.globalAlpha *= clamp(fadeConv);
-        // Usa o mesmo raio/centro da fuselagem compartilhada pelas Abas 5 e 6.
-        const R = CABIN_R, CY = CABIN_YC, bottomY = CONV_CAD_BASE_Y_CM, floorY = CONV_CAD_TIP_Y_CM;
+// Geometria convencional independente do Canvas e do progresso da porta.
+// Valores constantes nesta cena: uma unica entrada de cache e suficiente.
+let cachedConventionalGeometry = null;
+function getConventionalCadGeometry() {
+    if (cachedConventionalGeometry) return cachedConventionalGeometry;
+const R = CABIN_R, CY = CABIN_YC, bottomY = CONV_CAD_BASE_Y_CM, floorY = CONV_CAD_TIP_Y_CM;
         const wallX = -Math.sqrt(R*R-(bottomY-CY)**2);
         const src = {x0:8322.484375, y1:21044.689453125,
                      xr:34924.74609375, yTip:15503};
@@ -1492,55 +1389,181 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             inner.push({x:o.x-1.2*q.x,y:o.y-1.2*q.y});
         }
         const pivot={x:ext[N].x-2.4*norm[N].x,y:ext[N].y-2.4*norm[N].y};
+
+        const Ep={x:-Math.sqrt(Math.max(0,R*R-(bottom0.y-CY)**2)),y:bottom0.y};
+        const cB1=W([8570.39,21313.78]),cB2=W([19845.34,20898.17]),bEnd=W([20243.48,20945.80]);
+        const cC1=W([21136.70,21052.74]),cC2=W([30508.64,18191.16]);
+        const cubics = [
+            [Ep,cB1,cB2,bEnd], [bEnd,cC1,cC2,e0],
+            [e0,e1,e2,D], [D,c1,c2,S]
+        ];
+        cachedConventionalGeometry = {
+            R, CY, Ep, cB1, cB2, bEnd, cC1, cC2,
+            e0, e1, e2, D, c1, c2, S, ext, inner, N, pivot, cubics
+        };
+        return cachedConventionalGeometry;
+}
+
+function conventionalPolyPath(pts) {
+    const p = new Path2D();
+    pts.forEach((v,i) => i ? p.lineTo(v.x,-v.y) : p.moveTo(v.x,-v.y));
+    p.closePath();
+    return p;
+}
+// Casco, vazado, folha, lingueta e braco sao Path2D estaticos.
+// Somente o envelope de movimento da porta e dinamico.
+let cachedConventionalPaths = null;
+function getConventionalCadPaths() {
+    if (cachedConventionalPaths) return cachedConventionalPaths;
+    const { R, CY, Ep, cB1, cB2, bEnd, cC1, cC2,
+            e0, e1, e2, D, c1, c2, S, ext, inner, N, pivot } = getConventionalCadGeometry();
+    const shell = new Path2D();
+    shell.moveTo(Ep.x,-Ep.y);
+    shell.bezierCurveTo(cB1.x,-cB1.y,cB2.x,-cB2.y,bEnd.x,-bEnd.y);
+    shell.bezierCurveTo(cC1.x,-cC1.y,cC2.x,-cC2.y,e0.x,-e0.y);
+    shell.bezierCurveTo(e1.x,-e1.y,e2.x,-e2.y,D.x,-D.y);
+    shell.bezierCurveTo(c1.x,-c1.y,c2.x,-c2.y,S.x,-S.y);
+    const angS=Math.atan2(-S.y+CY,S.x),angE=Math.atan2(-Ep.y+CY,Ep.x);
+    const sweep=angE-angS;
+    for(let j=1;j<=70;j++){
+        const angle=angS+sweep*j/70;
+        shell.lineTo(R*Math.cos(angle),-(CY-R*Math.sin(angle)));
+    }
+    shell.closePath();
+    const blade=conventionalPolyPath(ext.concat(inner.slice().reverse()));
+    const cavity=new Path2D();
+    cavity.addPath(shell);cavity.addPath(blade);
+    const armEnd=inner[Math.max(0,N-Math.round(7/.4))];
+    const arm=new Path2D();
+    arm.moveTo(pivot.x,-pivot.y);arm.lineTo(armEnd.x,-armEnd.y);
+    const latch=conventionalPolyPath(ext.slice(0,7).concat(inner.slice(0,7).reverse()));
+    cachedConventionalPaths = { shell, blade, cavity, arm, latch };
+    return cachedConventionalPaths;
+}
+
+// A medicao usa as cubicas do CAD sem precisar desenhar a cena.
+function exactConventionalUndersideY(x) {
+    if (!Number.isFinite(x)) return null;
+    // Intersecta a vertical da cabeça com as curvas cúbicas efetivamente
+    // desenhadas no casco convencional (inclusive a barriga inferior).
+    const cubics = getConventionalCadGeometry().cubics;
+    if (!cubics || !cubics.length) return null;
+    const candidates = [];
+    const bez = (a, b, c, d, t, axis) => {
+        const u = 1-t;
+        return u*u*u*a[axis] + 3*u*u*t*b[axis] + 3*u*t*t*c[axis] + t*t*t*d[axis];
+    };
+    for (const [p0, p1, p2, p3] of cubics) {
+        const A = -p0.x + 3*p1.x - 3*p2.x + p3.x;
+        const B = 3*p0.x - 6*p1.x + 3*p2.x;
+        const C = 3*(p1.x - p0.x);
+        // Dividir por extremos em X garante intervalos monotônicos da Bézier.
+        const stops = [0, 1];
+        const qa = 3*A, qb = 2*B, qc = C;
+        if (Math.abs(qa) < 1e-12) {
+            if (Math.abs(qb) > 1e-12) stops.push(-qc/qb);
+        } else {
+            const disc = qb*qb - 4*qa*qc;
+            if (disc >= 0) {
+                stops.push((-qb-Math.sqrt(disc))/(2*qa));
+                stops.push((-qb+Math.sqrt(disc))/(2*qa));
+            }
+        }
+        const ts = [...new Set(stops.filter(t => t >= 0 && t <= 1))].sort((a,b) => a-b);
+        for (let i=1; i<ts.length; i++) {
+            let lo=ts[i-1], hi=ts[i];
+            const xl=bez(p0,p1,p2,p3,lo,'x'), xh=bez(p0,p1,p2,p3,hi,'x');
+            if (x < Math.min(xl,xh)-1e-7 || x > Math.max(xl,xh)+1e-7) continue;
+            const ascending = xh >= xl;
+            for (let j=0; j<48; j++) {
+                const mid=(lo+hi)/2;
+                if ((bez(p0,p1,p2,p3,mid,'x') < x) === ascending) lo=mid;
+                else hi=mid;
+            }
+            candidates.push(bez(p0,p1,p2,p3,(lo+hi)/2,'y'));
+        }
+    }
+    return candidates.length ? Math.min(...candidates) : null;
+}
+window.getUniBinUndersideY = (x, isAlpha) =>
+    isAlpha
+        ? lowerBinSurfaceAtX(alphaUndersideForTheta(computeRightAlphaLocked().thetaDeg), x)
+        : exactConventionalUndersideY(x);
+
+// Telemetria HTML separada do desenho CAD; mantém as seis fórmulas originais.
+
+// -----------------------------------------------------------------------------
+// SUBBLOCO 05.4 - Indicadores numericos da Aba 5
+// Atualiza os seis valores de altura no HTML; nao altera o CAD.
+// -----------------------------------------------------------------------------
+function updateHeightReadouts(alpha) {
+    // Medidas do CAD exibido: 153,04 cm (ponta fechada) e 138,50 cm (base).
+    // O legado dava 153,0428 cm; toFixed(2) mostrava os mesmos 153,04.
+    const highConv = CONV_CAD_TIP_Y_CM, lowConv = CONV_CAD_BASE_Y_CM;
+    const highAlpha = alpha.floorHighY, lowAlpha = alpha.baseY;
+    const fmt = n => Number(n).toFixed(2);
+    const vals = {
+        'uni-height-conv-high': fmt(highConv) + ' cm',
+        'uni-height-alpha-high': fmt(highAlpha) + ' cm',
+        'uni-height-delta-high': (highAlpha-highConv>=0?'+':'')+fmt(highAlpha-highConv)+' cm',
+        'uni-height-conv-low': fmt(lowConv) + ' cm',
+        'uni-height-alpha-low': fmt(lowAlpha) + ' cm',
+        'uni-height-delta-low': (lowAlpha-lowConv>=0?'+':'')+fmt(lowAlpha-lowConv)+' cm'
+    };
+    for (const [id, val] of Object.entries(vals)) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+    }
+}
+
+
+// -----------------------------------------------------------------------------
+// SUBBLOCO 05.5 - Desenho final e abertura das portas
+// Compoe o convencional e o Alpha; respeita fade e progresso da porta.
+// A Aba 6 pode informar overrideDoorU sem mudar os indicadores da Aba 5.
+// -----------------------------------------------------------------------------
+function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
+    const cabin = window.cabinSectionReference;
+    if (!cabin) return;
+    // A aba 6 move a porta independentemente, sem alterar a aba 5.
+    const map = cabin.map(W, H);
+    const u = clamp(Number(overrideDoorU == null ? window.__uniRefDoorProgress : overrideDoorU) || 0);
+    // Somente o CAD efetivo; sem atualizar estados de uma porta legada.
+    const alpha = computeRightAlphaLocked();
+
+    // Headroom consulta a geometria CAD diretamente, sem depender do fade
+    // ou da ordem em que as Abas 5 e 6 foram desenhadas.
+
+    // Original CAD SVG has downward-positive Y. Map to existing Tab 5 cabin.
+    ctx.save();
+    ctx.translate(map.toX(0), map.toY(0));
+    ctx.scale(map.scale, map.scale);
+
+
+    if (fadeConv > 0.001) {
+        // Conventional bin replaced with the geometry and pivoted-door mechanism
+        // from bin_aeronave_simples.html (fixed CAD dimensions in centimetres).
+        ctx.save();
+        ctx.globalAlpha *= clamp(fadeConv);
+        // Usa o mesmo raio/centro da fuselagem compartilhada pelas Abas 5 e 6.
+        // Casco, intradorso e folha da porta sao compartilhados entre os frames.
+        const { ext, inner, pivot, N } = getConventionalCadGeometry();
+        const { shell, blade, cavity, arm, latch } = getConventionalCadPaths();
         const turn=(p,angle)=>{
             const r=angle*Math.PI/180,c=Math.cos(r),si=Math.sin(r),dx=p.x-pivot.x,dy=p.y-pivot.y;
             return {x:pivot.x+dx*c-dy*si,y:pivot.y+dx*si+dy*c};
         };
-        const polyPath=pts=>{
-            const p=new Path2D();pts.forEach((v,i)=>i?p.lineTo(v.x,-v.y):p.moveTo(v.x,-v.y));
-            p.closePath();return p;
-        };
-        // Exact reference shell: lower cubic floor, continuous fuselage arc and oval front.
-        const shell=new Path2D();
-        const Ep={x:-Math.sqrt(Math.max(0,R*R-(bottom0.y-CY)**2)),y:bottom0.y};
-        shell.moveTo(Ep.x,-Ep.y);
-        const cB1=W([8570.39,21313.78]),cB2=W([19845.34,20898.17]),bEnd=W([20243.48,20945.80]);
-        const cC1=W([21136.70,21052.74]),cC2=W([30508.64,18191.16]);
-        shell.bezierCurveTo(cB1.x,-cB1.y,cB2.x,-cB2.y,bEnd.x,-bEnd.y);
-        shell.bezierCurveTo(cC1.x,-cC1.y,cC2.x,-cC2.y,e0.x,-e0.y);
-        shell.bezierCurveTo(e1.x,-e1.y,e2.x,-e2.y,D.x,-D.y);
-        shell.bezierCurveTo(c1.x,-c1.y,c2.x,-c2.y,S.x,-S.y);
-        // A cota de headroom usa exatamente estas quatro curvas cúbicas do
-        // intradorso desenhado, não a curva quadrática do bin legado.
-        referenceConventionalBelly = { cubics: [
-            [Ep,cB1,cB2,bEnd], [bEnd,cC1,cC2,e0],
-            [e0,e1,e2,D], [D,c1,c2,S]
-        ] };
-        // Return along the aircraft's circular shell.
-        const angS=Math.atan2(-S.y+CY,S.x),angE=Math.atan2(-Ep.y+CY,Ep.x);
-        const sweep=angE-angS;
-        for(let j=1;j<=70;j++){
-            const angle=angS+sweep*j/70;
-            shell.lineTo(R*Math.cos(angle),-(CY-R*Math.sin(angle)));
-        }
-        shell.closePath();
-        const blade=polyPath(ext.concat(inner.slice().reverse()));
-        // Remove closed-door leaf region from shell, making the interior visible as it opens.
-        const cavity=new Path2D();
-        cavity.addPath(shell);cavity.addPath(blade);
         ctx.fillStyle='#9ba9b5';
         ctx.fill(cavity,'evenodd');
         ctx.strokeStyle='#273e57';ctx.lineWidth=.55;ctx.stroke(shell);
         // Abertura final exibida na Simulação Integrada: 82 graus.
-        // A cinemática de 39 graus em computeLeftBinAtY é apenas legado
-        // de medição; não controla esta porta visível.
         const visibleDoorMaxDeg = 82;
         const angle = u * visibleDoorMaxDeg;
         if(overrideDoorU==null&&u>0){
             const sweepPath=new Path2D();
             for(let j=0;j<=Math.ceil(angle);j++){
                 const a=angle*j/Math.max(1,Math.ceil(angle));
-                sweepPath.addPath(polyPath(ext.map(p=>turn(p,a)).concat(inner.map(p=>turn(p,a)).reverse())));
+                sweepPath.addPath(conventionalPolyPath(ext.map(p=>turn(p,a)).concat(inner.map(p=>turn(p,a)).reverse())));
             }
             ctx.save();ctx.fillStyle='rgba(255,107,0,.16)';ctx.fill(sweepPath);
             const t0={x:(ext[0].x+inner[0].x)/2,y:(ext[0].y+inner[0].y)/2};
@@ -1550,16 +1573,12 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             ctx.restore();
         }
         // Curved laminate, latch and rigid arm rotate together around the upper pivot.
-        const armEnd=inner[Math.max(0,N-Math.round(7/.4))];
         ctx.save();ctx.translate(pivot.x,-pivot.y);ctx.rotate(-angle*Math.PI/180);
         ctx.translate(-pivot.x,pivot.y);
-        const arm=new Path2D();
-        arm.moveTo(pivot.x,-pivot.y);arm.lineTo(armEnd.x,-armEnd.y);
         ctx.strokeStyle='#373435';ctx.lineWidth=2.3;ctx.lineCap='round';ctx.stroke(arm);
         ctx.strokeStyle='#7A75B5';ctx.lineWidth=1.8;ctx.stroke(arm);
         ctx.fillStyle='#aebecb';ctx.strokeStyle='#273e57';ctx.lineWidth=.4;
         ctx.fill(blade);ctx.stroke(blade);
-        const latch=polyPath(ext.slice(0,7).concat(inner.slice(0,7).reverse()));
         ctx.fillStyle='#72869e';ctx.fill(latch);ctx.stroke(latch);
         ctx.restore();
         ctx.beginPath();ctx.arc(pivot.x,-pivot.y,1.08,0,2*Math.PI);
