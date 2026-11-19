@@ -83,22 +83,101 @@
                 if (cache.size > 2000) cache.clear();
                 cache.set(key, out); return out;
             };
+            // Reutiliza os conversores/escala de luminancia definidos acima.
+            const lilacCache = new Map();
+                const lilac = c => {
+                    if (lilacCache.has(c)) return lilacCache.get(c);
+                    let out = c; const v = toRGBA(c.trim());
+                    if (v) {
+                        const r = v[0] / 255, g = v[1] / 255, b = v[2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+                        let h = 0, sat = 0;
+                        if (d > 0) {
+                            sat = d / (1 - Math.abs(2 * l - 1));
+                            h = mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+                            h *= 60;
+                        }
+                        if (d > 0 && sat <= 0.5 && h >= 190 && h <= 250 && l > 0.1 && l < 0.97) {   // família cinza-azulada (slate) e índigo suave
+                            const s2 = Math.min(0.42, 0.18 + sat * 0.55);
+                            out = `hsla(258, ${(s2 * 100).toFixed(1)}%, ${(l * 100).toFixed(1)}%, ${v[3]})`;
+                        }
+                    }
+                    if (lilacCache.size > 2000) lilacCache.clear();
+                    lilacCache.set(c, out); return out;
+                };
+                const dkCache = new Map();
+                const integratedDark = (c, kind) => {
+                    const role = window.__dkRole || '', key = role + '|' + kind + '|' + c;
+                    if (dkCache.has(key)) return dkCache.get(key);
+                    // Background da cabine é fixo, não uma superfície a remapear.
+                    if (c.trim().toLowerCase() === APHA_BLUEPRINT.background) return c;
+                    const v = toRGBA(c.trim()) || hslToRGBA(c.trim()); let out = c;
+                    if (v) {
+                        const a = v[3];
+                        // poltrona: um pouco mais escura que os bonecos (preenchimento #9ba9b5) e linhas/contornos em #5b7b9e
+                        if (role === 'seat') out = kind === 'stroke' ? APHA_CABIN_PALETTE.rgba('cyan', a) : APHA_CABIN_PALETTE.rgba('border', a);   // poltrona: azul escuro (#2f4a6b) com contorno azul médio (#6d90b8)
+                        else if (role === 'dummy' && kind === 'stroke' && (0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]) / 255 < 0.3) out = `rgba(8,18,42,${a})`;   // boneco: contorno azul-marinho quase preto, bem nítido sobre o corpo cinza
+                        else if (Math.round(v[0]) === 245 && Math.round(v[1]) === 245 && Math.round(v[2]) === 245) out = `rgba(${BG[0]},${BG[1]},${BG[2]},${a})`;
+                        else {
+                            const L = (0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]) / 255; let col = RAMP[RAMP.length - 1][1];
+                            for (let i = 1; i < RAMP.length; i++) if (L <= RAMP[i][0]) { const [l0, c0] = RAMP[i - 1], [l1, c1] = RAMP[i], t = l1 === l0 ? 0 : (L - l0) / (l1 - l0); col = c0.map((x, j) => x + (c1[j] - x) * t); break; }
+                            out = `rgba(${col.map(Math.round).join(',')},${a})`;
+                        }
+                    }
+                    if (dkCache.size > 2000) dkCache.clear();
+                    dkCache.set(key, out); return out;
+                };
+
+            // Unico conjunto de interceptores; modo escolhido pelas flags existentes.
             ['fillStyle', 'strokeStyle'].forEach(k => {
                 const d = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, k);
                 Object.defineProperty(CanvasRenderingContext2D.prototype, k, {
                     configurable: true, enumerable: d.enumerable, get: d.get,
-                    set(val) { d.set.call(this, (typeof val === 'string' && dkOn()) ? dark(val, k === 'strokeStyle' ? 'stroke' : 'fill') : val); }
+                    set(val) {
+                        const lowerColor = typeof val === 'string' ? val.toLowerCase() : '';
+                        const tambourAccent = window.__aphaTambourOrange === true &&
+                            ['#b84a16', '#ff8a45', '#ff6b1a', '#a43d12'].includes(lowerColor);
+                        const accent = typeof val === 'string' && (tambourAccent ||
+                            (window.BIN_SOLID &&
+                            ['#4fc1ff', '#569cd6', '#8dd7ff', '#143550', '#ff6b00', 'rgba(255,107,0,0.22)'].includes(lowerColor)));
+                        const integratedMode = window.BIN_SOLID || window.BIN_DARK;
+                        const role = k === 'strokeStyle' ? 'stroke' : 'fill';
+                        const output = typeof val !== 'string' || (integratedMode && accent) ? val
+                            : window.BIN_DARK ? integratedDark(val, role)
+                            : window.BIN_SOLID ? lilac(val)
+                            : dkOn() ? dark(val, role) : val;
+                        d.set.call(this, output);
+                    }
                 });
             });
             const acs0 = CanvasGradient.prototype.addColorStop;
-            CanvasGradient.prototype.addColorStop = function (o, c) { return acs0.call(this, o, (dkOn() && typeof c === 'string') ? dark(c, 'fill') : c); };
+            CanvasGradient.prototype.addColorStop = function (o, color) {
+                return acs0.call(this, o,
+                    typeof color !== 'string' ? color :
+                    window.BIN_DARK ? integratedDark(color, 'fill') :
+                    dkOn() ? dark(color, 'fill') : color);
+            };
+            const st0 = CanvasRenderingContext2D.prototype.stroke;
+            CanvasRenderingContext2D.prototype.stroke = function (...a) {
+                if (window.BIN_DARK && window.__dkRole === 'dummy' && this.lineWidth >= 1.3 && this.lineWidth <= 1.7) {
+                    const w = this.lineWidth; this.lineWidth = w * 2.6;
+                    try { return st0.apply(this, a); } finally { this.lineWidth = w; }
+                }
+                return st0.apply(this, a);
+            };
             const ft0 = CanvasRenderingContext2D.prototype.fillText;
-            CanvasRenderingContext2D.prototype.fillText = function (...a) {
+            const ergoFillText = function (...a) {
                 if (!dkOn()) return ft0.apply(this, a);
                 const orig = this.fillStyle, v = typeof orig === 'string' ? toRGBA(orig) : null;
-                const dim = v && Math.abs(v[0] - 100) < 4 && Math.abs(v[1] - 116) < 4 && Math.abs(v[2] - 139) < 4;   // numeração discreta da grade (#64748b)
+                const dim = v && Math.abs(v[0] - 100) < 4 && Math.abs(v[1] - 116) < 4 && Math.abs(v[2] - 139) < 4;
                 window.ERGO_DARK = false;
-                try { this.fillStyle = dim ? '#6f8fb0' : '#bababa'; ft0.apply(this, a); this.fillStyle = orig; } finally { window.ERGO_DARK = true; }
+                try { this.fillStyle = dim ? '#6f8fb0' : '#bababa'; ft0.apply(this, a); this.fillStyle = orig; }
+                finally { window.ERGO_DARK = true; }
+            };
+            CanvasRenderingContext2D.prototype.fillText = function (...a) {
+                if (!window.BIN_DARK) return ergoFillText.apply(this, a);
+                const previous = this.fillStyle; window.BIN_DARK = false;
+                try { this.fillStyle = '#bababa'; ergoFillText.apply(this, a); this.fillStyle = previous; }
+                finally { window.BIN_DARK = true; }
             };
             // liga a paleta escura nas funções de desenho da simulação (declarações de função são reatribuíveis)
             const wrap = (fn, role) => function (...a) {
