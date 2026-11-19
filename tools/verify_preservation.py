@@ -729,6 +729,47 @@ def verify_takes(v: Checker) -> None:
                 "Número de blocos script do HTML final alterado")
 
 
+def verify_html_cleanup(v: Checker) -> None:
+    """Protege remocoes pontuais sem perder a navegacao ou os takes."""
+    pax = v.read("source/html/ABA1/index.template.html")
+    pax_css = v.read("source/html/ABA1/styles.css")
+    top = v.read("source/html/ABA4/ABA4.html")
+    top_js = v.read("source/html/ABA4/animation.js")
+    manikin = v.read("source/html/ABA6/manikin.js")
+    cad = v.read("source/html/ABA2/cad3d.js")
+    hidden = v.read("source/html/ABA8/tour-controls-hidden.css")
+    if pax is not None:
+        v.check(pax.count("<div") == pax.count("</div>"),
+                "Iframe da Aba 1 voltou a ter divs desbalanceadas")
+    if pax_css is not None:
+        v.check(pax_css.count("#viewport {") == 1 and
+                pax_css.count("button:hover {") == 1 and
+                "body.no-ctl #viewport" in pax_css and
+                "aspect-ratio: 16 / 9" in pax_css,
+                "CSS ou enquadramento da Aba 1 foi duplicado/alterado")
+    if top is not None and top_js is not None:
+        v.check("top-chips" not in top and "top-chips" not in top_js and
+                'id="top-scrub"' in top and
+                "document.getElementById('top-scrub')" in top_js,
+                "Chips fantasmas ou perda da linha de tempo da Aba 4")
+    if manikin is not None:
+        v.check("ergo-overlay" not in manikin and
+                "aba6-lbl-anim-btn" not in manikin and
+                "setAnimLabel(" not in manikin and
+                "dismissCards();" in manikin,
+                "Referencia DOM ausente ou controle Escape perdido na Aba 6")
+    if cad is not None:
+        v.check("[data-cad3d-v]" not in cad and
+                "views.iso" in cad and "views.side" in cad,
+                "Handler morto voltou ou cameras reais da Aba 2 foram removidas")
+    if hidden is not None:
+        v.check("#cad3d-export-side" not in hidden and
+                "[data-cad3d-v]" not in hidden and
+                hidden.count("#tour-stage #uni-export,") == 1 and
+                hidden.count("#tour-stage #uni-export-p95,") == 1,
+                "CSS de controles fantasmas ou ocultacao duplicada voltou")
+
+
 def main() -> int:
     v = Checker()
     groups = (
@@ -745,6 +786,7 @@ def main() -> int:
         ("Aba 4: SVG", verify_aba4),
         ("Aba 6: controlador", verify_aba6_controller),
         ("Aba 7: conclusão", verify_aba7),
+        ("Limpeza HTML/CSS", verify_html_cleanup),
         ("Aba 8: takes", verify_takes),
     )
     for section, verify in groups:
