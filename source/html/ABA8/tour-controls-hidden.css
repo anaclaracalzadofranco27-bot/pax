@@ -1,10 +1,8 @@
         /* Oculta controles interativos remanescentes durante o roteiro */
         #tour-stage #module-cad3d > div:first-child .bg-cad-bg,
         #tour-stage #module-cad3d [data-cad3d-v] { display: none !important; }
-        #tour-stage #uni-export, #tour-stage #uni-export-p95{display:none}
-        /* Full simulation: PNG actions remain as inert DOM anchors for legacy event handlers, but never appear in the UI. */
+        /* Export controls stay available in their own tabs, but are hidden in the full-tour viewport. */
         #module-tour #tour-snap, #module-tour #tour-figure-export,
-        #tour-stage #cad3d-export, #tour-stage #cad3d-export-side,
+        #tour-stage #cad3d-export,
         #tour-stage #uni-export, #tour-stage #uni-export-p95,
         #tour-stage #aba6-figure-export{display:none !important}
-        #tour-stage #aba6-module-ergo button[onclick^="toggleManikinAnimation"]{display:none}

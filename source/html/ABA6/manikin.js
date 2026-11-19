@@ -478,13 +478,7 @@
             return name;
         }
 
-        function setAnimLabel() {
-            const el = document.getElementById('aba6-lbl-anim-btn');
-            if (!el) return;
-            el.textContent = manikinState.animating ? 'Pause Kinematics'
-                : (manikinState.phase >= 0.999 ? 'Restart Simulation'
-                : (manikinState.phase > 0 ? 'Resume Simulation' : 'Start Simulation'));
-        }
+
 
 
         // Exporta os 3 momentos (Step 1 / 2 / 3) lado a lado em PNG com fundo transparente, como na figura de referência.
@@ -586,11 +580,11 @@
         }
 
         function toggleManikinAnimation() {
-            if (manikinState.animating) { manikinState.animating = false; setAnimLabel(); return; }
+            if (manikinState.animating) { manikinState.animating = false; return; }
             cancelResultsSequence();
             if (manikinState.phase >= 0.999) { manikinState.phase = aphaInitialManikinPhase(); hideCards(); }
             manikinState.animating = true;
-            setAnimLabel();
+            
         }
 
         function cancelResultsSequence() {
@@ -616,7 +610,7 @@
             cancelResultsSequence();
             manikinState.phase = aphaInitialManikinPhase();
             manikinState.animating = false;
-            setAnimLabel();
+            
             const ergo = document.getElementById('aba6-module-ergo');
             manikinState.swapped = false;
             ergo.style.display = ''; ergo.style.transition = ''; ergo.style.opacity = '';
@@ -654,7 +648,7 @@
                         if (window.__aba6TourMode) {
                             // O roteiro mantém a pose final e avança ao encerramento.
                             manikinState.animating = false;
-                            setAnimLabel();
+                            
                             window.ergoDone = true;
                         } else {
                             // A Aba 6 autônoma reinicia sem acumular timers.
@@ -701,8 +695,6 @@
             if (!manikinState.cardsShown) return;
             manikinState.cardsShown = false;
             manikinState.cardFrac = 0;
-            const box = document.getElementById('ergo-overlay');
-            if (box) { box.classList.remove('cards-on'); box.setAttribute('aria-hidden', 'true'); }
             writeCards(0);
         }
 
@@ -1405,8 +1397,6 @@
             if (next) next();
         };
 
-        const ergoOverlayEl = document.getElementById('ergo-overlay');   // overlay de resultados removido; mantido opcional
-        if (ergoOverlayEl) ergoOverlayEl.addEventListener('click', dismissCards);
 
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape') dismissCards(); });
 
