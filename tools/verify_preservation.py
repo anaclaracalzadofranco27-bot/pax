@@ -112,6 +112,16 @@ assert "#tour-stage.rec > #module-nova" not in recording_css, "ABA3 styling stil
 assert "#tour-stage.rec #aba6-module-ergo" not in recording_css, "ABA6-specific recording CSS still in shared file"
 assert "#tour-stage.rec #aba6-module-ergo" in aba6_recording_css, "ABA6 recording frame rule lost"
 assert html.count('id="aba6-header"') == 1, "Compiled ABA6 heading missing"
+# The individual Aba 6 canvas is boxed like the other tabs. Tour mode
+# suppresses the visual frame and its margin to protect the 1920x1080 take.
+assert 'class="aba6-sim-card sim-card bg-cad-panel border border-cad-border rounded-xl overflow-hidden"' in aba6_html, "ABA6 canvas card markup missing"
+assert "margin-top:14px !important;" in aba6_fullscreen_css, "ABA6 card spacing missing"
+assert "border:1px solid var(--apha-mid-45)" in aba6_fullscreen_css, "ABA6 frame border missing"
+assert "border-radius:12px;" in aba6_fullscreen_css, "ABA6 rounded corners missing"
+assert "#tour-stage #aba6-module-ergo .sim-card {height:100% !important;margin-top:0 !important;overflow:visible !important;}" in aba6_fullscreen_css, "ABA6 tour frame spacing/clip not restored"
+assert "#tour-stage #aba6-module-ergo .sim-card{border:0;border-radius:0;box-shadow:none;background:transparent}" in aba6_tour_css, "Tour must hide individual card frame"
+assert html.count('id="aba6-manikinCanvas"') == 1, "Biomechanical canvas duplicated"
+
 
 
 for index, name in enumerate(tabs, start=1):
