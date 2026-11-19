@@ -151,7 +151,7 @@ def verify_engine(v: Checker) -> None:
             "function computeAllGeometries(",
             headers[2], "const BIN_VEC = {",
             headers[3], "const DUMMY_PALETTES = {",
-            headers[4], "const CABIN_R = 137.00;",
+            headers[4], "const CABIN_R = APHA_CABIN_GEOMETRY.fuselageRadiusCm;",
             headers[5], "function drawCADCanvas(",
             headers[6], "@@APHA_INCLUDE:source/html/ABA6/manikin.js@@",
             headers[7], "function drawSeatedScene(",
