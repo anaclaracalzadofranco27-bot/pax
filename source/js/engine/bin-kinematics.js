@@ -1,6 +1,8 @@
-/* Aba 5: Source CAD geometry from Simulador Cinemático CAD.
-   Dimensions are cm in the schematic 1:10; the original cabin shell, floor,
-   corridor and seats stay unchanged. */
+/* Aba 5: geometria CAD usada também pela Aba 6.
+   Valores numéricos de posição/distância estão em centímetros na cena;
+   sufixos legados "Mm" representam centímetros da geometria, e não mm
+   físicos (o desenho técnico original foi projetado em escala 1:10).
+   O contorno da fuselagem, piso e assentos permanece inalterado. */
 (function () {
 const CABIN_R = 137.00;
         const CABIN_YC = 63.00;
@@ -562,7 +564,9 @@ function alphaTransformPoint(fx, fy, thetaDeg) {
             };
         }
 
-        // Parte de baixo do bin (face inferior = "chão do bin"): do fim do raio do canto até o pé, no contorno amostrado
+        // Recorte usado para extremo da face inferior (x <= 14462).
+        // getUniAlphaGeometry usa uma faixa mais longa (x <= 19007) para apoiar
+        // as malas: não unificar esses filtros sem revisar a geometria física.
         const ALPHA_UNDERSIDE = ALPHA_OUTLINE.filter(p => p[0] >= 1354 && p[0] <= 14462 && p[1] >= 18690);
 
         function alphaFloorHighPoint(thetaDeg) {
@@ -587,19 +591,30 @@ function alphaTransformPoint(fx, fy, thetaDeg) {
             return kind === 'top' ? -minYs : -maxYs;
         }
 
+        // O ângulo depende só do alvo e do tipo de extremo, não da animação.
+        // Cache de uma entrada: mudanças futuras de parâmetros o invalidam.
+        let cachedAlphaTheta = null;
         function solveAlphaTheta(targetY, kind) {
-            // Y diminui quando theta aumenta (horário no SVG); bisseção
-            let lo = (kind === 'top') ? -9 : (kind === 'floor') ? -20 : -15, hi = 30;   // faixa onde Y é monotônico
+            if (cachedAlphaTheta && cachedAlphaTheta.targetY === targetY &&
+                cachedAlphaTheta.kind === kind) return cachedAlphaTheta.thetaDeg;
+            // Y diminui quando theta aumenta (horário no SVG); bisseção original.
+            let lo = (kind === 'top') ? -9 : (kind === 'floor') ? -20 : -15, hi = 30;
             for (let i = 0; i < 50; i++) {
                 const mid = (lo + hi) / 2;
                 if (alphaExtremeYAtTheta(mid, kind) > targetY) lo = mid; else hi = mid;
             }
-            return (lo + hi) / 2;
+            const thetaDeg = (lo + hi) / 2;
+            cachedAlphaTheta = { targetY, kind, thetaDeg };
+            return thetaDeg;
         }
 
+        // Reutiliza os mesmos extremos CAD quando o theta geométrico não muda.
+        let cachedAlphaGeometry = null;
         function computeRightAlphaLocked() {
             const A = ALPHA_FIXED;
             const thetaDeg = solveAlphaTheta(state.alphaTargetY, state.alphaMode);
+            if (cachedAlphaGeometry && cachedAlphaGeometry.thetaDeg === thetaDeg)
+                return cachedAlphaGeometry.geometry;
             let minX = Infinity, maxX = -Infinity, minYs = Infinity, maxYs = -Infinity;
             for (const p of ALPHA_OUTLINE) {
                 const q = alphaTransformPoint(p[0], p[1], thetaDeg);
@@ -611,7 +626,7 @@ function alphaTransformPoint(fx, fy, thetaDeg) {
             const wall = alphaTransformPoint(A.wallFix.fx, A.wallFix.fy, thetaDeg);
             const top = alphaTransformPoint(A.topFuse.fx, A.topFuse.fy, thetaDeg);
             const floorHigh = alphaFloorHighPoint(thetaDeg);
-            return {
+            const geometry = {
                 thetaDeg,
                 floorHighX: floorHigh.x,
                 floorHighY: floorHigh.y,
@@ -625,6 +640,8 @@ function alphaTransformPoint(fx, fy, thetaDeg) {
                 topFuseX: top.x,
                 topFuseY: -top.ys
             };
+            cachedAlphaGeometry = { thetaDeg, geometry };
+            return geometry;
         }
 
         // Geometria CAD única do ALPHA: os pontos do piso são extraídos do
@@ -680,9 +697,6 @@ const ALPHA_LOWER_TRIANGLE = "M14961.99 20758.65c-85.66,309.78 -127.08,449.15 36
 const ALPHA_UPPER_DETAIL = "M1027.50 7728.56c-16,119.92 -18.41,1194.82 -15.03,1296.15 3.03,90.69 5.13,197.82 245.31,203.09 1524.04,33.41 1656.84,12.16 4148.17,-19.87 357.22,-4.59 220.49,-358.68 -1.78,-428.79 -684.77,-216.07 -1461.52,-476.13 -4182.27,-1174.08 -115.02,-29.5 -188.87,67.22 -194.4,123.5z";
 const ALPHA_SOURCE_RAIL = "M2882.1 9351.24c1471.11,-22.74 4303.84,34.27 4303.84,34.27 1742.73,656.48 5627.94,3009.22 6802.31,4120.07 175.53,166.05 14.14,240.82 -147.23,79.85 -507.4,-506.07 -3977.45,-3048.69 -6694.76,-4074.36 -59.29,-22.4 -2723.79,-46.73 -4233.04,0.86 -1154.02,36.42 -1896.4,1192.08 -1896.4,1783.58 0,1746.41 -59.63,5060.41 -38.39,6756.2 1.76,141.04 -3.99,215.54 10.42,250.67 0,0 -158.94,-13.4 -158.94,-13.4 -37.94,-1107.33 -8.39,-2118.83 -6.04,-3681.79 0,-8.97 -53.02,-2138.4 27.41,-3461.37 50.33,-827.95 1110.61,-1780.35 2030.82,-1794.58z";
 const clamp = n => Math.max(0, Math.min(1, n));
-const color = { conventional: APHA_CABIN_PALETTE.neutral, alpha: APHA_CABIN_PALETTE.mid,
-                underside: APHA_CABIN_PALETTE.muted, border: APHA_CABIN_PALETTE.binOutline,
-                cavity: APHA_CABIN_PALETTE.binCavity };
 // Single CAD styling source for the Alpha body in tabs 5 and 6.
 // Keep the exact SVG paths; do not replace them with generic rectangles.
 const ALPHA_CAD_STYLE = Object.freeze({
@@ -700,7 +714,20 @@ function paintPath(ctx, d, fill, stroke, lw, evenodd) {
 // A folga até a cabeça usa os mesmos perfis CAD em centímetros da renderização.
 // A interseção vertical encontra a face inferior efetiva em cada assento,
 // sem recorrer aos vetores aproximados da versão anterior dos bins.
-let referenceBinUndersides = { conventional: [], alpha: [] };
+// O intradorso convencional é calculado a partir das curvas cúbicas reais;
+// o perfil quadrático intermediário não é consumido pela API pública.
+let referenceBinUndersides = { alpha: [] };
+let cachedAlphaUnderside = null;
+function alphaUndersideForTheta(thetaDeg) {
+    if (cachedAlphaUnderside && cachedAlphaUnderside.thetaDeg === thetaDeg)
+        return cachedAlphaUnderside.points;
+    const points = ALPHA_OUTLINE.map(p => {
+        const q = alphaTransformPoint(p[0], p[1], thetaDeg);
+        return { x: q.x, y: -q.ys };
+    });
+    cachedAlphaUnderside = { thetaDeg, points };
+    return points;
+}
 function lowerBinSurfaceAtX(points, x) {
     if (!Number.isFinite(x) || !points || points.length < 2) return null;
     let lower = Infinity;
@@ -765,6 +792,30 @@ function exactConventionalUndersideY(x) {
 window.getUniBinUndersideY = (x, isAlpha) =>
     isAlpha ? lowerBinSurfaceAtX(referenceBinUndersides.alpha, x) : exactConventionalUndersideY(x);
 
+// Telemetria HTML separada do desenho CAD; mantém as seis fórmulas originais.
+function updateHeightReadouts(initialConv, alpha) {
+    // Heights come from the closed door and the exact 1:10 source geometry.
+    const highConv = initialConv.doorClosed.tip.y, lowConv = initialConv.wallFix.y;
+    const highAlpha = alpha.floorHighY, lowAlpha = alpha.baseY;
+    const fmt = n => Number(n).toFixed(2);
+    const vals = {
+        'uni-height-conv-high': fmt(highConv) + ' cm',
+        'uni-height-alpha-high': fmt(highAlpha) + ' cm',
+        'uni-height-delta-high': (highAlpha-highConv>=0?'+':'')+fmt(highAlpha-highConv)+' cm',
+        'uni-height-conv-low': fmt(lowConv) + ' cm',
+        'uni-height-alpha-low': fmt(lowAlpha) + ' cm',
+        'uni-height-delta-low': (lowAlpha-lowConv>=0?'+':'')+fmt(lowAlpha-lowConv)+' cm'
+    };
+    for (const [id, val] of Object.entries(vals)) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+    }
+}
+
+// Geometria fechada constante do convencional: calculada apenas uma vez,
+// antes da animação da porta; o contorno efetivo ainda é desenhado a cada frame.
+let cachedClosedConventional = null;
+
 function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
     const cabin = window.cabinSectionReference;
     if (!cabin) return;
@@ -777,33 +828,18 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
     state.alphaDoorU = u;
     state.bagInsertPct = 100;
     state.thetaDeg = 0;
-    const initialConv = computeLeftBinAtY(state.leftBaseY);
+    if (!cachedClosedConventional)
+        cachedClosedConventional = computeLeftBinAtY(state.leftBaseY);
+    const initialConv = cachedClosedConventional;
     // O intradorso de medição será capturado do Path2D cúbico realmente desenhado.
     referenceConventionalBelly = null;
     state.thetaDeg = u * initialConv.openLimitDeg;
-    const conventional = computeLeftBinAtY(state.leftBaseY);
     const alpha = computeRightAlphaLocked();
 
-    // Perfil fechado do convencional: base reta + barriga quadrática até a boca.
-    // Perfil ALPHA: contorno externo amostrado do SVG, com escala e rotação reais.
-    // São atualizados a cada render, inclusive quando mudarem parâmetros CAD.
-    const convBottom = [initialConv.wallFix, initialConv.psuBotCorner];
-    for (let i = 1; i <= 100; i++) {
-        const t = i / 100, v = 1 - t;
-        const p0 = initialConv.psuBotCorner, p1 = initialConv.bellyCtrl, p2 = initialConv.doorLipBot;
-        convBottom.push({
-            x: v*v*p0.x + 2*v*t*p1.x + t*t*p2.x,
-            y: v*v*p0.y + 2*v*t*p1.y + t*t*p2.y
-        });
-    }
-    convBottom.push(initialConv.doorClosed.tip);
-    referenceBinUndersides = {
-        conventional: convBottom,
-        alpha: ALPHA_OUTLINE.map(p => {
-            const q = alphaTransformPoint(p[0], p[1], alpha.thetaDeg);
-            return { x: q.x, y: -q.ys };
-        })
-    };
+    // A curva quadrática intermediária do convencional não era consumida:
+    // a cota usa exactConventionalUndersideY(), baseada no próprio Path2D.
+    // O ALPHA reaproveita o contorno transformado enquanto theta não muda.
+    referenceBinUndersides.alpha = alphaUndersideForTheta(alpha.thetaDeg);
 
     // Original CAD SVG has downward-positive Y. Map to existing Tab 5 cabin.
     ctx.save();
@@ -1123,22 +1159,7 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
     }
     ctx.restore();
     if (overrideDoorU != null) return; // aba 6 não atualiza os indicadores da aba 5
-    // Heights come from the closed door and the exact 1:10 source geometry.
-    const highConv = initialConv.doorClosed.tip.y, lowConv = initialConv.wallFix.y;
-    const highAlpha = alpha.floorHighY, lowAlpha = alpha.baseY;
-    const fmt = n => Number(n).toFixed(2);
-    const vals = {
-        'uni-height-conv-high': fmt(highConv) + ' cm',
-        'uni-height-alpha-high': fmt(highAlpha) + ' cm',
-        'uni-height-delta-high': (highAlpha-highConv>=0?'+':'')+fmt(highAlpha-highConv)+' cm',
-        'uni-height-conv-low': fmt(lowConv) + ' cm',
-        'uni-height-alpha-low': fmt(lowAlpha) + ' cm',
-        'uni-height-delta-low': (lowAlpha-lowConv>=0?'+':'')+fmt(lowAlpha-lowConv)+' cm'
-    };
-    for (const [id, val] of Object.entries(vals)) {
-        const el = document.getElementById(id);
-        if (el) el.textContent = val;
-    }
+    updateHeightReadouts(initialConv, alpha);
 }
 window.drawUniReferenceBins = drawReferenceBins;
 })();

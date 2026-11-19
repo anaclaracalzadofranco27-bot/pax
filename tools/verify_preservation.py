@@ -271,6 +271,66 @@ def verify_blueprint(v: Checker) -> None:
                 "Simulação Geral perdeu layout da Aba 5")
 
 
+
+def verify_bin_kinematics(v: Checker) -> None:
+    """Contratos de geometria entre as Abas 5, 6 e 8 e caches conservadores."""
+    kinetics = v.read("source/js/engine/bin-kinematics.js")
+    aba5 = v.read("source/html/ABA5/unified-simulation.js")
+    door = v.read("source/html/ABA5/door-addon.js")
+    aba5_html = v.read("source/html/ABA5/ABA5.html")
+    aba6 = v.read("source/html/ABA6/manikin.js")
+    aba8 = v.read("source/html/ABA8/director-and-recording.js")
+    cad_render = v.read("source/js/engine/cad-rendering.js")
+    if kinetics is not None:
+        for name in ("getUniAlphaGeometry", "getUniBinUndersideY",
+                     "drawUniReferenceBins"):
+            v.check(f"window.{name} =" in kinetics,
+                    f"Exportação pública da cinemática ausente: {name}")
+        v.check(kinetics.count("computeLeftBinAtY(") == 2,
+                "Cálculo do convencional deve existir com uma só chamada")
+        v.check("const conventional = computeLeftBinAtY(" not in kinetics,
+                "Segunda chamada sem uso do convencional reapareceu")
+        v.check("cachedClosedConventional" in kinetics,
+                "Cache da posição convencional fechada ausente")
+        v.check("cachedAlphaTheta" in kinetics and
+                "cachedAlphaGeometry" in kinetics and
+                "alphaUndersideForTheta(alpha.thetaDeg)" in kinetics,
+                "Cache geométrico ALPHA incompleto")
+        v.check(kinetics.count("uni-height-") == 6 and
+                "function updateHeightReadouts(" in kinetics,
+                "Seis indicadores de altura ou atualização do DOM ausentes")
+        v.check("const convBottom =" not in kinetics,
+                "Amostragem quadrática convencional sem consumidor reapareceu")
+        for flag in ("__uniRefDoorProgress", "__aphaAlphaBodyOpacity",
+                     "__aphaTambourOrange", "cabinSectionReference"):
+            v.check(flag in kinetics, f"Dependência de runtime ausente: {flag}")
+    if aba5 is not None:
+        v.check("window.cabinSectionReference =" in aba5,
+                "Aba 5 não disponibiliza o mapa da cabine compartilhado")
+        v.check("window.__uniRefDoorProgress" in aba5,
+                "Aba 5 não sincroniza o progresso da porta")
+        v.check("__aphaTambourOrange" in aba5,
+                "Aba 5 não respeita a exceção laranja da porta")
+    if door is not None:
+        v.check("window.__uniRefDoorProgress =" in door,
+                "Controle de porta da Aba 5 não inicializa seu estado")
+    if aba6 is not None:
+        for name in ("getUniAlphaGeometry", "drawUniReferenceBins",
+                     "cabinSectionReference"):
+            v.check(name in aba6,
+                    f"Aba 6 perdeu dependência do motor CAD: {name}")
+    if aba8 is not None:
+        v.check("__aphaAlphaBodyOpacity" in aba8,
+                "Aba 8 não ajusta a opacidade do corpo ALPHA")
+    if cad_render is not None:
+        v.check("window.drawUniReferenceBins" in cad_render,
+                "Renderizador principal não chama o CAD compartilhado")
+    if aba5_html is not None:
+        for name in ("conv-high", "alpha-high", "delta-high",
+                     "conv-low", "alpha-low", "delta-low"):
+            v.check(aba5_html.count(f'id="uni-height-{name}"') == 1,
+                    f"Indicador de altura ausente/duplicado: {name}")
+
 def verify_aba6_layout(v: Checker) -> None:
     html6 = v.read("source/html/ABA6/ABA6.html")
     standalone = v.read("source/html/ABA6/fullscreen.css")
@@ -538,6 +598,7 @@ def main() -> int:
         ("Motor e navegação", verify_engine),
         ("CSS e módulos", verify_css),
         ("Abas 5/6: malha", verify_blueprint),
+        ("Aba 5: cinemática CAD", verify_bin_kinematics),
         ("Aba 6: layout", verify_aba6_layout),
         ("CSS de gravação", verify_recording_css),
         ("Aba 1: recursos", verify_aba1_assets),
