@@ -124,7 +124,7 @@ def verify_engine(v: Checker) -> None:
             "@@APHA_INCLUDE:source/js/core/navigation.js@@",
             "@@APHA_INCLUDE:source/html/ABA6/controller.js@@",
             "function computeAllGeometries(",
-            "function traceVectorBin(",
+            "function drawRealisticSuitcase(",
             "function drawDummyFrontFigure(",
             "function drawReferenceBins(",
             "function drawCADCanvas(",
@@ -149,7 +149,7 @@ def verify_engine(v: Checker) -> None:
             headers[0], "(function installDarkPalette() {",
             headers[1], "@@APHA_INCLUDE:source/js/core/navigation.js@@",
             "function computeAllGeometries(",
-            headers[2], "const BIN_VEC = {",
+            headers[2], "function drawRealisticSuitcase(",
             headers[3], "const DUMMY_PALETTES = {",
             headers[4], "const CABIN_R = APHA_CABIN_GEOMETRY.fuselageRadiusCm;",
             headers[5], "function drawCADCanvas(",
@@ -158,7 +158,7 @@ def verify_engine(v: Checker) -> None:
         )
         v.order(engine, ordered_sections,
                 "Indice dos oito blocos nao corresponde a ordem real de execucao")
-        for subsection in ("02.1", "02.2", "02.3", "03.1", "03.2", "03.3",
+        for subsection in ("02.1", "02.2", "03.1",
                            "04.1", "05.1", "05.2", "05.3", "05.4", "05.5",
                            "08.1"):
             v.check(engine.count(f"// SUBBLOCO {subsection} -") == 1,
@@ -322,9 +322,10 @@ def verify_bin_kinematics(v: Checker) -> None:
                 "Seis indicadores de altura ou atualização do DOM ausentes")
         v.check("const convBottom =" not in kinetics,
                 "Amostragem quadrática convencional sem consumidor reapareceu")
-        v.check("function traceVectorBin(" in kinetics and
-                "function traceBinAlphaProfile(" in kinetics,
-                "Fallback de geometria vetorial da Aba 6 ausente")
+        v.check(all(dead not in kinetics for dead in
+                    ("function traceVectorBin(", "function traceBinAlphaProfile(",
+                     "function traceEmbraerBinProfile(", "const BIN_VEC = {")),
+                "Modelo de bin alternativo reapareceu no motor")
 
         # As duas geometrias CAD finais partem dos mesmos dados físicos
         # usados na cabine; a porta visível conserva o último limite de 82°.

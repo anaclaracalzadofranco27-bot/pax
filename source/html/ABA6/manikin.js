@@ -906,11 +906,7 @@
         function ergoTorqueCurve(H, Fg, Ft, tBack, tFront) {
             const key = [H, Fg, Ft, tBack, tFront].join('|');
             if (ergoCurveCache && ergoCurveCache.key === key) return ergoCurveCache;
-            const cad = typeof window.getUniAlphaGeometry === 'function'
-                ? window.getUniAlphaGeometry() : null;
-            const prof = cad ? ergoCADAlphaProfile(cad)
-                : traceBinAlphaProfile(document.createElement('canvas').getContext('2d'),
-                    x => x, y => y, 23.6, 150.0, 1, 1.0, 135.0, 65.0, true);
+            const prof = ergoCADAlphaProfile(window.getUniAlphaGeometry());
             const T = tBack + tFront, fb = tBack / T, N = 360, pts = [];
             let pa = 0, pc = 0;
             for (let i = 0; i <= N; i++) {
@@ -976,8 +972,6 @@
             const R = cabin ? cabin.R : APHA_CABIN_GEOMETRY.fuselageRadiusCm;
             const centerY = cabin ? cabin.centerY : APHA_CABIN_GEOMETRY.fuselageCenterYCm;
             const aisle = cabin ? cabin.aisle : APHA_CABIN_GEOMETRY.aisleHalfWidthCm;
-            const binFloor = cabin ? cabin.binFloorY()
-                : centerY + Math.sqrt(R * R - aisle * aisle) - 20.0 * CM_PER_IN;
 
             // No canvas principal da Aba 6, a malha uniforme está no CSS
             // do viewport. Não desenhar outra grade, limitada às coordenadas
@@ -1037,21 +1031,14 @@
             // O desenho e a porta rolante são exatamente os mesmos da aba 5.
             // A cinemática lê a linha de apoio desse CAD, sem redesenhar o bin
             // antigo sobre o novo. Porta aberta durante a estiva e fechada no fim.
-            const cad = typeof window.getUniAlphaGeometry === 'function'
-                ? window.getUniAlphaGeometry() : null;
-            const exactCAD = cad && typeof window.drawUniReferenceBins === 'function';
-            const prof = exactCAD ? ergoCADAlphaProfile(cad)
-                : traceBinAlphaProfile(ctx, toX, toY,
-                    aisle, binFloor, 1, 1.0, R, centerY, false);
-            if (exactCAD) {
-                const timeline = APHA_CINE_TIMELINE;
-                // A abertura termina na Aba 5; não é repetida na Aba 6.
-                const doorU = window.__aphaBridgeDoorU != null ? window.__aphaBridgeDoorU :
-                    1 - ergoSmooth((phase - timeline.doorClose.start / timeline.duration) /
-                        ((timeline.doorClose.end - timeline.doorClose.start) / timeline.duration));
-                withAba5CabinColors(() => window.drawUniReferenceBins(ctx, W, H,
-                    window.__aphaShowConventional !== false ? 1 : 0, 1, doorU));
-            }
+            const prof = ergoCADAlphaProfile(window.getUniAlphaGeometry());
+            const timeline = APHA_CINE_TIMELINE;
+            // A abertura termina na Aba 5; não é repetida na Aba 6.
+            const doorU = window.__aphaBridgeDoorU != null ? window.__aphaBridgeDoorU :
+                1 - ergoSmooth((phase - timeline.doorClose.start / timeline.duration) /
+                    ((timeline.doorClose.end - timeline.doorClose.start) / timeline.duration));
+            withAba5CabinColors(() => window.drawUniReferenceBins(ctx, W, H,
+                window.__aphaShowConventional !== false ? 1 : 0, 1, doorU));
 
             // Renderiza somente a cabine durante o movimento contínuo da câmera.
             if (window.__aphaOnlyCabin) return {tTotal: tBack + tFront, rest: true};
