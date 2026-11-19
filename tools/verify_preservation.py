@@ -150,7 +150,7 @@ def verify_engine(v: Checker) -> None:
             headers[1], "@@APHA_INCLUDE:source/js/core/navigation.js@@",
             "function computeAllGeometries(",
             headers[2], "function drawRealisticSuitcase(",
-            headers[3], "const DUMMY_PALETTES = {",
+            headers[3], "const DUMMY_PALETTE = {",
             headers[4], "const CABIN_R = APHA_CABIN_GEOMETRY.fuselageRadiusCm;",
             headers[5], "function drawCADCanvas(",
             headers[6], "@@APHA_INCLUDE:source/html/ABA6/manikin.js@@",
@@ -349,6 +349,27 @@ def verify_bin_kinematics(v: Checker) -> None:
                 "if (!opts.noGrid)" not in kinetics and
                 "return {" in kinetics,
                 "Rotinas CAD desativadas voltaram ao motor")
+        v.check("function alphaFloorHighY(thetaDeg)" in kinetics and
+                "alphaExtremeYAtTheta(" not in kinetics and
+                "const thetaDeg = solveAlphaTheta();" in kinetics,
+                "Modos angulares obsoletos do Alpha reapareceram")
+        v.check("const { toX, toY, scale } = opts.map(W, H);" in kinetics and
+                "const xMin = -(g.R + 4);" not in kinetics,
+                "Projecao CAD alternativa nao utilizada reapareceu")
+        v.check("const K = 0.74;" in kinetics and
+                "if (t >= 0.55)" not in kinetics and
+                "o.ankleY" not in kinetics and "o.slim" not in kinetics,
+                "Posturas alternativas sem chamadas reapareceram")
+        v.check("const seatsOn =" not in kinetics and
+                "return { clWinEmb" not in kinetics,
+                "Retornos de folga sem consumidores reapareceram")
+        v.check("const DUMMY_PALETTE = {" in kinetics and
+                "const DUMMY_PALETTES =" not in kinetics and
+                "seam: '#1e293b'" not in kinetics,
+                "Seletor ou propriedade de paleta sem uso reapareceu")
+        v.check("function paintPath(ctx, path, fill, stroke, lw)" in kinetics and
+                "evenodd ? 'evenodd'" not in kinetics,
+                "Parametro de preenchimento sem consumidores reapareceu")
         v.check("cachedAlphaFloor" in kinetics,
                 "Apoio CAD do ALPHA voltou a ser transformado a cada consulta")
         v.check("function drawAphaCabinFloor(" in config and
