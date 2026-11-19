@@ -358,7 +358,15 @@
         #aba6-module-ergo {--aba6-header-height:58px;}
         #aba6-header{height:var(--aba6-header-height);min-height:var(--aba6-header-height);display:flex;align-items:center;box-sizing:border-box;}
         #aba6-module-ergo, #aba6-module-ergo .aba6-sim-card {margin:0 !important;padding:0 !important;width:100%;height:100%;min-height:0;box-sizing:border-box;}
-        #aba6-module-ergo .aba6-sim-card {border:0;box-shadow:none;background:transparent;}
+        /* Aba individual: moldura CAD igual à dos demais canvases,
+           separada 14 px do título; o desenho permanece no mesmo canvas. */
+        #aba6-module-ergo .aba6-sim-card {
+            margin-top:14px !important;
+            border:1px solid var(--apha-mid-45);
+            border-radius:12px;
+            background:var(--apha-bg);
+            overflow:hidden;
+        }
         /* A altura leva em conta a barra de navegação e o título da aba.
            Nunca altera a altura no #tour-stage, onde vale o palco 16:9. */
         #aba6-module-ergo .aba6-viewport {position:relative;width:100%;height:clamp(480px, 70vh, 740px);min-height:480px;overflow:hidden;}
@@ -368,7 +376,9 @@
         /* Na Simulação Geral o cabeçalho interno é ocultado e o canvas
            preenche o espaço emprestado pela Aba 8, sem mudar a gravação. */
         #tour-stage #aba6-module-ergo .aba6-viewport {height:100% !important;min-height:0 !important;}
-        #tour-stage #aba6-module-ergo .sim-card {height:100% !important;}
+        /* Aba 8: remove somente o espaçamento/máscara acrescentados ao cartão
+           individual, preservando a posição e os limites originais do take 03. */
+        #tour-stage #aba6-module-ergo .sim-card {height:100% !important;margin-top:0 !important;overflow:visible !important;}
         /* When the full presentation borrows Tab 6, fit its embedded canvas into the 16:9 frame. */
         #tour-stage.rec #module-sim { position:absolute !important; inset:2.2% !important; margin:0 !important; padding:0 !important; width:auto !important; height:auto !important; }
         #tour-stage.rec #module-sim > #aba6-module-ergo {display:block !important;width:100% !important;height:100% !important;min-height:0 !important;}
@@ -4195,7 +4205,7 @@ function xrayRun(ms) {
                         Biomechanical Validation &amp; Boarding Time
                     </h2>
                 </div>
-                <div class="aba6-sim-card sim-card">
+                <div class="aba6-sim-card sim-card bg-cad-panel border border-cad-border rounded-xl overflow-hidden">
                     <div class="aba6-viewport sim-bg">
                         <canvas id="aba6-manikinCanvas" aria-label="Manikin placing luggage in the Alpha overhead bin"></canvas>
                         <button type="button" id="aba6-figure-export" title="Download a transparent high-resolution figure" style="position:absolute;right:16px;bottom:16px;z-index:5;padding:9px 14px;background:#0a1a3a;color:#d4dce6;border:1px solid #5b7b9e;border-radius:8px;font:600 11px JetBrains Mono,monospace;cursor:pointer">📷 Export figure (PNG)</button>
