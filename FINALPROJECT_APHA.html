@@ -1474,7 +1474,6 @@ button:hover { background: rgba(91,123,158,.14); }
     <svg id="pax-labels" viewBox="0 224 575 425"></svg>
   </div>
 </div>
-</div>
 
 <div id="controls">
   <button id="playBtn">▶ Play</button>
@@ -4392,8 +4391,7 @@ function xrayRun(ms) {
                 </div>
                 <div class="px-4 py-2 bg-cad-panel border-b border-cad-border flex items-center gap-3">
                     <button id="top-play" type="button" class="cad-btn" title="Restart the top-view animation from the beginning">↻ Replay</button>
-                    <!-- Keep internal timeline elements for simulation and full-tour synchronization. -->
-                    <div id="top-chips" style="display:none !important" aria-hidden="true"></div>
+                    <!-- Hidden timeline input retained for full-tour synchronization. -->
                     <input id="top-scrub" type="range" min="0" max="6" step="0.001" value="0" style="display:none !important" tabindex="-1" aria-hidden="true">
                 </div>
                 <div class="overflow-x-auto">
@@ -10291,18 +10289,13 @@ window.drawUniReferenceBins = drawReferenceBins;
         }
 
         // ------------------------- controles -------------------------
-        const btn = document.getElementById('top-play'), scrub = document.getElementById('top-scrub'), chips = document.getElementById('top-chips');
-        // Phase navigation buttons were removed; keep the timeline node for JS.
+        const btn = document.getElementById('top-play'), scrub = document.getElementById('top-scrub');
+        // Keep the hidden timeline input for full-tour synchronization.
 
         function refresh() {
             draw();
             const T = A.t;
             scrub.value = T;
-            const idx = Math.min(N_ST - 1, Math.floor(T));
-            [...chips.children].forEach((c, i) => {
-                c.classList.toggle('done', T >= i + 1);
-                c.classList.toggle('on', i === idx && T < N_ST);
-            });
             btn.textContent = '↻ Replay';
         }
         function tick(now) {
@@ -10320,7 +10313,6 @@ window.drawUniReferenceBins = drawReferenceBins;
             cancelAnimationFrame(A.raf); A.raf = requestAnimationFrame(tick);
         }
         btn.addEventListener('click', () => { play(0, N_ST); refresh(); });
-        chips.addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b) { const i = +b.dataset.i; play(i, i + 1); } });
         scrub.addEventListener('input', () => { A.playing = false; A.t = parseFloat(scrub.value); refresh(); });
 
         new ResizeObserver(() => refresh()).observe(stage);
