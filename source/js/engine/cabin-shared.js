@@ -57,6 +57,20 @@
             };
             const BG = APHA_CABIN_PALETTE.bgRGB;
             const RAMP = APHA_CABIN_PALETTE.ramp;
+            // Interpolacao unica para as duas paletas escuras. Cada modo conserva
+            // suas regras de excecao, normalizacao e cache de cores originais.
+            const mapLuminance = (L, a) => {
+                let col = RAMP[RAMP.length - 1][1];
+                for (let i = 1; i < RAMP.length; i++) {
+                    if (L <= RAMP[i][0]) {
+                        const [l0, c0] = RAMP[i - 1], [l1, c1] = RAMP[i];
+                        const k = l1 === l0 ? 0 : (L - l0) / (l1 - l0);
+                        col = c0.map((x, j) => x + (c1[j] - x) * k);
+                        break;
+                    }
+                }
+                return `rgba(${col.map(Math.round).join(',')},${a})`;
+            };
             const cache = new Map();
             const dark = (c, kind) => {
                 const role = window.__dkRole || '', key = role + '|' + kind + '|' + c;
@@ -75,9 +89,7 @@
                     else if (L < 0.05) out = `rgba(8,18,42,${a})`;                                                              // contorno do boneco: azul-marinho quase preto
                     else if (kind === 'fill' && L > 0.9 && role !== 'bin') out = `rgba(${BG},${a})`;                            // caixas de rótulo claras → cor do fundo
                     else {
-                        let col = RAMP[RAMP.length - 1][1];
-                        for (let i = 1; i < RAMP.length; i++) if (L <= RAMP[i][0]) { const [l0, c0] = RAMP[i - 1], [l1, c1] = RAMP[i], k = l1 === l0 ? 0 : (L - l0) / (l1 - l0); col = c0.map((x, j) => x + (c1[j] - x) * k); break; }
-                        out = `rgba(${col.map(Math.round).join(',')},${a})`;
+                        out = mapLuminance(L, a);
                     }
                 }
                 if (cache.size > 2000) cache.clear();
@@ -118,9 +130,8 @@
                         else if (role === 'dummy' && kind === 'stroke' && (0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]) / 255 < 0.3) out = `rgba(8,18,42,${a})`;   // boneco: contorno azul-marinho quase preto, bem nítido sobre o corpo cinza
                         else if (Math.round(v[0]) === 245 && Math.round(v[1]) === 245 && Math.round(v[2]) === 245) out = `rgba(${BG[0]},${BG[1]},${BG[2]},${a})`;
                         else {
-                            const L = (0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]) / 255; let col = RAMP[RAMP.length - 1][1];
-                            for (let i = 1; i < RAMP.length; i++) if (L <= RAMP[i][0]) { const [l0, c0] = RAMP[i - 1], [l1, c1] = RAMP[i], t = l1 === l0 ? 0 : (L - l0) / (l1 - l0); col = c0.map((x, j) => x + (c1[j] - x) * t); break; }
-                            out = `rgba(${col.map(Math.round).join(',')},${a})`;
+                            const L = (0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]) / 255;
+                            out = mapLuminance(L, a);
                         }
                     }
                     if (dkCache.size > 2000) dkCache.clear();
