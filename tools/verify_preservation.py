@@ -367,6 +367,26 @@ def verify_bin_kinematics(v: Checker) -> None:
                 "const DUMMY_PALETTES =" not in kinetics and
                 "seam: '#1e293b'" not in kinetics,
                 "Seletor ou propriedade de paleta sem uso reapareceu")
+        # As duas paletas escuras conservam regras e caches distintos,
+        # mas usam uma unica interpolacao da rampa de luminancia.
+        v.check("const mapLuminance = (L, a) => {" in kinetics and
+                kinetics.count("out = mapLuminance(L, a);") == 2 and
+                kinetics.count("for (let i = 1; i < RAMP.length; i++)") == 1 and
+                "const cache = new Map();" in kinetics and
+                "const dkCache = new Map();" in kinetics,
+                "Interpolacao duplicada da paleta escura reapareceu")
+        # O arco varia durante a abertura; apenas o estagio completo
+        # reutiliza Path2D e invalida o cache quando viewport/mapa muda.
+        v.check("let cachedCompletedFuselageArc = null;" in kinetics and
+                "function getCompletedFuselageArc(g, toX, toY, W, H)" in kinetics and
+                "if (p >= 1) {" in kinetics and
+                "const paths = getCompletedFuselageArc(g, toX, toY, W, H);" in kinetics and
+                "ctx.fill(paths.fill);" in kinetics and
+                "ctx.stroke(paths.inner);" in kinetics and
+                "ctx.stroke(paths.outer);" in kinetics and
+                "const key = [W, H, R, toX(0), toY(0), toX(R), toY(R), toX(-R), toY(-R)].join('|');" in kinetics and
+                "const [x, y] = pt(g.R + 2.75, th1);" in kinetics,
+                "Cache do arco estatico ou revelacao animada da fuselagem ausente")
         v.check("function paintPath(ctx, path, fill, stroke, lw)" in kinetics and
                 "evenodd ? 'evenodd'" not in kinetics,
                 "Parametro de preenchimento sem consumidores reapareceu")
