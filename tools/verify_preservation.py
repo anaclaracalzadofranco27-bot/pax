@@ -384,10 +384,10 @@ def verify_bin_kinematics(v: Checker) -> None:
         v.check("window.drawUniReferenceBins" in cad_render,
                 "Renderizador principal não chama o CAD compartilhado")
     if aba5_html is not None:
-        for name in ("conv-high", "alpha-high", "delta-high",
-                     "conv-low", "alpha-low", "delta-low"):
-            v.check(aba5_html.count(f'id="uni-height-{name}"') == 1,
-                    f"Indicador de altura ausente/duplicado: {name}")
+        v.check('id="uni-bin-height-compare"' not in aba5_html and
+                'id="uni-chips"' not in aba5_html and
+                'uni-height-' not in aba5_html,
+                "DOM oculto legado reapareceu na Aba 5")
 
 def verify_aba6_layout(v: Checker) -> None:
     html6 = v.read("source/html/ABA6/ABA6.html")
