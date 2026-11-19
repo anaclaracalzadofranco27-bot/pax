@@ -350,36 +350,35 @@
         #tour-stage.rec > #module-closing{max-width:100%;box-sizing:border-box}
 
 
-        /* Fullscreen only for Tab 6. Keep the full presentation in its original centered 16:9 layout. */
-        body.apha-simulation-view > header { display:none !important; }
-        body.apha-simulation-view > main { max-width:none !important; width:100% !important; min-height:100vh !important; padding:0 !important; margin:0 !important; }
-        body.apha-simulation-view #module-sim { margin:0 !important; padding:0 !important; min-height:100vh !important; gap:0 !important; }
+        /* Aba 6 individual: preserva o cabeçalho global, a navegação e a
+           largura/padding do <main>, iguais aos das demais abas.
+           Apenas o canvas biomecânico usa dimensões próprias abaixo do título. */
         /* Cabeçalho exclusivo da Aba 6: mesma linguagem visual das demais abas,
            ocupando 58 px acima da simulação sem sobrepor o manequim. */
         #aba6-module-ergo {--aba6-header-height:58px;}
         #aba6-header{height:var(--aba6-header-height);min-height:var(--aba6-header-height);display:flex;align-items:center;box-sizing:border-box;}
         #aba6-module-ergo, #aba6-module-ergo .aba6-sim-card {margin:0 !important;padding:0 !important;width:100%;height:100%;min-height:0;box-sizing:border-box;}
         #aba6-module-ergo .aba6-sim-card {border:0;box-shadow:none;background:transparent;}
-        #aba6-module-ergo .aba6-viewport {position:relative;width:100%;height:calc(100vh - 58px);min-height:480px;overflow:hidden;}
+        /* A altura leva em conta a barra de navegação e o título da aba.
+           Nunca altera a altura no #tour-stage, onde vale o palco 16:9. */
+        #aba6-module-ergo .aba6-viewport {position:relative;width:100%;height:clamp(480px, 70vh, 740px);min-height:480px;overflow:hidden;}
         #aba6-manikinCanvas {display:block;width:100%;height:100%;}
         #tour-stage #aba6-figure-export{display:none !important;}
         #aba6-figure-export:hover,#aba6-figure-export:focus-visible{background:#2f4a6b !important;}
-        /* Na aba individual, a cena ocupa a altura restante depois do cabeçalho.
-           No tour, o título some e a regra própria da Aba 8 usa 100% do palco. */
-        body.apha-simulation-view #aba6-module-ergo .aba6-sim-card{height:calc(100vh - var(--aba6-header-height)) !important;}
-        body.apha-simulation-view #aba6-module-ergo .aba6-viewport {height:calc(100vh - var(--aba6-header-height)) !important;min-height:calc(100vh - var(--aba6-header-height)) !important;}
+        /* Na Simulação Geral o cabeçalho interno é ocultado e o canvas
+           preenche o espaço emprestado pela Aba 8, sem mudar a gravação. */
         #tour-stage #aba6-module-ergo .aba6-viewport {height:100% !important;min-height:0 !important;}
         #tour-stage #aba6-module-ergo .sim-card {height:100% !important;}
         /* When the full presentation borrows Tab 6, fit its embedded canvas into the 16:9 frame. */
         #tour-stage.rec #module-sim { position:absolute !important; inset:2.2% !important; margin:0 !important; padding:0 !important; width:auto !important; height:auto !important; }
         #tour-stage.rec #module-sim > #aba6-module-ergo {display:block !important;width:100% !important;height:100% !important;min-height:0 !important;}
-        /* An unobtrusive exit is needed when the global navigation header is hidden. */
-        #apha-return-tabs {display:none;position:fixed;left:14px;bottom:14px;z-index:70;padding:7px 12px;background:rgba(10,26,58,.9);color:#d4dce6;border:1px solid #5b7b9e;border-radius:8px;font:600 11px 'JetBrains Mono',monospace;cursor:pointer}
-        body.apha-simulation-view #apha-return-tabs {display:block !important}
-        #apha-return-tabs:hover,#apha-return-tabs:focus-visible {background:#2f4a6b}
+        /* A navegação superior continua acessível; o botão de retorno
+           legado permanece oculto para não duplicar os controles da barra. */
+        #apha-return-tabs {display:none !important;}
 
-        /* Hide redundant section headings without hiding the general-simulation controls. */
-        #aba6-module-ergo > .bg-cad-panel:first-child,
+        /* O painel de título legado da Aba 5 continua oculto.
+           O cabeçalho próprio da Aba 6 (#aba6-header) deve ficar visível
+           na aba individual e é ocultado apenas dentro de #tour-stage. */
         #module-unified > .bg-cad-panel:first-of-type { display:none !important; }
         #aba6-module-ergo, #module-unified { row-gap:0 !important; }
         /* ===== Aba 6: Full Simulation ===== */
