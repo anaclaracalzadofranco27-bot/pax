@@ -194,12 +194,15 @@
         }
         /* Fundo único das simulações = plano quadriculado */
         .sim-bg{background-color:var(--apha-bg);background-image:linear-gradient(to right,var(--apha-grid) 1px,transparent 1px),linear-gradient(to bottom,var(--apha-grid) 1px,transparent 1px);background-size:48px 48px}
-        #aba6-module-ergo .sim-bg{background:var(--apha-bg)}   /* viewport biomecânico: fundo escuro (mesma paleta da simulação integrada) */
-        #aba6-module-ergo .sim-card > div:first-child{background:var(--apha-bg);border-color:var(--apha-mid-45)}
+        /* Aba 6 individual: herda o fundo quadriculado global (.sim-bg) na área
+           inteira do viewport. O canvas é transparente fora da geometria.
+           No tour, apenas a malha fixa do #tour-stage continua ativa. */
         #aba6-module-ergo .sim-card > div:first-child span, #aba6-module-ergo .sim-card > div:first-child div{color:var(--apha-muted)}
         #module-unified aside, #module-unified .sim-card > div:last-child{background:var(--apha-bg);border-color:var(--apha-mid-45)}
         #module-unified aside .font-mono, #module-unified .sim-card > div:last-child span{color:var(--apha-muted)}
-        #module-unified .sim-bg{background:var(--apha-bg)}   /* simulação integrada: fundo escuro (mesma paleta da exportação P95) */
+        /* Aba 5 individual: a classe global .sim-bg desenha a malha blueprint
+           de 48 px por toda a área do canvas. Não sobrescrever com background liso.
+           Na Aba 8, #tour-stage controla uma única malha fixa. */
         /* When the camera zooms into opening bins, hide the stature scale without changing canvas dimensions. */
         #module-unified aside{transition:opacity .28s ease,visibility 0s linear .28s}
         #module-unified.uni-bin-zoom aside{opacity:0 !important;visibility:hidden !important;pointer-events:none !important}
@@ -7188,7 +7191,11 @@ window.drawUniReferenceBins = drawReferenceBins;
                 ctx.fillStyle = opts.bgFill;
                 ctx.fillRect(0, 0, W, H);
             } else if (opts.unifiedCabinBackground) {
-                drawUnifiedCabinBackground(ctx, W, H, { tour: !!opts.tourBackdrop });
+                // Apenas a Aba 5 individual usa o quadriculado CSS sob o canvas.
+                // O tour conserva sua própria malha; os demais usos mantêm o fundo original.
+                drawUnifiedCabinBackground(ctx, W, H, {
+                    tour: !!opts.tourBackdrop, paint: !opts.cssGridBackdrop
+                });
             }
 
             const xMin = -(g.R + 4);
@@ -8419,16 +8426,18 @@ window.drawUniReferenceBins = drawReferenceBins;
             const binFloor = cabin ? cabin.binFloorY()
                 : centerY + Math.sqrt(R * R - aisle * aisle) - 20.0 * CM_PER_IN;
 
-            // O mesmo grid físico da Aba 5 acompanha a câmera, sem salto de passo/cor.
-            // Figure Export permanece em PNG transparente, sem fundo nem grid.
+            // No canvas principal da Aba 6, a malha uniforme está no CSS
+            // do viewport. Não desenhar outra grade, limitada às coordenadas
+            // da cabine ou sujeita ao movimento da câmera. A Figura PNG
+            // permanece transparente; no tour a grade pertence ao #tour-stage.
             if (!window.__mkExport) {
-                // O grid do roteiro é fixo na moldura: não deve acompanhar a
-                // câmera móvel nem ser desenhado uma segunda vez sobre ela.
                 const tourBackdrop = !!(ctx.canvas && (
                     ctx.canvas.id === 'apha-continuous-cabin' || ctx.canvas.closest('#tour-stage')));
-                drawUnifiedCabinBackground(ctx, W, H, {
-                    tour: tourBackdrop, paint: false, toX, toY
-                });
+                if (ctx.canvas && ctx.canvas.id !== 'aba6-manikinCanvas') {
+                    drawUnifiedCabinBackground(ctx, W, H, {
+                        tour: tourBackdrop, paint: false, toX, toY
+                    });
+                }
                 if (cabin) withAba5CabinColors(() => cabin.drawShell(ctx, toX, toY, scale));
             }
 
@@ -8795,8 +8804,10 @@ window.drawUniReferenceBins = drawReferenceBins;
             }
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             const W = rect.width, H = rect.height;
+            // Transparente na aba individual: o CSS desenha a malha em toda
+            // a extensão do cartão. Na Aba 8, a pintura fixa é do #tour-stage.
             drawUnifiedCabinBackground(ctx, W, H, {
-                tour: !!canvas.closest('#tour-stage')
+                tour: !!canvas.closest('#tour-stage'), paint: false
             });
 
             // O relógio é único: a fase global é a fração do ciclo do percentil mais lento.
@@ -9217,10 +9228,9 @@ window.drawUniReferenceBins = drawReferenceBins;
             const inTourView = () => !!document.querySelector('#tour-stage #uniCanvas');
             function before(ctx, m) {
                 const { toX, toY, scale } = m4(m.W, m.H);   // eixo com y=0 no piso
-                if (!U.exporting && !inTourView()) {
-                    // Referencial idêntico ao do manikin e à ponte da câmera.
-                    drawUnifiedCabinBackground(ctx, m.W, m.H, { paint: false, toX, toY });
-                }
+                // A grade de fundo pertence ao .sim-bg na aba individual e ao
+                // #tour-stage na Simulação Geral: não desenhar a grade física
+                // recortada no centro da câmera sobre o mesmo canvas.
                 const p = cl((U.t - TL.ring) / 0.8);          // trechos laterais da fuselagem até o piso (y=0), sem porão
                 if (p > 0) {
                     const shellR = APHA_CABIN_GEOMETRY.fuselageRadiusCm;
@@ -9365,6 +9375,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 try {
                     drawCADCanvas(U.g, { canvasId: 'uniCanvas', referenceBins: true,
                         unifiedCabinBackground: true, tourBackdrop: inTourView(),
+                        cssGridBackdrop: !inTourView(),  // Aba 5 individual: canvas transparente sobre .sim-bg
                         noBags: true, noLegend: inTourView(), finalDims: true, minimalDims: true, T: T1, map: m1, camera:cinematicCamera, noGrid: true, dimFade: 1 - ph(TL.ring, 0.5), fade: U.fx || null, before, after });
                     if (U.focus > 0) {   // foco no passageiro da janela (ponta esquerda): o resto do desenho cai para ~18% de opacidade (a malha do quadro não muda)
                         const cvs = document.getElementById('uniCanvas'), box = cvs.parentElement, W = box.offsetWidth, H = box.offsetHeight;
