@@ -871,9 +871,7 @@
                 upd();
             }, {passive:false});
 
-            document.querySelectorAll('[data-cad3d-v]').forEach(b=>{
-                b.onclick=()=>{ [az, el, R] = views[b.dataset.cad3dV]; upd(); };
-            });
+
 
 
 

@@ -1,6 +1,5 @@
         /* Oculta controles interativos remanescentes durante o roteiro */
-        #tour-stage #module-cad3d > div:first-child .bg-cad-bg,
-        #tour-stage #module-cad3d [data-cad3d-v] { display: none !important; }
+        #tour-stage #module-cad3d > div:first-child .bg-cad-bg { display: none !important; }
         /* Export controls stay available in their own tabs, but are hidden in the full-tour viewport. */
         #module-tour #tour-snap, #module-tour #tour-figure-export,
         #tour-stage #cad3d-export,
