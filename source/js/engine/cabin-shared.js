@@ -302,79 +302,24 @@
 // -----------------------------------------------------------------------------
 // SUBBLOCO 03.1 - Desenho das malas
 // -----------------------------------------------------------------------------
-        function drawRealisticSuitcase(ctx, cx, cy, wPx, hPx, angleRad, label1, label2, isAlphaStyle = false, colorOverride = null) {
-            if (colorOverride) {
-                // Mala em cor sólida personalizada (usada no Viewport CAD 2D da aba 1)
-                const hex = colorOverride.replace('#', '');
-                const r = parseInt(hex.substr(0, 2), 16), gC = parseInt(hex.substr(2, 2), 16), b = parseInt(hex.substr(4, 2), 16);
-                const dark = `rgb(${Math.round(r * 0.6)}, ${Math.round(gC * 0.6)}, ${Math.round(b * 0.6)})`;
-                ctx.save();
-                ctx.translate(cx, cy);
-                ctx.rotate(angleRad);
-                ctx.fillStyle = colorOverride;
-                ctx.strokeStyle = dark;
-                ctx.lineWidth = 2.0;
-                ctx.beginPath();
-                ctx.roundRect(-wPx / 2, -hPx / 2, wPx, hPx, 5);
-                ctx.fill();
-                ctx.stroke();
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-                ctx.lineWidth = 1.2;
-                ctx.strokeRect(-wPx / 2 + 3.5, -hPx / 2 + 3.5, Math.max(4, wPx - 7), Math.max(4, hPx - 7));
-                ctx.fillStyle = dark;
-                ctx.fillRect(-wPx * 0.16, -hPx / 2 - 2.5, wPx * 0.32, 2.5);
-                if (!window.ERGO_VIEW) {   // aba biomecânica: sem rótulos nas malas
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = 'bold 8.5px "JetBrains Mono", monospace';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    if (label1 && label2) {
-                        ctx.fillText(label1, 0, -5);
-                        ctx.font = '7.5px "JetBrains Mono", monospace';
-                        ctx.fillText(label2, 0, 6);
-                    } else if (label1) {
-                        ctx.fillText(label1, 0, 0);
-                    }
-                }
-                ctx.restore();
-                return;
-            }
+        // Todas as chamadas ativas desenham a mala Alpha, sem rotulos nem
+        // personalizacao de cores. Os estilos especificos da Aba 6 permanecem.
+        function drawRealisticSuitcase(ctx, cx, cy, wPx, hPx, angleRad) {
             ctx.save();
             ctx.translate(cx, cy);
             ctx.rotate(angleRad);
-
-            // Corpo principal da mala com cantos arredondados
-            ctx.fillStyle = isAlphaStyle ? (window.__mkExport ? '#6b6fc4' : 'rgba(67, 70, 151, 0.30)') : '#a1622f';
-            ctx.strokeStyle = isAlphaStyle ? '#2a1dc2' : '#451a03';
+            ctx.fillStyle = window.__mkExport ? '#6b6fc4' : 'rgba(67, 70, 151, 0.30)';
+            ctx.strokeStyle = '#2a1dc2';
             ctx.lineWidth = 2.0;
             ctx.beginPath();
             ctx.roundRect(-wPx / 2, -hPx / 2, wPx, hPx, 5);
             ctx.fill();
             ctx.stroke();
-
-            // Costura interna / zíper
-            ctx.strokeStyle = isAlphaStyle ? 'rgba(42, 29, 194, 0.50)' : '#78350f';
+            ctx.strokeStyle = 'rgba(42, 29, 194, 0.50)';
             ctx.lineWidth = 1.2;
             ctx.strokeRect(-wPx / 2 + 3.5, -hPx / 2 + 3.5, Math.max(4, wPx - 7), Math.max(4, hPx - 7));
-
-            // Alça superior discreta
-            ctx.fillStyle = isAlphaStyle ? '#2a1dc2' : '#451a03';
+            ctx.fillStyle = '#2a1dc2';
             ctx.fillRect(-wPx * 0.16, -hPx / 2 - 2.5, wPx * 0.32, 2.5);
-
-            if (!window.ERGO_VIEW) {   // aba biomecânica: sem rótulos nas malas
-                // Rótulos perfeitamente centralizados dentro da mala
-                ctx.fillStyle = isAlphaStyle ? '#0f172a' : '#fef3c7';
-                ctx.font = 'bold 8.5px "JetBrains Mono", monospace';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                if (label1 && label2) {
-                    ctx.fillText(label1, 0, -5);
-                    ctx.font = '7.5px "JetBrains Mono", monospace';
-                    ctx.fillText(label2, 0, 6);
-                } else if (label1) {
-                    ctx.fillText(label1, 0, 0);
-                }
-            }
             ctx.restore();
         }
 
