@@ -46,8 +46,8 @@ HTML e recursos exclusivos ficam juntos:
 **CSS modular por aba:** os estilos visuais antes misturados em `source/css/global.css` foram colocados nas pastas das abas, com arquivos de responsabilidade específica:
 
 - `source/html/ABA1/`: `presentation.css` (iframe do avião no palco principal; não substitui `styles.css` do próprio iframe).
-- `source/html/ABA2/`: `cad-hud.css` (balões, cotas e HUD do CAD 3D).
-- `source/html/ABA3/`: `tour-layout.css` e `presentation.css` (comparação e cabeçalho).
+- `source/html/ABA2/`: `cad-hud.css` (balões, cotas e HUD do CAD 3D) e `recording-layout.css` (altura do CAD durante a gravação).
+- `source/html/ABA3/`: `tour-layout.css`, `presentation.css` e `recording-layout.css` (comparação, cabeçalho e margens de 2,2% na gravação).
 - `source/html/ABA4/`: `tour-layout.css` (vista superior dentro do roteiro).
 - `source/html/ABA5/`: `viewport-theme.css` e `tour-layout.css` (seção da cabine).
 - `source/html/ABA6/`: `viewport-theme.css`, `tour-layout.css` e `fullscreen.css` (viewport e manequim).
@@ -55,6 +55,8 @@ HTML e recursos exclusivos ficam juntos:
 - `source/html/ABA8/`: `tour-frame.css`, `tour-controls-hidden.css`, `tour-pax.css`, `tour-buttons.css` e `tour-closing.css` (direção e montagem das cenas).
 
 O `global.css` é o único ponto de entrada do CSS principal e conserva as regras gerais. Ele referencia os novos arquivos por meio de `@@APHA_INCLUDE`, **sem mudar a ordem original das declarações**; o `tools/build.py` gera exatamente o mesmo HTML autossuficiente, com as mesmas prioridades CSS. `source/css/shared-viewport.css` guarda o que pertence às Abas 5 e 6, e `source/css/recording-and-transitions.css` concentra os estilos gerais do modo de gravação. **Não** importe os arquivos novamente com `<link>` ou outras tags `<style>`: eles já são embutidos pelo montador.
+
+**CSS de gravação por aba:** as regras específicas do CAD 3D e da comparação dos bins foram transferidas para `ABA2/recording-layout.css` e `ABA3/recording-layout.css`. O arquivo `source/css/recording-and-transitions.css` mantém apenas os estilos compartilhados e três inclusões aninhadas, na ordem original: ABA2 → ABA3 → ABA6. O montador preserva as regras e o CSS final **byte a byte**, sem alterar enquadramentos, transições ou takes.
 
 **Cabeçalho da Aba 6:** `ABA6.html` agora apresenta `Biomechanical Validation & Boarding Time` acima do manequim, seguindo o padrão dos títulos das demais abas. `ABA6/fullscreen.css` reserva a altura para o cabeçalho na visualização individual; `ABA6/tour-layout.css` o oculta quando a Aba 8 reproduz o take das Abas 5 e 6. A regra específica de altura de gravação foi movida de `source/css/recording-and-transitions.css` para `ABA6/recording-layout.css`, mas permanece **no mesmo ponto da cascata** pela inclusão interna. O CSS de gravação compartilhado continua em `source/css/`.
 

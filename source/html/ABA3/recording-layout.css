@@ -1,0 +1,7 @@
+        /* Aba 3: o quadro de comparação mantém as mesmas margens de 2,2%
+           usadas para calcular o ponto final da transição do CAD 3D. */
+        #tour-stage.rec > #module-nova {
+            position:absolute !important;
+            top:2.2% !important;left:2.2% !important;right:2.2% !important;
+            margin:0 !important;
+        }

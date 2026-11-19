@@ -1,0 +1,2 @@
+        /* CAD 3D: o canvas ocupa toda a altura útil do palco. */
+        #tour-stage.rec #cad3d-container { height: 100% !important; }

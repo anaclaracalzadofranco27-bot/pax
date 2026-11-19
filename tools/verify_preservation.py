@@ -82,6 +82,26 @@ assert "#tour-stage #aba6-header{display:none !important;}" in aba6_tour_css, "A
 assert "--aba6-header-height:58px" in aba6_fullscreen_css, "ABA6 heading height missing"
 assert "height:calc(100vh - var(--aba6-header-height)) !important;" in aba6_fullscreen_css, "ABA6 viewport may overlap heading"
 assert recording_css.count("@@APHA_INCLUDE:source/html/ABA6/recording-layout.css@@") == 1, "ABA6 recording CSS not in original cascade position"
+
+# Recording geometry for CAD3D (ABA2) and bin comparison (ABA3) belongs to
+# those tabs, not the shared capture stylesheet. Nested includes keep cascade order.
+aba2_recording_path = ROOT / "source/html/ABA2/recording-layout.css"
+aba3_recording_path = ROOT / "source/html/ABA3/recording-layout.css"
+aba2_rec_marker = "@@APHA_INCLUDE:source/html/ABA2/recording-layout.css@@"
+aba3_rec_marker = "@@APHA_INCLUDE:source/html/ABA3/recording-layout.css@@"
+aba6_rec_marker = "@@APHA_INCLUDE:source/html/ABA6/recording-layout.css@@"
+assert aba2_recording_path.is_file(), "Missing ABA2 recording layout"
+assert aba3_recording_path.is_file(), "Missing ABA3 recording layout"
+aba2_recording_css = aba2_recording_path.read_text(encoding="utf-8")
+aba3_recording_css = aba3_recording_path.read_text(encoding="utf-8")
+assert recording_css.count(aba2_rec_marker) == 1, "ABA2 recording include missing/duplicated"
+assert recording_css.count(aba3_rec_marker) == 1, "ABA3 recording include missing/duplicated"
+assert recording_css.index(aba2_rec_marker) < recording_css.index(aba3_rec_marker) < recording_css.index(aba6_rec_marker), "Recording CSS cascade order changed"
+assert "#tour-stage.rec #cad3d-container { height: 100% !important; }" in aba2_recording_css, "CAD3D capture sizing lost"
+assert "#tour-stage.rec > #module-nova {" in aba3_recording_css and "top:2.2%" in aba3_recording_css, "ABA3 capture positioning lost"
+assert "#tour-stage.rec #cad3d-container" not in recording_css, "ABA2 styling still in shared recording CSS"
+assert "#tour-stage.rec > #module-nova" not in recording_css, "ABA3 styling still in shared recording CSS"
+
 assert "#tour-stage.rec #aba6-module-ergo" not in recording_css, "ABA6-specific recording CSS still in shared file"
 assert "#tour-stage.rec #aba6-module-ergo" in aba6_recording_css, "ABA6 recording frame rule lost"
 assert html.count('id="aba6-header"') == 1, "Compiled ABA6 heading missing"
