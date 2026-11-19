@@ -68,6 +68,25 @@ for css_path in css_paths:
 assert "body {" in css_source and "html, body {" in css_source, "Global theme moved out"
 assert "source/html/ABA1/styles.css" not in css_source, "PAX iframe styles must remain isolated"
 
+# The standalone biomechanical tab has its own heading, hidden during the tour.
+# Recording CSS's Aba 6 include is nested inside the shared recording fragment,
+# so it must not be counted among global.css's immediate imports.
+aba6_html = (ROOT / "source/html/ABA6/ABA6.html").read_text(encoding="utf-8")
+aba6_fullscreen_css = (ROOT / "source/html/ABA6/fullscreen.css").read_text(encoding="utf-8")
+aba6_tour_css = (ROOT / "source/html/ABA6/tour-layout.css").read_text(encoding="utf-8")
+recording_css = (ROOT / "source/css/recording-and-transitions.css").read_text(encoding="utf-8")
+aba6_recording_css = (ROOT / "source/html/ABA6/recording-layout.css").read_text(encoding="utf-8")
+assert aba6_html.count('id="aba6-header"') == 1, "ABA6 heading missing or repeated"
+assert "Biomechanical Validation &amp; Boarding Time" in aba6_html, "ABA6 title changed"
+assert "#tour-stage #aba6-header{display:none !important;}" in aba6_tour_css, "ABA6 title visible in tour"
+assert "--aba6-header-height:58px" in aba6_fullscreen_css, "ABA6 heading height missing"
+assert "height:calc(100vh - var(--aba6-header-height)) !important;" in aba6_fullscreen_css, "ABA6 viewport may overlap heading"
+assert recording_css.count("@@APHA_INCLUDE:source/html/ABA6/recording-layout.css@@") == 1, "ABA6 recording CSS not in original cascade position"
+assert "#tour-stage.rec #aba6-module-ergo" not in recording_css, "ABA6-specific recording CSS still in shared file"
+assert "#tour-stage.rec #aba6-module-ergo" in aba6_recording_css, "ABA6 recording frame rule lost"
+assert html.count('id="aba6-header"') == 1, "Compiled ABA6 heading missing"
+
+
 for index, name in enumerate(tabs, start=1):
     relative_path = f"source/html/ABA{index}/ABA{index}.html"
     source_path = ROOT / relative_path

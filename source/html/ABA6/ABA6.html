@@ -1,6 +1,13 @@
         <div id="module-sim" class="space-y-4 hidden">
             <!-- Aba 6: biomechanical engine integrado ao DOM principal (sem iframe). -->
             <section id="aba6-module-ergo" class="space-y-0" aria-label="Biomechanical Validation & Boarding Time">
+                <!-- Título da aba individual, como nas demais seções. Oculto apenas quando a Aba 8 incorpora esta cena. -->
+                <div id="aba6-header" class="bg-cad-panel border border-cad-border rounded-xl px-4 py-3">
+                    <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-cad-cyan" aria-hidden="true"></span>
+                        Biomechanical Validation &amp; Boarding Time
+                    </h2>
+                </div>
                 <div class="aba6-sim-card sim-card">
                     <div class="aba6-viewport sim-bg">
                         <canvas id="aba6-manikinCanvas" aria-label="Manikin placing luggage in the Alpha overhead bin"></canvas>
