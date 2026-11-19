@@ -213,13 +213,11 @@
         /* Oculta controles interativos remanescentes durante o roteiro */
         #tour-stage #module-cad3d > div:first-child .bg-cad-bg,
         #tour-stage #module-cad3d [data-cad3d-v] { display: none !important; }
-        #tour-stage #uni-export, #tour-stage #uni-export-p95{display:none}
-        /* Full simulation: PNG actions remain as inert DOM anchors for legacy event handlers, but never appear in the UI. */
+        /* Export controls stay available in their own tabs, but are hidden in the full-tour viewport. */
         #module-tour #tour-snap, #module-tour #tour-figure-export,
-        #tour-stage #cad3d-export, #tour-stage #cad3d-export-side,
+        #tour-stage #cad3d-export,
         #tour-stage #uni-export, #tour-stage #uni-export-p95,
         #tour-stage #aba6-figure-export{display:none !important}
-        #tour-stage #aba6-module-ergo button[onclick^="toggleManikinAnimation"]{display:none}
         /* Simulação Geral: esconde o cabeçalho da Aba 6 para preservar o take 03.
            O viewport continua preenchendo o palco 16:9 sem alteração das transições. */
         #tour-stage #aba6-header{display:none !important;}
@@ -6925,13 +6923,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             return name;
         }
 
-        function setAnimLabel() {
-            const el = document.getElementById('aba6-lbl-anim-btn');
-            if (!el) return;
-            el.textContent = manikinState.animating ? 'Pause Kinematics'
-                : (manikinState.phase >= 0.999 ? 'Restart Simulation'
-                : (manikinState.phase > 0 ? 'Resume Simulation' : 'Start Simulation'));
-        }
+
 
 
         // Exporta os 3 momentos (Step 1 / 2 / 3) lado a lado em PNG com fundo transparente, como na figura de referência.
@@ -7033,11 +7025,11 @@ window.drawUniReferenceBins = drawReferenceBins;
         }
 
         function toggleManikinAnimation() {
-            if (manikinState.animating) { manikinState.animating = false; setAnimLabel(); return; }
+            if (manikinState.animating) { manikinState.animating = false; return; }
             cancelResultsSequence();
             if (manikinState.phase >= 0.999) { manikinState.phase = aphaInitialManikinPhase(); hideCards(); }
             manikinState.animating = true;
-            setAnimLabel();
+            
         }
 
         function cancelResultsSequence() {
@@ -7063,7 +7055,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             cancelResultsSequence();
             manikinState.phase = aphaInitialManikinPhase();
             manikinState.animating = false;
-            setAnimLabel();
+            
             const ergo = document.getElementById('aba6-module-ergo');
             manikinState.swapped = false;
             ergo.style.display = ''; ergo.style.transition = ''; ergo.style.opacity = '';
@@ -7101,7 +7093,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                         if (window.__aba6TourMode) {
                             // O roteiro mantém a pose final e avança ao encerramento.
                             manikinState.animating = false;
-                            setAnimLabel();
+                            
                             window.ergoDone = true;
                         } else {
                             // A Aba 6 autônoma reinicia sem acumular timers.
@@ -7148,8 +7140,6 @@ window.drawUniReferenceBins = drawReferenceBins;
             if (!manikinState.cardsShown) return;
             manikinState.cardsShown = false;
             manikinState.cardFrac = 0;
-            const box = document.getElementById('ergo-overlay');
-            if (box) { box.classList.remove('cards-on'); box.setAttribute('aria-hidden', 'true'); }
             writeCards(0);
         }
 
@@ -7852,8 +7842,6 @@ window.drawUniReferenceBins = drawReferenceBins;
             if (next) next();
         };
 
-        const ergoOverlayEl = document.getElementById('ergo-overlay');   // overlay de resultados removido; mantido opcional
-        if (ergoOverlayEl) ergoOverlayEl.addEventListener('click', dismissCards);
 
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape') dismissCards(); });
 
