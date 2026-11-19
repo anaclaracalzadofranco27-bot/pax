@@ -283,6 +283,12 @@ def verify_blueprint(v: Checker) -> None:
 def verify_bin_kinematics(v: Checker) -> None:
     """Contratos de geometria entre as Abas 5, 6 e 8 e caches conservadores."""
     kinetics = v.read("source/js/engine/cabin-shared.js")
+    config = v.read("source/js/core/config.js")
+    if config is not None:
+        v.check("fuselageRadiusCm: 137.16" in config and
+                "fuselageCenterYCm: 62.84" in config,
+                "Dimensões físicas de referência da cabine foram alteradas")
+
     aba5 = v.read("source/html/ABA5/unified-simulation.js")
     door = v.read("source/html/ABA5/door-addon.js")
     aba5_html = v.read("source/html/ABA5/ABA5.html")
@@ -309,6 +315,28 @@ def verify_bin_kinematics(v: Checker) -> None:
                 "Seis indicadores de altura ou atualização do DOM ausentes")
         v.check("const convBottom =" not in kinetics,
                 "Amostragem quadrática convencional sem consumidor reapareceu")
+
+        # As duas geometrias CAD finais partem dos mesmos dados físicos
+        # usados na cabine; a porta visível conserva o último limite de 82°.
+        v.check("const CABIN_R = APHA_CABIN_GEOMETRY.fuselageRadiusCm;" in kinetics,
+                "Raio do CAD exato deixou de seguir core/config.js")
+        v.check("const CABIN_YC = APHA_CABIN_GEOMETRY.fuselageCenterYCm;" in kinetics,
+                "Centro do CAD exato deixou de seguir core/config.js")
+        v.check("const R = CABIN_R, CY = CABIN_YC" in kinetics,
+                "Bin convencional visível usa outra referência da fuselagem")
+        v.check("const visibleDoorMaxDeg = 82;" in kinetics and
+                "const angle = u * visibleDoorMaxDeg;" in kinetics,
+                "Abertura de 82 graus do desenho convencional foi modificada")
+        v.check("const CONVENTIONAL_DOOR_OPEN_DEG = 39.0;" in kinetics,
+                "Modelo legado de porta alterado sem validar seus cálculos")
+        v.check("if (opts.referenceBins) { ctx.save(); ctx.globalAlpha = 0; }" not in kinetics,
+                "Perfis antigos estão sendo desenhados de maneira invisível")
+        v.check("const alphaRefOuterX = g.x_livre + 88.90 * scaleFactor;" in kinetics and
+                "window.drawUniReferenceBins(ctx, W, H" in kinetics,
+                "Cotas históricas ou desenho do CAD exato ausentes")
+        v.check("cachedAlphaFloor" in kinetics,
+                "Apoio CAD do ALPHA voltou a ser transformado a cada consulta")
+
         for flag in ("__uniRefDoorProgress", "__aphaAlphaBodyOpacity",
                      "__aphaTambourOrange", "cabinSectionReference"):
             v.check(flag in kinetics, f"Dependência de runtime ausente: {flag}")
