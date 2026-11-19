@@ -6319,16 +6319,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                 });
             }
 
-            const xMin = -(g.R + 4);
-            const xMax = (g.R + 4);
-            const yMin = 18, yMax = g.R + 16;
-
-            const padL = 46, padR = 28, padT = 28, padB = 42;
-            const plotW = W - padL - padR, plotH = H - padT - padB;
-            let scale = Math.min(plotW / (xMax - xMin), plotH / (yMax - yMin));
-            let toX = (x) => padL + (x - xMin) * scale;
-            let toY = (y) => H - padB - (y - yMin) * scale;
-            if (opts.map) ({ toX, toY, scale } = opts.map(W, H));
+            // Ambos os chamadores (Aba 5 e exportacao) usam o mapa m1.
+            const { toX, toY, scale } = opts.map(W, H);
             ctx.save();
             if(opts.camera){const c=opts.camera(W,H);if(c){ctx.translate(W/2,H/2);ctx.scale(c.k,c.k);ctx.translate(-c.x,-c.y);}}
             if (opts.before) opts.before(ctx, { W, H, toX, toY, scale });
