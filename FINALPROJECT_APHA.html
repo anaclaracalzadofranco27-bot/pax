@@ -5410,7 +5410,7 @@ function xrayRun(ms) {
 // SUBBLOCO 03.1 - Perfil de referencia do bin Alpha
 // Desenha o perfil e fornece medidas para apoio das malas.
 // -----------------------------------------------------------------------------
-        function traceBinAlphaProfile(ctx, toX, toY, xCorredor, yFlatFloor, sign = 1, scaleFactor = 1.0, R_fus = 137.16, fusCenterY = 0.0, flatBottom = false) {
+        function traceBinAlphaProfile(ctx, toX, toY, xCorredor, yFlatFloor, sign = 1, scaleFactor = 1.0, R_fus = APHA_CABIN_GEOMETRY.fuselageRadiusCm, fusCenterY = 0.0, flatBottom = false) {
             const rad17 = 17.0 * Math.PI / 180.0;
             const cos17 = Math.cos(rad17);
             const sin17 = Math.sin(rad17);
@@ -5583,8 +5583,8 @@ function xrayRun(ms) {
 // SUBBLOCO 03.2 - Perfil de referencia do bin convencional
 // Gera a geometria de referencia no mesmo sistema de coordenadas.
 // -----------------------------------------------------------------------------
-        function traceEmbraerBinProfile(ctx, toX, toY, xCorredor, yPsuShelf, sign = -1, R_fus = 137.16, fusCenterY = 0.0, roundedDoor = false) {
-            const scaleFactor = R_fus / 137.16;
+        function traceEmbraerBinProfile(ctx, toX, toY, xCorredor, yPsuShelf, sign = -1, R_fus = APHA_CABIN_GEOMETRY.fuselageRadiusCm, fusCenterY = 0.0, roundedDoor = false) {
+            const scaleFactor = R_fus / APHA_CABIN_GEOMETRY.fuselageRadiusCm;
             const xTopInnerAbs = xCorredor;
             const yTopInner = fusCenterY + Math.sqrt(Math.max(0, R_fus * R_fus - xTopInnerAbs * xTopInnerAbs)) - 1.2 * scaleFactor;
 
@@ -6128,8 +6128,8 @@ function xrayRun(ms) {
    físicos (o desenho técnico original foi projetado em escala 1:10).
    O contorno da fuselagem, piso e assentos permanece inalterado. */
 (function () {
-const CABIN_R = 137.00;
-        const CABIN_YC = 63.00;
+const CABIN_R = APHA_CABIN_GEOMETRY.fuselageRadiusCm;
+        const CABIN_YC = APHA_CABIN_GEOMETRY.fuselageCenterYCm;
         const CORRIDOR_LEFT_X = -24.50;
 
         const ALPHA_FIXED = Object.freeze({
@@ -6780,10 +6780,15 @@ function alphaTransformPoint(fx, fy, thetaDeg) {
 
         // Geometria CAD única do ALPHA: os pontos do piso são extraídos do
         // mesmo contorno usado pela aba 5, sem reconstituir um bin aproximado.
+        // Os pontos de apoio da mala são estáticos para o mesmo theta;
+        // sua transformação/ordenação é feita apenas quando theta muda.
+        let cachedAlphaFloor = null;
         window.getUniAlphaGeometry = () => {
             state.alphaMode = 'floor';
             state.alphaTargetY = 148.70;
             const alpha = computeRightAlphaLocked();
+            if (cachedAlphaFloor && cachedAlphaFloor.thetaDeg === alpha.thetaDeg)
+                return cachedAlphaFloor.geometry;
             const floorPts = ALPHA_OUTLINE
                 .filter(p => p[0] >= 1354 && p[0] <= 19007 && p[1] >= 18690)
                 .map(p => {
@@ -6791,7 +6796,9 @@ function alphaTransformPoint(fx, fy, thetaDeg) {
                     return { x: q.x, y: -q.ys };
                 })
                 .sort((a, b) => a.x - b.x);
-            return { ...alpha, floorPts };
+            const geometry = { ...alpha, floorPts };
+            cachedAlphaFloor = { thetaDeg: alpha.thetaDeg, geometry };
+            return geometry;
         };
 
 
@@ -6980,7 +6987,6 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
     state.leftBaseY = 138.50;
     state.alphaMode = 'floor';
     state.alphaTargetY = 148.70;
-    state.alphaDoorU = u;
     state.bagInsertPct = 100;
     state.thetaDeg = 0;
     if (!cachedClosedConventional)
@@ -7007,7 +7013,8 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
         // from bin_aeronave_simples.html (fixed CAD dimensions in centimetres).
         ctx.save();
         ctx.globalAlpha *= clamp(fadeConv);
-        const R = 137, CY = 63, bottomY = 138.50, floorY = 153.04;
+        // Usa o mesmo raio/centro da fuselagem compartilhada pelas Abas 5 e 6.
+        const R = CABIN_R, CY = CABIN_YC, bottomY = 138.50, floorY = 153.04;
         const wallX = -Math.sqrt(R*R-(bottomY-CY)**2);
         const src = {x0:8322.484375, y1:21044.689453125,
                      xr:34924.74609375, yTip:15503};
@@ -7102,9 +7109,11 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
         ctx.fillStyle='#9ba9b5';
         ctx.fill(cavity,'evenodd');
         ctx.strokeStyle='#273e57';ctx.lineWidth=.55;ctx.stroke(shell);
-        const max=82;
-        const angle=u*max;
-        const poses=ext.map(p=>turn(p,angle)),ins=inner.map(p=>turn(p,angle));
+        // Abertura final exibida na Simulação Integrada: 82 graus.
+        // A cinemática de 39 graus em computeLeftBinAtY é apenas legado
+        // de medição; não controla esta porta visível.
+        const visibleDoorMaxDeg = 82;
+        const angle = u * visibleDoorMaxDeg;
         if(overrideDoorU==null&&u>0){
             const sweepPath=new Path2D();
             for(let j=0;j<=Math.ceil(angle);j++){
@@ -7417,7 +7426,7 @@ window.drawUniReferenceBins = drawReferenceBins;
 
             // Eixo de Simetria Central e Vão Livre do Corredor (20" = -10" a +10") — limitados ao piso (y = -62.84)
             const yTopGrid = toY(g.R + 14);
-            const yFloorLine = toY(-62.84);
+            const yFloorLine = toY(-APHA_CABIN_GEOMETRY.fuselageCenterYCm);
             ctx.save();
             ctx.setLineDash([5, 5]); ctx.globalAlpha = S(0) * FD.arc;
             ctx.strokeStyle = '#475569';
@@ -7446,7 +7455,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 }
             }
 
-            const scaleFactor = (g.R / 137.16);
+            const scaleFactor = (g.R / APHA_CABIN_GEOMETRY.fuselageRadiusCm);
             const yTopApex = Math.sqrt(Math.max(0, g.R * g.R - g.x_livre * g.x_livre));
 
             // Cores por modelo (malas e cotas)
@@ -7473,68 +7482,58 @@ window.drawUniReferenceBins = drawReferenceBins;
             // =========================================================================
             // LADO ESQUERDO: MODELO CONVENCIONAL EMBRAER (Largura 35", Altura 22,5")
             // =========================================================================
-            if (opts.referenceBins) { ctx.save(); ctx.globalAlpha = 0; }
+            // Cotas técnicas de referência: as posições abaixo são as mesmas
+            // calculadas anteriormente pelos perfis legados (sem redesenhá-los).
             const yPsuEmb = yTopApex - 22.5 * CM_PER_IN * scaleFactor;
-            const clipBin = (sg) => { const a = toX(sg * g.x_livre) - sg * 4, b = toX(sg * (g.R + 6)), e = a + (b - a) * S(1); ctx.beginPath(); ctx.rect(Math.min(a, e), 0, Math.abs(e - a), H); ctx.clip(); };
-            ctx.save(); clipBin(-1);
-            const embProf = faded(FD.conv, () => traceEmbraerBinProfile(ctx, toX, toY, g.x_livre, yPsuEmb, -1, g.R, 0.0, true));
-            ctx.restore();
-
-            cadBag(0, ctx,
-                toX(embProf.bagCx),
-                toY(embProf.bagCy),
-                embProf.bagW * scale,
-                embProf.bagH * scale,
-                embProf.bagAngleRad,
-                'IATA standard',
-                '',
-                false,
-                COR_CONV
-            );
-
-            // =========================================================================
-            // LADO DIREITO: OVERHEAD BIN ALPHA (Largura 35", Altura de 20" a 25")
-            // =========================================================================
             const yBottomAlpha = yTopApex - 20.0 * CM_PER_IN * scaleFactor;
-            ctx.save(); clipBin(1);
-            const alphaProf = faded(FD.alpha, () => traceBinAlphaProfile(ctx, toX, toY, g.x_livre, yBottomAlpha, 1, scaleFactor, g.R, 0.0));
-            ctx.restore();
+            let alphaProf;
 
-            // Na aba 5, os bins CAD de referência são desenhados logo abaixo.
-            // Não desenhar malas do perfil legado atrás da cavidade do Alpha:
-            // ao abrir a porta, esses contornos apareciam através do interior.
-            if (!opts.referenceBins) {
-            cadBag(1, ctx,
-                toX(alphaProf.m1Cx),
-                toY(alphaProf.m1Cy),
-                alphaProf.m1W * scale,
-                alphaProf.m1H * scale,
-                0,
-                'IATA standard',
-                '',
-                true,
-                COR_ALPHA
-            );
-
-            cadBag(2, ctx,
-                toX(alphaProf.m2Cx),
-                toY(alphaProf.m2Cy),
-                alphaProf.m2W * scale,
-                alphaProf.m2H * scale,
-                alphaProf.rad17,
-                'IATA standard',
-                '',
-                true,
-                COR_ALPHA
-            );
-
-            }
-
-            // =========================================================================
-            // Tab 5 only: restore canvas and paint the newly integrated CAD bins.
             if (opts.referenceBins) {
+                // Abas 5/6 e tour: usar apenas o CAD exato, último modelo validado.
+                // Antes esses perfis eram desenhados com globalAlpha=0 por frame.
+                // Preservar somente os 3 valores usados pelas cotas externas.
+                const alphaRefOuterX = g.x_livre + 88.90 * scaleFactor;
+                alphaProf = {
+                    xRampEnd: g.x_livre +
+                        (25.91 + 35.67 * Math.cos(17 * Math.PI / 180)) * scaleFactor,
+                    yLowest: yTopApex - 25.0 * CM_PER_IN * scaleFactor,
+                    yOuterTip: Math.sqrt(Math.max(0, g.R * g.R -
+                        alphaRefOuterX * alphaRefOuterX))
+                };
+                if (window.drawUniReferenceBins)
+                    window.drawUniReferenceBins(ctx, W, H, FD.conv * S(1), FD.alpha * S(1));
+            } else {
+                // Outros usos do CAD conservam os perfis vetoriais de referência.
+                const clipBin = (sg) => {
+                    const a = toX(sg * g.x_livre) - sg * 4;
+                    const b = toX(sg * (g.R + 6));
+                    const e = a + (b - a) * S(1);
+                    ctx.beginPath();
+                    ctx.rect(Math.min(a, e), 0, Math.abs(e - a), H);
+                    ctx.clip();
+                };
+                ctx.save();
+                clipBin(-1);
+                const embProf = faded(FD.conv, () =>
+                    traceEmbraerBinProfile(ctx, toX, toY, g.x_livre,
+                        yPsuEmb, -1, g.R, 0.0, true));
                 ctx.restore();
-                if (window.drawUniReferenceBins) window.drawUniReferenceBins(ctx, W, H, FD.conv * S(1), FD.alpha * S(1));
+                cadBag(0, ctx, toX(embProf.bagCx), toY(embProf.bagCy),
+                    embProf.bagW * scale, embProf.bagH * scale,
+                    embProf.bagAngleRad, 'IATA standard', '', false, COR_CONV);
+
+                ctx.save();
+                clipBin(1);
+                alphaProf = faded(FD.alpha, () =>
+                    traceBinAlphaProfile(ctx, toX, toY, g.x_livre,
+                        yBottomAlpha, 1, scaleFactor, g.R, 0.0));
+                ctx.restore();
+                cadBag(1, ctx, toX(alphaProf.m1Cx), toY(alphaProf.m1Cy),
+                    alphaProf.m1W * scale, alphaProf.m1H * scale,
+                    0, 'IATA standard', '', true, COR_ALPHA);
+                cadBag(2, ctx, toX(alphaProf.m2Cx), toY(alphaProf.m2Cy),
+                    alphaProf.m2W * scale, alphaProf.m2H * scale,
+                    alphaProf.rad17, 'IATA standard', '', true, COR_ALPHA);
             }
             // COTAS TÉCNICAS EXTERNAS DOS BINS (35" LARGURA, 22,5" CONV., 20" E 25" ALPHA)
             // Posicionadas pelo lado de fora da fuselagem para limpar o interior
