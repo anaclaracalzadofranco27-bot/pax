@@ -215,15 +215,14 @@
                 const T1=Math.min(4,U.t/UNI_CAD_SEC);
                 if(U.playing && U.t<TL.open)window.__uniRefDoorProgress=0;
                 if(U.t>=TL.open)window.__uniRefDoorProgress=doorAmount();
-                window.__uniSweepProgress=U.t>=TL.open?doorAmount():0;
                 const slider=document.getElementById('uni-bin-door-slider'),pct=document.getElementById('uni-bin-door-pct');
                 if(U.t>=TL.open){if(slider)slider.value=Math.round(100*window.__uniRefDoorProgress);if(pct)pct.textContent=Math.round(100*window.__uniRefDoorProgress)+'%'}
                 window.BIN_SOLID = true; window.BIN_DARK = true;   // paleta escura (#5b7b9e · #9ba9b5 · #bababa, poltronas #2f4a6b) também na tela
                 try {
-                    drawCADCanvas(U.g, { canvasId: 'uniCanvas', referenceBins: true,
+                    drawCADCanvas(U.g, { canvasId: 'uniCanvas',
                         unifiedCabinBackground: true, tourBackdrop: inTourView(),
                         cssGridBackdrop: !inTourView(),  // Aba 5 individual: canvas transparente sobre .sim-bg
-                        noBags: true, noLegend: inTourView(), finalDims: true, minimalDims: true, T: T1, map: m1, camera:cinematicCamera, noGrid: true, dimFade: 1 - ph(TL.ring, 0.5), fade: U.fx || null, before, after });
+                        noLegend: inTourView(), T: T1, map: m1, camera:cinematicCamera, fade: U.fx || null, before, after });
                     if (U.focus > 0) {   // foco no passageiro da janela (ponta esquerda): o resto do desenho cai para ~18% de opacidade (a malha do quadro não muda)
                         const cvs = document.getElementById('uniCanvas'), box = cvs.parentElement, W = box.offsetWidth, H = box.offsetHeight;
                         const m = m4(W, H), g2 = cvs.getContext('2d'), dpr = cvs.width / Math.max(1, W);
@@ -275,7 +274,6 @@
                     }
                 }
                 const act = phaseIdx();
-                document.querySelectorAll('#uni-chips .cad-chip').forEach((c, i) => { c.classList.toggle('on', i === act && U.t < TOTAL - 0.01); c.classList.toggle('done', i < act || U.t >= TOTAL - 0.01); });
             }
 
             // ---- Barra vertical de estatura + marcos (percentil feminino → média mundial → percentil masculino) ----
@@ -318,7 +316,7 @@
             }
             function play(from) {
                 if (from != null) U.t = from;
-                if(U.t<TL.open){window.__uniRefDoorProgress=0;window.__uniSweepProgress=0;}
+                if(U.t<TL.open)window.__uniRefDoorProgress=0;
                 U.playing = true; U.last = performance.now();
                 cancelAnimationFrame(U.raf); U.raf = requestAnimationFrame(tick); refresh();
             }
@@ -372,15 +370,12 @@
                 const T1=Math.min(4,U.t/UNI_CAD_SEC);
                 if(U.playing && U.t<TL.open)window.__uniRefDoorProgress=0;
                 if(U.t>=TL.open)window.__uniRefDoorProgress=doorAmount();
-                window.__uniSweepProgress=U.t>=TL.open?doorAmount():0;
                 const slider=document.getElementById('uni-bin-door-slider'),pct=document.getElementById('uni-bin-door-pct');
                 if(U.t>=TL.open){if(slider)slider.value=Math.round(100*window.__uniRefDoorProgress);if(pct)pct.textContent=Math.round(100*window.__uniRefDoorProgress)+'%'}
                 window.BIN_SOLID = true; window.BIN_DARK = o.palette === 'dark';
                 try {
                 drawCADCanvas(U.g, {
                     canvas: offscreen,
-                    referenceBins: true,
-                    noBags: true,
                     width: 1920,
                     height: 1080,
                     dpr: 2,
@@ -388,10 +383,6 @@
                     T: T1,
                     map: m1,
                     camera:cinematicCamera,
-                    noGrid: true,
-                    finalDims: true,
-                    minimalDims: true,
-                    dimFade: 1 - ph(TL.ring, 0.5),
                     before,
                     after: (ctx, m) => {
                         after(ctx, m);
