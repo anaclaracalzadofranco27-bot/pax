@@ -8,146 +8,32 @@
     <script src="https://cdn.tailwindcss.com/3.4.17"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@500;700;800&family=Open+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script>
+    <!-- CSS primeiro: cores disponíveis quando config.js inicializa o canvas/Tailwind. -->
+    <style>        /* Tema visual da apresentação: fonte única para CSS, Canvas e Tailwind.
+           Mantenha aqui as cores compartilhadas; o JavaScript apenas as consulta. */
+        :root {
+            --apha-bg: #000223;
+            --apha-panel: #0a1a3a;
+            --apha-border: #2f4a6b;
+            --apha-cyan: #6d90b8;
+            --apha-mid: #5b7b9e;
+            --apha-neutral: #9ba9b5;
+            --apha-muted: #bababa;
+            --apha-text: #e2e8f0;
+            --apha-dark-outline: #08122a;
+            --apha-bin-outline: #273e57;
+            --apha-bin-cavity: #304054;
+            --apha-shell-fill: #94a3b8;
+            --apha-shell-outline: #1e293b;
+            --apha-floor-fill: #cbd5e1;
+            --apha-floor-outline: #64748b;
+            --apha-grid: rgba(91,123,158,0.12);
+            --apha-mid-45: rgba(91,123,158,0.45);
+        }
 
-        // Fonte ÚNICA da paleta da seção transversal da aba 5, compartilhada com a aba 6,
-        // a simulação completa, o canvas biomecânico e as exportações.
-        const APHA_CABIN_PALETTE = (() => {
-            const base = {
-                background: '#000223', panel: '#0a1a3a', border: '#2f4a6b',
-                cyan: '#6d90b8', mid: '#5b7b9e', neutral: '#9ba9b5',
-                muted: '#bababa', text: '#e2e8f0', darkOutline: '#08122a',
-                binOutline: '#273e57', binCavity: '#304054',
-                shellFill: '#94a3b8', shellOutline: '#1e293b',
-                floorFill: '#cbd5e1', floorOutline: '#64748b'
-            };
-            const rgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
-            const rgba = (key, alpha) => 'rgba(' + rgb(base[key]).join(',') + ',' + alpha + ')';
-            return Object.freeze({
-                ...base, rgb, rgba,
-                bgRGB: rgb(base.background),
-                ramp: [
-                    [0, rgb(base.mid)], [0.28, rgb(base.mid)],
-                    [0.55, rgb(base.neutral)], [0.85, rgb(base.neutral)],
-                    [0.97, rgb(base.muted)], [1, rgb(base.muted)]
-                ]
-            });
-        })();
-        window.APHA_CABIN_PALETTE = APHA_CABIN_PALETTE;
-        // Blueprint físico único. A grade acompanha o referencial da cabine
-        // em vez de ser redesenhada com passo/cor distintos na Aba 5 e Aba 6.
-        const APHA_BLUEPRINT = Object.freeze({
-            background: APHA_CABIN_PALETTE.background,
-            grid: APHA_CABIN_PALETTE.rgba('mid', 0.12),
-            gridStepCm: 10 * 2.54
-        });
-        window.APHA_BLUEPRINT = APHA_BLUEPRINT;
-        function drawAphaCabinGrid(ctx, toX, toY) {
-            const step = APHA_BLUEPRINT.gridStepCm;
-            ctx.save();
-            ctx.strokeStyle = APHA_BLUEPRINT.grid;
-            ctx.lineWidth = 1;
-            for (let i = -7; i <= 7; i++) {
-                const x = toX(i * step);
-                ctx.beginPath(); ctx.moveTo(x, toY(-8));
-                ctx.lineTo(x, toY(225)); ctx.stroke();
-            }
-            for (let i = 0; i <= 8; i++) {
-                const y = toY(i * step);
-                ctx.beginPath(); ctx.moveTo(toX(-180), y);
-                ctx.lineTo(toX(180), y); ctx.stroke();
-            }
-            ctx.restore();
-        }
-        window.drawAphaCabinGrid = drawAphaCabinGrid;
-        // Fonte única do background da seção transversal, do manikin e da
-        // ponte de câmera. No tour, #tour-stage já pinta cor + grid fixos.
-        function drawUnifiedCabinBackground(ctx, W, H, opts = {}) {
-            if (opts.tour) return;
-            if (opts.paint !== false) {
-                ctx.save();
-                ctx.fillStyle = APHA_BLUEPRINT.background;
-                ctx.fillRect(0, 0, W, H);
-                ctx.restore();
-            }
-            if (typeof opts.toX === 'function' && typeof opts.toY === 'function') {
-                drawAphaCabinGrid(ctx, opts.toX, opts.toY);
-            }
-        }
-        window.drawUnifiedCabinBackground = drawUnifiedCabinBackground;
-        // Dimensões físicas compartilhadas pela projeção m4 (centímetros).
-        const APHA_CABIN_GEOMETRY = Object.freeze({
-            fuselageRadiusCm: 137.16, fuselageCenterYCm: 62.84,
-            shellThicknessCm: 5.5, aisleHalfWidthCm: 25.4,
-            floorWidthCm: 252, floorThicknessCm: 8
-        });
-        window.APHA_CABIN_GEOMETRY = APHA_CABIN_GEOMETRY;
-        Object.entries({
-            '--apha-bg': APHA_BLUEPRINT.background,
-            '--apha-grid': APHA_BLUEPRINT.grid,
-            '--apha-mid': APHA_CABIN_PALETTE.mid,
-            '--apha-muted': APHA_CABIN_PALETTE.muted,
-            '--apha-mid-45': APHA_CABIN_PALETTE.rgba('mid', .45)
-        }).forEach(([key, value]) => document.documentElement.style.setProperty(key, value));
 
-        // Linha do tempo VISUAL normalizada pelo mesmo phase (0..1) do motor biomecânico.
-        // Altere tempos/durações em segundos aqui; a postura, a cinemática e o cronômetro
-        // continuam usando os valores físicos originais, sem relógios paralelos.
-        const APHA_CINE_TIMELINE = Object.freeze({
-            duration: 10.0,
-            doorOpen: { start: 0, end: 1.0 },
-            doorClose: { start: 9.6, end: 10.0 },
-            enter: { start: .24, end: 1.16, travelPx: 18, minAlpha: .45 },
-            dolly: { start: .10, end: 2.75, reverseStart: 7.75, reverseEnd: 9.72,
-                     zoom: 1.17, panX: -.057, panY: .072 },
-            lowAngle: { start: 3.12, end: 4.30, reverseStart: 6.45, reverseEnd: 7.70,
-                        zoom: 1.30, panX: -.122, panY: .127, shearX: -.021, shearY: .019 },
-            settle: { startPhase: .82, durationPhase: .14, amplitudePx: 2.8 }
-        });
-        window.APHA_CINE_TIMELINE = APHA_CINE_TIMELINE;
-        // Parâmetros de câmera única m4 (abas 5/6) e figura isolada.
-        const APHA_BRIDGE_CFG = Object.freeze({
-            zoomInMs: 0, doorMs: 0, zoomOutMs: 1580, handoffMs: 480,
-            startZoom: 1.72, closeZoom: 2.04, binFocusYcm: 173,
-            startOffsetSeconds: 0.5,
-            uiFadeMs: 280, figurePhase: .83, figureScale: 3,
-            figureW: 1060, figureH: 760, figureMargin: 22
-        });
-        window.APHA_BRIDGE_CFG = APHA_BRIDGE_CFG;
-        // Atrasos relativos à estabilização dos objetos no primeiro quadro CAD.
-        const APHA_INTRO_CFG = Object.freeze({
-            crossfadeMs: 520, titleDelayMs: 180, legendDelayMs: 610,
-            measuresDelayMs: 1020, descriptionDelayMs: 1460, fadeMs: 560,
-            sequenceHoldMs: 2250
-        });
-        window.APHA_INTRO_CFG = APHA_INTRO_CFG;
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace'],
-                    },
-                    colors: {
-                        cad: {
-                            bg: APHA_CABIN_PALETTE.background,
-                            panel: APHA_CABIN_PALETTE.panel,
-                            border: APHA_CABIN_PALETTE.border,
-                            cyan: APHA_CABIN_PALETTE.cyan,
-                            orange: APHA_CABIN_PALETTE.neutral,
-                            green: APHA_CABIN_PALETTE.mid,
-                            red: APHA_CABIN_PALETTE.neutral,
-                            purple: APHA_CABIN_PALETTE.cyan
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
         body {
-            background-color: #000223;
+            background-color: var(--apha-bg);
             color: #d4dce6;
             overflow-x: hidden;
         }
@@ -157,14 +43,14 @@
             height: 6px;
         }
         ::-webkit-scrollbar-track {
-            background: #000223;
+            background: var(--apha-bg);
         }
         ::-webkit-scrollbar-thumb {
-            background: #5b7b9e;
+            background: var(--apha-mid);
             border-radius: 3px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #6d90b8;
+            background: var(--apha-cyan);
         }
         /* Range Sliders Styling */
         input[type=range] {
@@ -175,14 +61,14 @@
             width: 100%;
             height: 5px;
             cursor: pointer;
-            background: #5b7b9e;
+            background: var(--apha-mid);
             border-radius: 3px;
         }
         input[type=range]::-webkit-slider-thumb {
             height: 16px;
             width: 16px;
             border-radius: 50%;
-            background: #6d90b8;
+            background: var(--apha-cyan);
             cursor: pointer;
             -webkit-appearance: none;
             margin-top: -5.5px;
@@ -210,13 +96,13 @@
         #module-unified aside{transition:opacity .28s ease,visibility 0s linear .28s}
         #module-unified.uni-bin-zoom aside{opacity:0 !important;visibility:hidden !important;pointer-events:none !important}
         /* ===== Botões e Chips CAD ===== */
-        .cad-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:#6d90b8;color:#000223;font:600 12px 'JetBrains Mono',monospace;border:0;cursor:pointer;transition:background .2s}
-        .cad-btn:hover{background:#5b7b9e}
+        .cad-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:var(--apha-cyan);color:var(--apha-bg);font:600 12px 'JetBrains Mono',monospace;border:0;cursor:pointer;transition:background .2s}
+        .cad-btn:hover{background:var(--apha-mid)}
         .cad-btn:disabled{opacity:.55;cursor:default}
-        .cad-chip{padding:5px 10px;border-radius:999px;border:1px solid #5b7b9e;background:transparent;color:#d4dce6;font:500 11px 'JetBrains Mono',monospace;cursor:pointer;transition:background .25s,color .25s}
+        .cad-chip{padding:5px 10px;border-radius:999px;border:1px solid var(--apha-mid);background:transparent;color:#d4dce6;font:500 11px 'JetBrains Mono',monospace;cursor:pointer;transition:background .25s,color .25s}
         .cad-chip.done{background:rgba(91,123,158,0.14)}
-        .cad-chip.on{background:#6d90b8;color:#000223;border-color:#6d90b8}
-        .cad-btn:focus-visible,.cad-chip:focus-visible{outline:2px solid #6d90b8;outline-offset:2px}
+        .cad-chip.on{background:var(--apha-cyan);color:var(--apha-bg);border-color:var(--apha-cyan)}
+        .cad-btn:focus-visible,.cad-chip:focus-visible{outline:2px solid var(--apha-cyan);outline-offset:2px}
 
         /* ===== Quadro e Moldura da Simulação Completa (Aba 6) ===== */
         .tw-corner{position:absolute;width:22px;height:22px;z-index:4;border:2px solid rgba(91,123,158,0.7);pointer-events:none}
@@ -444,21 +330,21 @@
         #tour-stage.rec #aba6-module-ergo .sm\:h-\[740px\] { height: calc(var(--rec-h, 819px) * 0.956) !important; }
 
         /* ====== TEMA ESCURO GLOBAL (paleta das abas Biomecânica e Simulação Integrada) ====== */
-        html, body { background-color:#000223; color:#d4dce6; color-scheme:dark; }
+        html, body { background-color:var(--apha-bg); color:#d4dce6; color-scheme:dark; }
         header img[alt="Alpha"] { filter: brightness(0) invert(.82); }
-        ::selection { background:#5b7b9e; color:#000223; }
-        html body .text-slate-600{color:#9ba9b5 !important}
-        html body .text-slate-700{color:#bababa !important}
+        ::selection { background:var(--apha-mid); color:var(--apha-bg); }
+        html body .text-slate-600{color:var(--apha-neutral) !important}
+        html body .text-slate-700{color:var(--apha-muted) !important}
         html body .text-slate-800{color:#d4dce6 !important}
         html body .text-slate-900{color:#d4dce6 !important}
         html body .text-slate-950{color:#d4dce6 !important}
         html body .hover\:text-slate-900:hover{color:#d4dce6 !important}
         html body .hover\:bg-slate-200:hover{background-color:rgba(91,123,158,.25) !important}
         html body .bg-slate-200{background-color:#0d2040 !important}
-        html body .bg-white{background-color:#0a1a3a !important}
+        html body .bg-white{background-color:var(--apha-panel) !important}
         html body .bg-white\/90{background-color:rgba(0,2,35,.9) !important}
         html body .border-slate-300,html body .border-slate-400{border-color:rgba(91,123,158,.45) !important}
-        html body .text-white{color:#000223 !important}
+        html body .text-white{color:var(--apha-bg) !important}
         html body .bg-amber-500.text-slate-950,html body .bg-amber-500 .text-slate-950{color:#020617 !important}
 
         /* ===================================================================================================
@@ -746,6 +632,153 @@
   #scene-3 .clip, #scene-3 .stamp {max-width: 100%; height: auto;}
 }
 </style>
+    <script>
+
+        // Cores da apresentação são declaradas no CSS global. Este adaptador
+        // lê os mesmos valores para renderização Canvas, exportação e Tailwind.
+        // O <style> principal é carregado antes deste script no <head>.
+        const APHA_STYLE = getComputedStyle(document.documentElement);
+        function aphaThemeColor(token) {
+            const value = APHA_STYLE.getPropertyValue('--apha-' + token).trim();
+            if (!value) throw new Error('Missing CSS palette token: --apha-' + token);
+            return value;
+        }
+        const APHA_CABIN_PALETTE = (() => {
+            const base = {
+                background: aphaThemeColor('bg'),
+                panel: aphaThemeColor('panel'),
+                border: aphaThemeColor('border'),
+                cyan: aphaThemeColor('cyan'),
+                mid: aphaThemeColor('mid'),
+                neutral: aphaThemeColor('neutral'),
+                muted: aphaThemeColor('muted'),
+                text: aphaThemeColor('text'),
+                darkOutline: aphaThemeColor('dark-outline'),
+                binOutline: aphaThemeColor('bin-outline'),
+                binCavity: aphaThemeColor('bin-cavity'),
+                shellFill: aphaThemeColor('shell-fill'),
+                shellOutline: aphaThemeColor('shell-outline'),
+                floorFill: aphaThemeColor('floor-fill'),
+                floorOutline: aphaThemeColor('floor-outline')
+            };
+            const rgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+            const rgba = (key, alpha) => 'rgba(' + rgb(base[key]).join(',') + ',' + alpha + ')';
+            return Object.freeze({
+                ...base, rgb, rgba,
+                bgRGB: rgb(base.background),
+                ramp: [
+                    [0, rgb(base.mid)], [0.28, rgb(base.mid)],
+                    [0.55, rgb(base.neutral)], [0.85, rgb(base.neutral)],
+                    [0.97, rgb(base.muted)], [1, rgb(base.muted)]
+                ]
+            });
+        })();
+        window.APHA_CABIN_PALETTE = APHA_CABIN_PALETTE;
+        // Blueprint físico único. A grade acompanha o referencial da cabine
+        // em vez de ser redesenhada com passo/cor distintos na Aba 5 e Aba 6.
+        const APHA_BLUEPRINT = Object.freeze({
+            background: APHA_CABIN_PALETTE.background,
+            grid: aphaThemeColor('grid'),
+            gridStepCm: 10 * 2.54
+        });
+        window.APHA_BLUEPRINT = APHA_BLUEPRINT;
+        function drawAphaCabinGrid(ctx, toX, toY) {
+            const step = APHA_BLUEPRINT.gridStepCm;
+            ctx.save();
+            ctx.strokeStyle = APHA_BLUEPRINT.grid;
+            ctx.lineWidth = 1;
+            for (let i = -7; i <= 7; i++) {
+                const x = toX(i * step);
+                ctx.beginPath(); ctx.moveTo(x, toY(-8));
+                ctx.lineTo(x, toY(225)); ctx.stroke();
+            }
+            for (let i = 0; i <= 8; i++) {
+                const y = toY(i * step);
+                ctx.beginPath(); ctx.moveTo(toX(-180), y);
+                ctx.lineTo(toX(180), y); ctx.stroke();
+            }
+            ctx.restore();
+        }
+        window.drawAphaCabinGrid = drawAphaCabinGrid;
+        // Fonte única do background da seção transversal, do manikin e da
+        // ponte de câmera. No tour, #tour-stage já pinta cor + grid fixos.
+        function drawUnifiedCabinBackground(ctx, W, H, opts = {}) {
+            if (opts.tour) return;
+            if (opts.paint !== false) {
+                ctx.save();
+                ctx.fillStyle = APHA_BLUEPRINT.background;
+                ctx.fillRect(0, 0, W, H);
+                ctx.restore();
+            }
+            if (typeof opts.toX === 'function' && typeof opts.toY === 'function') {
+                drawAphaCabinGrid(ctx, opts.toX, opts.toY);
+            }
+        }
+        window.drawUnifiedCabinBackground = drawUnifiedCabinBackground;
+        // Dimensões físicas compartilhadas pela projeção m4 (centímetros).
+        const APHA_CABIN_GEOMETRY = Object.freeze({
+            fuselageRadiusCm: 137.16, fuselageCenterYCm: 62.84,
+            shellThicknessCm: 5.5, aisleHalfWidthCm: 25.4,
+            floorWidthCm: 252, floorThicknessCm: 8
+        });
+        window.APHA_CABIN_GEOMETRY = APHA_CABIN_GEOMETRY;
+        // Linha do tempo VISUAL normalizada pelo mesmo phase (0..1) do motor biomecânico.
+        // Altere tempos/durações em segundos aqui; a postura, a cinemática e o cronômetro
+        // continuam usando os valores físicos originais, sem relógios paralelos.
+        const APHA_CINE_TIMELINE = Object.freeze({
+            duration: 10.0,
+            doorOpen: { start: 0, end: 1.0 },
+            doorClose: { start: 9.6, end: 10.0 },
+            enter: { start: .24, end: 1.16, travelPx: 18, minAlpha: .45 },
+            dolly: { start: .10, end: 2.75, reverseStart: 7.75, reverseEnd: 9.72,
+                     zoom: 1.17, panX: -.057, panY: .072 },
+            lowAngle: { start: 3.12, end: 4.30, reverseStart: 6.45, reverseEnd: 7.70,
+                        zoom: 1.30, panX: -.122, panY: .127, shearX: -.021, shearY: .019 },
+            settle: { startPhase: .82, durationPhase: .14, amplitudePx: 2.8 }
+        });
+        window.APHA_CINE_TIMELINE = APHA_CINE_TIMELINE;
+        // Parâmetros de câmera única m4 (abas 5/6) e figura isolada.
+        const APHA_BRIDGE_CFG = Object.freeze({
+            zoomInMs: 0, doorMs: 0, zoomOutMs: 1580, handoffMs: 480,
+            startZoom: 1.72, closeZoom: 2.04, binFocusYcm: 173,
+            startOffsetSeconds: 0.5,
+            uiFadeMs: 280, figurePhase: .83, figureScale: 3,
+            figureW: 1060, figureH: 760, figureMargin: 22
+        });
+        window.APHA_BRIDGE_CFG = APHA_BRIDGE_CFG;
+        // Atrasos relativos à estabilização dos objetos no primeiro quadro CAD.
+        const APHA_INTRO_CFG = Object.freeze({
+            crossfadeMs: 520, titleDelayMs: 180, legendDelayMs: 610,
+            measuresDelayMs: 1020, descriptionDelayMs: 1460, fadeMs: 560,
+            sequenceHoldMs: 2250
+        });
+        window.APHA_INTRO_CFG = APHA_INTRO_CFG;
+        // Adaptador visual exigido pelo Tailwind CDN; CSS permanece a fonte das cores.
+tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        cad: {
+                            bg: APHA_CABIN_PALETTE.background,
+                            panel: APHA_CABIN_PALETTE.panel,
+                            border: APHA_CABIN_PALETTE.border,
+                            cyan: APHA_CABIN_PALETTE.cyan,
+                            orange: APHA_CABIN_PALETTE.neutral,
+                            green: APHA_CABIN_PALETTE.mid,
+                            red: APHA_CABIN_PALETTE.neutral,
+                            purple: APHA_CABIN_PALETTE.cyan
+                        }
+                    }
+                }
+            }
+        }
+
+</script>
 </head>
 <body class="min-h-screen flex flex-col font-sans antialiased selection:bg-cad-cyan selection:text-white">
 
