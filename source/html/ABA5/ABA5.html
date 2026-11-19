@@ -9,8 +9,7 @@
             <div class="bg-cad-panel border border-cad-border rounded-xl overflow-hidden flex flex-col sim-card">
                 <div class="px-4 py-2 bg-cad-panel border-b border-cad-border flex flex-wrap items-center gap-3">
                     <button id="uni-play" type="button" onclick="uniTogglePlay()" class="cad-btn"></button>
-                    <div id="uni-chips" style="display:none !important" aria-hidden="true"></div>
-                    <input id="uni-scrub" type="range" min="0" max="20" step="0.01" value="0" class="flex-1 min-w-[140px]" aria-label="Integrated timeline" oninput="uniScrub(this.value)">
+                        <input id="uni-scrub" type="range" min="0" max="20" step="0.01" value="0" class="flex-1 min-w-[140px]" aria-label="Integrated timeline" oninput="uniScrub(this.value)">
 
                     <button id="uni-bin-door-toggle" type="button" onclick="uniRefToggleDoors()" class="cad-btn" title="Operate the conventional hinged door and Alpha curved-rail sliding door">Open bin doors</button>
                     <label for="uni-bin-door-slider" class="text-[10px] font-mono text-slate-600 whitespace-nowrap">Doors <span id="uni-bin-door-pct">0%</span></label>
@@ -34,14 +33,6 @@
                     </aside>
                 </div>
                 
-                <div id="uni-bin-height-compare" hidden aria-hidden="true" style="display:none !important" class="grid grid-cols-1 md:grid-cols-2 gap-3 px-4 py-3 border-t border-cad-border bg-cad-bg text-[11px] font-mono">
-                    <div><strong class="text-slate-800">HIGH FLOOR POINT · ABOVE CABIN FLOOR</strong>
-                        <div class="flex gap-4 flex-wrap mt-1 text-slate-600">Conventional <b id="uni-height-conv-high">—</b> Alpha <b id="uni-height-alpha-high">—</b> <span>Δ Alpha − Conventional <b id="uni-height-delta-high">—</b></span></div>
-                    </div>
-                    <div><strong class="text-slate-800">LOWEST BIN POINT · ABOVE CABIN FLOOR</strong>
-                        <div class="flex gap-4 flex-wrap mt-1 text-slate-600">Conventional <b id="uni-height-conv-low">—</b> Alpha <b id="uni-height-alpha-low">—</b> <span>Δ Alpha − Conventional <b id="uni-height-delta-low">—</b></span></div>
-                    </div>
-                </div>
                 <div class="px-4 py-1.5 bg-cad-bg border-t border-cad-border flex items-center justify-end">
                     <span class="text-[11px] font-mono italic text-slate-600">* Approximate values</span>
                 </div>

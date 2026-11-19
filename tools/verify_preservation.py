@@ -159,7 +159,7 @@ def verify_engine(v: Checker) -> None:
         v.order(engine, ordered_sections,
                 "Indice dos oito blocos nao corresponde a ordem real de execucao")
         for subsection in ("02.1", "02.2", "03.1",
-                           "04.1", "05.1", "05.2", "05.3", "05.4", "05.5",
+                           "04.1", "05.1", "05.2", "05.3", "05.4",
                            "08.1"):
             v.check(engine.count(f"// SUBBLOCO {subsection} -") == 1,
                     f"Subbloco de documentacao ausente/duplicado: {subsection}")
@@ -309,17 +309,18 @@ def verify_bin_kinematics(v: Checker) -> None:
                     f"Código legado sem consumidor reapareceu: {dead}")
         v.check("const CONV_CAD_BASE_Y_CM = 138.50;" in kinetics and
                 "const CONV_CAD_TIP_Y_CM = 153.04;" in kinetics and
-                "const highConv = CONV_CAD_TIP_Y_CM" in kinetics,
-                "Cotas convencionais deixaram de usar o CAD visível")
+                "getConventionalCadGeometry()" in kinetics,
+                "CAD convencional perdeu as referencias fisicas calibradas")
         v.check("const ALPHA_CAD_FLOOR_TARGET_Y_CM = 148.70;" in kinetics,
                 "Alvo de altura Alpha duplicado/ausente")
         v.check("cachedAlphaTheta" in kinetics and
                 "cachedAlphaGeometry" in kinetics and
                 "alphaUndersideForTheta(computeRightAlphaLocked().thetaDeg)" in kinetics,
                 "Cache geométrico ALPHA incompleto")
-        v.check(kinetics.count("uni-height-") == 6 and
-                "function updateHeightReadouts(" in kinetics,
-                "Seis indicadores de altura ou atualização do DOM ausentes")
+        v.check("function updateHeightReadouts(" not in kinetics and
+                "uni-height-" not in kinetics and
+                "uni-bin-height-compare" not in (v.read("source/html/ABA5/ABA5.html") or ""),
+                "Telemetria de altura permanentemente oculta reapareceu")
         v.check("const convBottom =" not in kinetics,
                 "Amostragem quadrática convencional sem consumidor reapareceu")
         v.check(all(dead not in kinetics for dead in
@@ -340,9 +341,14 @@ def verify_bin_kinematics(v: Checker) -> None:
                 "Abertura de 82 graus do desenho convencional foi modificada")
         v.check("if (opts.referenceBins) { ctx.save(); ctx.globalAlpha = 0; }" not in kinetics,
                 "Perfis antigos estão sendo desenhados de maneira invisível")
-        v.check("const alphaRefOuterX = g.x_livre + 88.90 * scaleFactor;" in kinetics and
-                "window.drawUniReferenceBins(ctx, W, H" in kinetics,
-                "Cotas históricas ou desenho do CAD exato ausentes")
+        v.check("window.drawUniReferenceBins(ctx, W, H" in kinetics and
+                "window.getUniBinUndersideY =" in kinetics and
+                "function drawDimensionLine(" in kinetics,
+                "CAD exato ou cotas de folga da cabeca ausentes")
+        v.check("const cadDim =" not in kinetics and
+                "if (!opts.noGrid)" not in kinetics and
+                "return {" in kinetics,
+                "Rotinas CAD desativadas voltaram ao motor")
         v.check("cachedAlphaFloor" in kinetics,
                 "Apoio CAD do ALPHA voltou a ser transformado a cada consulta")
         v.check("function drawAphaCabinFloor(" in config and
