@@ -722,6 +722,17 @@
             floorWidthCm: 252, floorThicknessCm: 8
         });
         window.APHA_CABIN_GEOMETRY = APHA_CABIN_GEOMETRY;
+        // Primitiva unica do piso fisico em cm: completa (progress=1)
+        // ou revelada do centro durante o take da Aba 5 (0..1).
+        function drawAphaCabinFloor(ctx, toX, toY, scale, progress = 1) {
+            const widthCm = APHA_CABIN_GEOMETRY.floorWidthCm * progress;
+            const heightCm = APHA_CABIN_GEOMETRY.floorThicknessCm;
+            ctx.fillStyle = APHA_CABIN_PALETTE.floorFill;
+            ctx.strokeStyle = APHA_CABIN_PALETTE.floorOutline;
+            ctx.lineWidth = 1.8;
+            ctx.fillRect(toX(-widthCm / 2), toY(0), widthCm * scale, heightCm * scale);
+            ctx.strokeRect(toX(-widthCm / 2), toY(0), widthCm * scale, heightCm * scale);
+        }
         // Linha do tempo VISUAL normalizada pelo mesmo phase (0..1) do motor biomecânico.
         // Altere tempos/durações em segundos aqui; a postura, a cinemática e o cronômetro
         // continuam usando os valores físicos originais, sem relógios paralelos.
@@ -4986,22 +4997,101 @@ function xrayRun(ms) {
                 if (cache.size > 2000) cache.clear();
                 cache.set(key, out); return out;
             };
+            // Reutiliza os conversores/escala de luminancia definidos acima.
+            const lilacCache = new Map();
+                const lilac = c => {
+                    if (lilacCache.has(c)) return lilacCache.get(c);
+                    let out = c; const v = toRGBA(c.trim());
+                    if (v) {
+                        const r = v[0] / 255, g = v[1] / 255, b = v[2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+                        let h = 0, sat = 0;
+                        if (d > 0) {
+                            sat = d / (1 - Math.abs(2 * l - 1));
+                            h = mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+                            h *= 60;
+                        }
+                        if (d > 0 && sat <= 0.5 && h >= 190 && h <= 250 && l > 0.1 && l < 0.97) {   // família cinza-azulada (slate) e índigo suave
+                            const s2 = Math.min(0.42, 0.18 + sat * 0.55);
+                            out = `hsla(258, ${(s2 * 100).toFixed(1)}%, ${(l * 100).toFixed(1)}%, ${v[3]})`;
+                        }
+                    }
+                    if (lilacCache.size > 2000) lilacCache.clear();
+                    lilacCache.set(c, out); return out;
+                };
+                const dkCache = new Map();
+                const integratedDark = (c, kind) => {
+                    const role = window.__dkRole || '', key = role + '|' + kind + '|' + c;
+                    if (dkCache.has(key)) return dkCache.get(key);
+                    // Background da cabine é fixo, não uma superfície a remapear.
+                    if (c.trim().toLowerCase() === APHA_BLUEPRINT.background) return c;
+                    const v = toRGBA(c.trim()) || hslToRGBA(c.trim()); let out = c;
+                    if (v) {
+                        const a = v[3];
+                        // poltrona: um pouco mais escura que os bonecos (preenchimento #9ba9b5) e linhas/contornos em #5b7b9e
+                        if (role === 'seat') out = kind === 'stroke' ? APHA_CABIN_PALETTE.rgba('cyan', a) : APHA_CABIN_PALETTE.rgba('border', a);   // poltrona: azul escuro (#2f4a6b) com contorno azul médio (#6d90b8)
+                        else if (role === 'dummy' && kind === 'stroke' && (0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]) / 255 < 0.3) out = `rgba(8,18,42,${a})`;   // boneco: contorno azul-marinho quase preto, bem nítido sobre o corpo cinza
+                        else if (Math.round(v[0]) === 245 && Math.round(v[1]) === 245 && Math.round(v[2]) === 245) out = `rgba(${BG[0]},${BG[1]},${BG[2]},${a})`;
+                        else {
+                            const L = (0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]) / 255; let col = RAMP[RAMP.length - 1][1];
+                            for (let i = 1; i < RAMP.length; i++) if (L <= RAMP[i][0]) { const [l0, c0] = RAMP[i - 1], [l1, c1] = RAMP[i], t = l1 === l0 ? 0 : (L - l0) / (l1 - l0); col = c0.map((x, j) => x + (c1[j] - x) * t); break; }
+                            out = `rgba(${col.map(Math.round).join(',')},${a})`;
+                        }
+                    }
+                    if (dkCache.size > 2000) dkCache.clear();
+                    dkCache.set(key, out); return out;
+                };
+
+            // Unico conjunto de interceptores; modo escolhido pelas flags existentes.
             ['fillStyle', 'strokeStyle'].forEach(k => {
                 const d = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, k);
                 Object.defineProperty(CanvasRenderingContext2D.prototype, k, {
                     configurable: true, enumerable: d.enumerable, get: d.get,
-                    set(val) { d.set.call(this, (typeof val === 'string' && dkOn()) ? dark(val, k === 'strokeStyle' ? 'stroke' : 'fill') : val); }
+                    set(val) {
+                        const lowerColor = typeof val === 'string' ? val.toLowerCase() : '';
+                        const tambourAccent = window.__aphaTambourOrange === true &&
+                            ['#b84a16', '#ff8a45', '#ff6b1a', '#a43d12'].includes(lowerColor);
+                        const accent = typeof val === 'string' && (tambourAccent ||
+                            (window.BIN_SOLID &&
+                            ['#4fc1ff', '#569cd6', '#8dd7ff', '#143550', '#ff6b00', 'rgba(255,107,0,0.22)'].includes(lowerColor)));
+                        const integratedMode = window.BIN_SOLID || window.BIN_DARK;
+                        const role = k === 'strokeStyle' ? 'stroke' : 'fill';
+                        const output = typeof val !== 'string' || (integratedMode && accent) ? val
+                            : window.BIN_DARK ? integratedDark(val, role)
+                            : window.BIN_SOLID ? lilac(val)
+                            : dkOn() ? dark(val, role) : val;
+                        d.set.call(this, output);
+                    }
                 });
             });
             const acs0 = CanvasGradient.prototype.addColorStop;
-            CanvasGradient.prototype.addColorStop = function (o, c) { return acs0.call(this, o, (dkOn() && typeof c === 'string') ? dark(c, 'fill') : c); };
+            CanvasGradient.prototype.addColorStop = function (o, color) {
+                return acs0.call(this, o,
+                    typeof color !== 'string' ? color :
+                    window.BIN_DARK ? integratedDark(color, 'fill') :
+                    dkOn() ? dark(color, 'fill') : color);
+            };
+            const st0 = CanvasRenderingContext2D.prototype.stroke;
+            CanvasRenderingContext2D.prototype.stroke = function (...a) {
+                if (window.BIN_DARK && window.__dkRole === 'dummy' && this.lineWidth >= 1.3 && this.lineWidth <= 1.7) {
+                    const w = this.lineWidth; this.lineWidth = w * 2.6;
+                    try { return st0.apply(this, a); } finally { this.lineWidth = w; }
+                }
+                return st0.apply(this, a);
+            };
             const ft0 = CanvasRenderingContext2D.prototype.fillText;
-            CanvasRenderingContext2D.prototype.fillText = function (...a) {
+            const ergoFillText = function (...a) {
                 if (!dkOn()) return ft0.apply(this, a);
                 const orig = this.fillStyle, v = typeof orig === 'string' ? toRGBA(orig) : null;
-                const dim = v && Math.abs(v[0] - 100) < 4 && Math.abs(v[1] - 116) < 4 && Math.abs(v[2] - 139) < 4;   // numeração discreta da grade (#64748b)
+                const dim = v && Math.abs(v[0] - 100) < 4 && Math.abs(v[1] - 116) < 4 && Math.abs(v[2] - 139) < 4;
                 window.ERGO_DARK = false;
-                try { this.fillStyle = dim ? '#6f8fb0' : '#bababa'; ft0.apply(this, a); this.fillStyle = orig; } finally { window.ERGO_DARK = true; }
+                try { this.fillStyle = dim ? '#6f8fb0' : '#bababa'; ft0.apply(this, a); this.fillStyle = orig; }
+                finally { window.ERGO_DARK = true; }
+            };
+            CanvasRenderingContext2D.prototype.fillText = function (...a) {
+                if (!window.BIN_DARK) return ergoFillText.apply(this, a);
+                const previous = this.fillStyle; window.BIN_DARK = false;
+                try { this.fillStyle = '#bababa'; ergoFillText.apply(this, a); this.fillStyle = previous; }
+                finally { window.BIN_DARK = true; }
             };
             // liga a paleta escura nas funções de desenho da simulação (declarações de função são reatribuíveis)
             const wrap = (fn, role) => function (...a) {
@@ -5016,7 +5106,6 @@ function xrayRun(ms) {
             };
             drawManikinViewport = wrap(drawManikinViewport);
             exportManikinSteps = wrap(exportManikinSteps);
-            traceBinAlphaProfile = wrapIn(traceBinAlphaProfile, 'bin');
             drawRealisticSuitcase = wrapIn(drawRealisticSuitcase, 'bin');
         })();
 
@@ -5275,394 +5364,12 @@ function xrayRun(ms) {
             }
         }
 
-                // Polígono fechado com cantos levemente arredondados (só nos vértices vivos; curvas amostradas ficam intactas)
-
-// -----------------------------------------------------------------------------
-// SUBBLOCO 02.3 - Utilitarios geometricos 2D
-// Arredonda vertices e interpola pontos em curvas quadraticas.
-// -----------------------------------------------------------------------------
-        function roundedPoly(ctx, pts, r) {
-            const n = pts.length, out = [];
-            const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-            ctx.moveTo(...mid(pts[n - 1], pts[0]));
-            for (let i = 0; i < n; i++) {
-                const p = pts[i], a = pts[(i + n - 1) % n], b = pts[(i + 1) % n];
-                const v1 = [a[0] - p[0], a[1] - p[1]], v2 = [b[0] - p[0], b[1] - p[1]];
-                const l1 = Math.hypot(...v1), l2 = Math.hypot(...v2);
-                const cos = (v1[0] * v2[0] + v1[1] * v2[1]) / (l1 * l2 || 1);
-                const phi = Math.acos(Math.max(-1, Math.min(1, cos)));      // ângulo interno do vértice
-                if (phi > Math.PI * 0.88 || phi < 0.05) { ctx.lineTo(p[0], p[1]); continue; }   // praticamente reto
-                const tanHalf = Math.tan(phi / 2);
-                const tLen = Math.min(r / Math.max(tanHalf, 0.35), Math.min(l1, l2) * 0.5);   // pontas agudas também ganham arredondamento
-                const rr = tLen * tanHalf;
-                ctx.arcTo(p[0], p[1], b[0], b[1], rr);
-            }
-            ctx.closePath();
-        }
-        function quadPts(p0, c, p1, n = 12) {
-            const o = [];
-            for (let i = 1; i <= n; i++) { const t = i / n, u = 1 - t; o.push([u * u * p0[0] + 2 * u * t * c[0] + t * t * p1[0], u * u * p0[1] + 2 * u * t * c[1] + t * t * p1[1]]); }
-            return o;
-        }
-
-        // =====================================================================
-
 // =============================================================================
-// BLOCO 03/08 - PERFIS VETORIAIS DOS BINS E MALAS
-// Usa os contornos como referencia de forma e dimensoes.
-// Inclui perfis Alpha/convencional e malas no Canvas.
+// BLOCO 03/08 - RENDERIZACAO DE BAGAGENS
+// Os bins usam somente o CAD do Bloco 05; sem perfis paralelos.
 // =============================================================================
-        // BINS VETORIZADOS (bins.pdf): contorno exato desenhado no CorelDRAW, usado na Simulação Integrada (BIN_SOLID).
-        // Os dois contornos estão no mesmo quadro e na mesma escala do PDF (pontos): o corredor (x_livre) e o ápice da fuselagem
-        // no corredor são a origem; k converte pontos do PDF em cm (bin Alpha = 35" de largura = 88,90 cm).
-        // =====================================================================
-        const BIN_VEC = {
-            k: 88.9 / (468.035156 - 338.710938),
-            yTop: 322.28125,
-            xAisle: { alpha: 338.710938, conv: 261.473193 },
-            // Proporções vindas das COTAS/CAD de cada bin (e não da escala do PDF): o PDF só fornece o formato do contorno.
-            //   Convencional: largura 35" (88,90 cm). Queda do fundo desde o ápice do corredor: 21" sob o passageiro do CORREDOR (x = 48,5; u = 23,1 cm)
-            //   e 23" (ponto mais baixo) sob o passageiro da JANELA (fundo plano, u >= 51 cm); transição linear entre os dois.
-            //   Alpha (desenho CAD do bin): largura 893,53 mm e altura 641,92 mm, do ápice (teto no limite do corredor) ao ponto mais baixo.
-            // hsf = fator horizontal, vsf = fator vertical (pode depender de u, em cm) aplicados ao contorno bruto do PDF (k cm/pt).
-            hsf: function (kind) {
-                return kind === 'conv' ? (35 * 2.54) / ((261.473193 - 131.23) * this.k)          // largura do contorno do PDF → 35"
-                                       : 89.353 / ((468.035156 - 338.710938) * this.k);          // → 893,53 mm
-            },
-            vsf: function (kind, u) {
-                if (kind !== 'conv') return 64.192 / ((414.418 - 322.28125) * this.k);           // Alpha → 641,92 mm
-                const sF = (23.0 * 2.54) / ((409.148438 - 322.28125) * this.k);                  // fundo plano: 23"
-                const sA = (21.0 * 2.54) / 55.564;                                               // 55,564 = calibrado para o fundo desenhado ficar em 21,00" sob o passageiro do corredor (u = 23,1)
-                const t = Math.max(0, Math.min(1, (u - 23.1) / (51.0 - 23.1)));
-                return sA + (sF - sA) * t;
-            },
-            // Ponto do contorno bruto do PDF (pt) → [u, v] em cm (u = distância ao corredor, v = queda desde o ápice), com hsf/vsf aplicados.
-            map: function (kind, px, py) {
-                const u = (kind === 'alpha' ? px - this.xAisle.alpha : this.xAisle.conv - px) * this.k * this.hsf(kind);
-                return [u, (py - this.yTop) * this.k * this.vsf(kind, u)];
-            },
-            // Alpha: depois do fim da rampa (436,867 pt; queda máxima de 25,27") o fundo sobe levemente até o trecho final (era plano no PDF),
-            // para que a queda sobre o passageiro da JANELA (u = 74,1 cm) seja de 24,94" — ponto "L 454,109 · 412,137".
-            alpha: [["M",468.035,408.293],["C",444.059,370.688,392.512,330.418,338.711,322.281],["L",338.859,389.785],["C",338.859,391.582,342.18,395.766,344.406,395.84],["C",355.32,395.84,376.125,395.508,377.148,395.84],["C",388.441,399.508,411.758,406.652,436.867,414.418],["L",454.109,412.137],["C",457.012,411.774,466.32,410.871,468.035,408.293]],
-            conv: [["M",240.66,327.891],["C",175.828,345.75,136.855,399.184,131.23,409.148],["L",188.004,409.148],["C",195.258,406.73,247.043,400.938,256.984,396.199],["C",258.012,395.711,260.449,394.527,261.316,391.453],["C",261.316,380.773,262.793,353.68,256.684,337.43],["C",254.988,332.93,248.312,327.867,241.695,327.832],["C",240.863,327.824,241.48,327.711,240.66,327.891]]
-        };
-        function traceVectorBin(ctx, toX, toY, kind, xCorredor, sign, yApex, sf, Rw, cyW) {
-            const V = BIN_VEC;
-            const P = (px, py) => {
-                const m = V.map(kind, px, py);   // [distância a partir do corredor, queda a partir do ápice] em cm
-                return [toX((xCorredor + m[0] * sf) * sign), toY(yApex - m[1] * sf)];
-            };
-            ctx.save();
-            // o bin nunca ultrapassa a parede interna da fuselagem
-            ctx.beginPath(); ctx.arc(toX(0), toY(cyW), Math.abs(toX(Rw) - toX(0)), 0, Math.PI * 2); ctx.clip();
-            ctx.beginPath();
-            V[kind].forEach(s => {
-                if (s[0] === 'M') { const a = P(s[1], s[2]); ctx.moveTo(a[0], a[1]); }
-                else if (s[0] === 'L') { const a = P(s[1], s[2]); ctx.lineTo(a[0], a[1]); }
-                else { const a = P(s[1], s[2]), b = P(s[3], s[4]), c = P(s[5], s[6]); ctx.bezierCurveTo(a[0], a[1], b[0], b[1], c[0], c[1]); }
-            });
-            ctx.closePath();
-            ctx.lineJoin = 'round';
-            ctx.fillStyle = '#e7dbed';   // cor de preenchimento do PDF
-            ctx.fill();
-            ctx.stroke();
-            ctx.restore();
-        }
-
-        // Helper para desenhar Geometria Técnica Fiel do Bin Alpha (35" de largura radial, altura variando de 20" na frente a 25" no fundo)
-
 // -----------------------------------------------------------------------------
-// SUBBLOCO 03.1 - Perfil de referencia do bin Alpha
-// Desenha o perfil e fornece medidas para apoio das malas.
-// -----------------------------------------------------------------------------
-        function traceBinAlphaProfile(ctx, toX, toY, xCorredor, yFlatFloor, sign = 1, scaleFactor = 1.0, R_fus = APHA_CABIN_GEOMETRY.fuselageRadiusCm, fusCenterY = 0.0, flatBottom = false) {
-            const rad17 = 17.0 * Math.PI / 180.0;
-            const cos17 = Math.cos(rad17);
-            const sin17 = Math.sin(rad17);
-
-            const W_flat = 25.91 * scaleFactor;
-            const L_ramp = 35.67 * scaleFactor;
-            const H_door = 40.33 * scaleFactor;
-            const H_chan = 25.11 * scaleFactor;
-            const W_tot  = 88.90 * scaleFactor;   // 35.0" de largura transversal exata (88,90 cm)
-
-            const x0 = xCorredor * sign;
-            const y0 = yFlatFloor;
-
-            const xFlatEnd = (xCorredor + W_flat) * sign;
-            const yFlatEnd = y0;
-
-            const xRampEnd = (xCorredor + W_flat + L_ramp * cos17) * sign;
-            const yRampEnd = y0 - L_ramp * sin17;
-
-            const xDivTop = (xCorredor + W_flat + L_ramp * cos17 + H_chan * sin17) * sign;
-            const yDivTop = yRampEnd + H_chan * cos17;
-
-            const xStep = (xCorredor + W_flat) * sign;
-            const yStepBot = yFlatEnd + H_chan / cos17;
-            const yStepTop = y0 + H_door - 1.8 * scaleFactor;
-
-            const yTopApex = fusCenterY + Math.sqrt(Math.max(0, R_fus * R_fus - xCorredor * xCorredor));
-
-            const xOuterTip = (xCorredor + W_tot) * sign;
-            const yOuterTip = fusCenterY + Math.sqrt(Math.max(0, R_fus * R_fus - (xCorredor + W_tot) * (xCorredor + W_tot)));
-
-            const yLowest = yTopApex - 25.0 * CM_PER_IN * scaleFactor;
-
-            ctx.save();
-            ctx.fillStyle = window.BIN_SOLID ? '#cbd5e1' : 'rgba(241, 245, 249, 0.94)';
-            ctx.strokeStyle = '#1e293b';
-            ctx.lineWidth = 2.2;
-            const PA = (x, y) => [toX(x), toY(y)];
-            const ptsA = [PA(x0, y0), PA(xFlatEnd, yFlatEnd), PA(xRampEnd, yRampEnd)];
-            let cyBot = (yLowest + yOuterTip) * 0.5;
-            {   // calibra a curva inferior para que o ponto mais baixo do bin seja exatamente a cota de 25"
-                // (flatBottom: fundo bem mais plano — mergulho de apenas 3,4 cm abaixo do fim da rampa, conforme bin.pdf)
-                const yTarget = flatBottom ? Math.min(yRampEnd, yOuterTip) - 3.4 * scaleFactor : yLowest;
-                let cy = (yTarget + yOuterTip) * 0.5, minY = 0;
-                for (let k = 0; k < 12; k++) {
-                    minY = Infinity;
-                    for (let t = 0; t <= 1.0001; t += 0.02) { const u = 1 - t; minY = Math.min(minY, u * u * yRampEnd + 2 * u * t * cy + t * t * yOuterTip); }
-                    cy += (yTarget - minY) * 1.2;
-                }
-                cyBot = cy;
-                ptsA.push(...quadPts(PA(xRampEnd, yRampEnd), PA((xCorredor + W_tot * 0.90) * sign, cy), PA(xOuterTip, yOuterTip), 24));
-            }
-            const numArcSteps = 24;
-            for (let i = 1; i <= numArcSteps; i++) {
-                const xiAbs = (xCorredor + W_tot) - (W_tot * i) / numArcSteps;
-                const yi = fusCenterY + Math.sqrt(Math.max(0, R_fus * R_fus - xiAbs * xiAbs));   // colado na parede interna da fuselagem
-                ptsA.push(PA(xiAbs * sign, yi));
-            }
-            if (window.BIN_SOLID) {
-                traceVectorBin(ctx, toX, toY, 'alpha', xCorredor, sign, yTopApex, scaleFactor, R_fus, fusCenterY);   // Simulação Integrada: bin vetorizado (bins.pdf)
-            } else {
-            if (flatBottom) {
-                // Bin no estilo do vetor (Sem_título-3.pdf): casca azul-clara; a cavidade da mala fica transparente (preenchimento par-ímpar)
-                ctx.fillStyle = '#e8eef3'; ctx.strokeStyle = '#2e3154'; ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                roundedPoly(ctx, ptsA, 2.4 * Math.abs(toX(1) - toX(0)));
-                ctx.moveTo(toX((xCorredor + 1.2 * scaleFactor) * sign), toY(y0 + 1.0 * scaleFactor));
-                ctx.lineTo(toX(xFlatEnd), toY(yFlatEnd + 1.0 * scaleFactor));
-                ctx.lineTo(toX(xRampEnd), toY(yRampEnd + 1.0 * scaleFactor));
-                ctx.lineTo(toX(xDivTop), toY(yDivTop));
-                ctx.lineTo(toX(xStep), toY(yStepBot));
-                ctx.lineTo(toX(xStep), toY(yStepTop));
-                ctx.lineTo(toX((xCorredor + 1.2 * scaleFactor) * sign), toY(yStepTop));
-                ctx.closePath();
-                ctx.fill('evenodd');
-                ctx.stroke();
-            } else {
-            ctx.beginPath();
-            roundedPoly(ctx, ptsA, 2.4 * Math.abs(toX(1) - toX(0)));
-            ctx.fill();
-            ctx.stroke();
-            }
-            }
-
-            if (!window.BIN_SOLID) {
-            ctx.fillStyle = flatBottom ? 'rgba(255, 255, 255, 0.10)' : '#ffffff';
-            ctx.strokeStyle = flatBottom ? '#2e3154' : '#334155';
-            ctx.lineWidth = flatBottom ? 1.3 : 1.8;
-            ctx.beginPath();
-            ctx.moveTo(toX((xCorredor + 1.2 * scaleFactor) * sign), toY(y0 + 1.0 * scaleFactor));
-            ctx.lineTo(toX(xFlatEnd), toY(yFlatEnd + 1.0 * scaleFactor));
-            ctx.lineTo(toX(xRampEnd), toY(yRampEnd + 1.0 * scaleFactor));
-            ctx.lineTo(toX(xDivTop), toY(yDivTop));
-            ctx.lineTo(toX(xStep), toY(yStepBot));
-            ctx.lineTo(toX(xStep), toY(yStepTop));
-            ctx.lineTo(toX((xCorredor + 1.2 * scaleFactor) * sign), toY(yStepTop));
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-
-            ctx.fillStyle = flatBottom ? '#d5d8e0' : 'rgba(67, 70, 151, 0.14)';
-            ctx.strokeStyle = flatBottom ? '#2e3154' : '#334155';
-            ctx.lineWidth = flatBottom ? 1.3 : 1.6;
-            ctx.beginPath();
-            ctx.moveTo(toX(xRampEnd + 1.2 * scaleFactor * sign), toY(yRampEnd + 0.6 * scaleFactor));
-            ctx.quadraticCurveTo(
-                toX((xCorredor + W_tot * 0.90) * sign),
-                toY(flatBottom ? cyBot : (yLowest + yOuterTip) * 0.5),
-                toX(xOuterTip - 1.8 * scaleFactor * sign),
-                toY(yOuterTip + 1.2 * scaleFactor)
-            );
-            ctx.lineTo(toX(xDivTop + 1.2 * scaleFactor * sign), toY(yDivTop - 0.8 * scaleFactor));
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-
-            const xTopPocketStart = (xCorredor + 2.0 * scaleFactor) * sign;
-            const xTopPocketEnd = (xCorredor + 20.66 * scaleFactor) * sign;
-            const yTopPocketBot = yStepTop + 1.8 * scaleFactor;
-            const yTopPocketApex = Math.min(yTopApex - 1.0 * scaleFactor, yTopPocketBot + 5.42 * scaleFactor);
-            ctx.fillStyle = flatBottom ? '#d5d8e0' : 'rgba(42, 29, 194, 0.12)';
-            ctx.beginPath();
-            ctx.moveTo(toX(xTopPocketStart), toY(yTopPocketBot));
-            ctx.lineTo(toX(xTopPocketEnd), toY(yTopPocketBot));
-            ctx.lineTo(toX(xTopPocketStart), toY(yTopPocketApex));
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-
-            ctx.strokeStyle = flatBottom ? '#2e3154' : '#2a1dc2';
-            ctx.lineWidth = 3.0;
-            ctx.beginPath();
-            ctx.moveTo(toX((xCorredor + 0.8 * scaleFactor) * sign), toY(y0 + 1.0 * scaleFactor));
-            ctx.lineTo(toX((xCorredor + 0.8 * scaleFactor) * sign), toY(yStepTop - 2.5 * scaleFactor));
-            ctx.quadraticCurveTo(
-                toX((xCorredor + 0.8 * scaleFactor) * sign),
-                toY(yStepTop + 0.8 * scaleFactor),
-                toX((xCorredor + 4.5 * scaleFactor) * sign),
-                toY(yStepTop + 0.8 * scaleFactor)
-            );
-            ctx.lineTo(toX(xStep), toY(yStepTop + 0.8 * scaleFactor));
-            ctx.stroke();
-            }
-            ctx.restore();
-
-            const m1W = 23.2 * scaleFactor;
-            const m1H = 34.8 * scaleFactor;
-            const m1Cx = (xCorredor + 1.4 * scaleFactor + m1W * 0.5) * sign;
-            const m1Cy = y0 + 1.2 * scaleFactor + m1H * 0.5;
-
-            const m2W = 33.2 * scaleFactor;
-            const m2H = 22.8 * scaleFactor;
-            const distAlongRamp = (L_ramp * 0.50);
-            const distNormalToRamp = 1.2 * scaleFactor + m2H * 0.5;
-            const m2Cx = (xCorredor + W_flat + distAlongRamp * cos17 + distNormalToRamp * sin17) * sign;
-            const m2Cy = yFlatEnd - distAlongRamp * sin17 + distNormalToRamp * cos17;
-
-            return {
-                x0, y0, xFlatEnd, yFlatEnd, xRampEnd, yRampEnd,
-                xDivTop, yDivTop, xStep, yStepBot, yStepTop,
-                xOuterTip, yOuterTip, yTopApex, yLowest, rad17,
-                m1Cx, m1Cy, m1W, m1H,
-                m2Cx, m2Cy, m2W, m2H
-            };
-        }
-
-        // Helper para desenhar Geometria Coerente do Bin Convencional Embraer (35" de largura radial, 22,5" de altura vertical)
-
-// -----------------------------------------------------------------------------
-// SUBBLOCO 03.2 - Perfil de referencia do bin convencional
-// Gera a geometria de referencia no mesmo sistema de coordenadas.
-// -----------------------------------------------------------------------------
-        function traceEmbraerBinProfile(ctx, toX, toY, xCorredor, yPsuShelf, sign = -1, R_fus = APHA_CABIN_GEOMETRY.fuselageRadiusCm, fusCenterY = 0.0, roundedDoor = false) {
-            const scaleFactor = R_fus / APHA_CABIN_GEOMETRY.fuselageRadiusCm;
-            const xTopInnerAbs = xCorredor;
-            const yTopInner = fusCenterY + Math.sqrt(Math.max(0, R_fus * R_fus - xTopInnerAbs * xTopInnerAbs)) - 1.2 * scaleFactor;
-
-            const W_tot = 88.90 * scaleFactor; // 35.0" de largura transversal exata
-            const xOuterPsuAbs = xTopInnerAbs + W_tot;
-
-            const tiltDeg = 16.5;
-            const tiltRad = tiltDeg * Math.PI / 180.0;
-            const cosT = Math.cos(tiltRad);
-            const sinT = Math.sin(tiltRad);
-
-            const xBackBotAbs = 76.0 * scaleFactor;
-            const yBackBot = yPsuShelf + 1.8 * scaleFactor;
-
-            const floorLen = 49.0 * scaleFactor;
-            const xFrontBotAbs = xBackBotAbs - floorLen * cosT;
-            const yFrontBot = yBackBot + floorLen * sinT;
-
-            const cavH = 24.8 * scaleFactor;
-            const xBackTopAbs = xBackBotAbs + cavH * sinT;
-            const yBackTop = yBackBot + cavH * cosT;
-            const xFrontTopAbs = xFrontBotAbs + cavH * sinT;
-            const yFrontTop = yFrontBot + cavH * cosT;
-
-            const yLipBot = yPsuShelf + 11.2 * scaleFactor;
-
-            ctx.save();
-            ctx.fillStyle = window.BIN_SOLID ? '#cbd5e1' : 'rgba(203, 213, 225, 0.90)';
-            ctx.strokeStyle = '#1e293b';
-            ctx.lineWidth = 2.2;
-            const PE = (x, y) => [toX(x), toY(y)];
-            const ptsE = [PE(xOuterPsuAbs * sign, yPsuShelf), PE((xBackBotAbs - 2.0 * scaleFactor) * sign, yPsuShelf), PE((xTopInnerAbs + 1.2 * scaleFactor) * sign, yLipBot)];
-            const wallY = (x) => fusCenterY + Math.sqrt(Math.max(0, R_fus * R_fus - x * x));   // parede interna da fuselagem
-            let xArcStart = xTopInnerAbs;
-            let doorInfo = null;
-            const yTopInnerWall = wallY(xTopInnerAbs);
-            if (roundedDoor) {
-                xArcStart = xTopInnerAbs + 7.0 * 2.54 * scaleFactor;
-                const yDoorTop = wallY(xArcStart);
-                doorInfo = {
-                    hingeX: xArcStart * sign, hingeY: yDoorTop,
-                    ctrlX: (xTopInnerAbs + 0.4 * scaleFactor) * sign, ctrlY: yDoorTop - 3.0 * scaleFactor,
-                    endX: (xTopInnerAbs + 1.2 * scaleFactor) * sign, endY: yLipBot
-                };
-                ptsE.push(...quadPts(PE(doorInfo.endX, doorInfo.endY), PE(doorInfo.ctrlX, doorInfo.ctrlY), PE(doorInfo.hingeX, doorInfo.hingeY)));
-            } else {
-                ptsE.push(...quadPts(PE((xTopInnerAbs + 1.2 * scaleFactor) * sign, yLipBot),
-                    PE((xTopInnerAbs - 1.5 * scaleFactor) * sign, (yLipBot + yTopInnerWall) * 0.5),
-                    PE(xTopInnerAbs * sign, yTopInnerWall)));
-            }
-            const numArc = 24;
-            for (let i = 1; i <= numArc; i++) {
-                const xiAbs = xArcStart + ((xOuterPsuAbs - xArcStart) * i) / numArc;
-                const yi = (i === numArc) ? yPsuShelf : Math.max(yPsuShelf, wallY(xiAbs));
-                ptsE.push(PE(xiAbs * sign, yi));
-            }
-            if (window.BIN_SOLID) {
-                traceVectorBin(ctx, toX, toY, 'conv', xCorredor, sign, fusCenterY + Math.sqrt(Math.max(0, R_fus * R_fus - xTopInnerAbs * xTopInnerAbs)), scaleFactor, R_fus, fusCenterY);   // Simulação Integrada: bin vetorizado (bins.pdf)
-            } else {
-            ctx.beginPath();
-            roundedPoly(ctx, ptsE, 2.4 * Math.abs(toX(1) - toX(0)));
-            ctx.fill();
-            ctx.stroke();
-            }
-
-            if (!window.BIN_SOLID) {
-            ctx.fillStyle = '#ffffff';
-            ctx.strokeStyle = '#475569';
-            ctx.lineWidth = 1.6;
-            ctx.beginPath();
-            ctx.moveTo(toX(xBackBotAbs * sign), toY(yBackBot));
-            ctx.lineTo(toX(xFrontBotAbs * sign), toY(yFrontBot));
-            ctx.quadraticCurveTo(
-                toX((xFrontBotAbs - 3.2 * scaleFactor) * sign),
-                toY((yFrontBot + yFrontTop) * 0.5),
-                toX(xFrontTopAbs * sign),
-                toY(yFrontTop)
-            );
-            ctx.lineTo(toX(xBackTopAbs * sign), toY(yBackTop));
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-            }
-            ctx.restore();
-
-            const bagW = 33.6 * scaleFactor;
-            const bagH = 22.8 * scaleFactor;
-            const distAlong = floorLen * 0.50;
-            const distNorm = 1.0 * scaleFactor + bagH * 0.5;
-            const bagCxAbs = xBackBotAbs - distAlong * cosT + distNorm * sinT;
-            const bagCy = yBackBot + distAlong * sinT + distNorm * cosT;
-
-            return {
-                xFrontBot: xTopInnerAbs * sign,
-                yFrontBot: yLipBot,
-                xFrontTop: xTopInnerAbs * sign,
-                yFrontTop: yTopInner,
-                xOuterPsu: xOuterPsuAbs * sign,
-                yPsuShelf,
-                doorInfo,
-                bagCx: bagCxAbs * sign,
-                bagCy,
-                bagW,
-                bagH,
-                bagAngleRad: sign === -1 ? -tiltRad : tiltRad
-            };
-        }
-
-        // Helper para desenhar Mala Realista estilo Embraer (Imagem 1) e Bin Alpha (Imagens 2/3)
-
-// -----------------------------------------------------------------------------
-// SUBBLOCO 03.3 - Desenho das malas
-// Desenha volume, orientacao e rotulos usados nas cenas.
+// SUBBLOCO 03.1 - Desenho das malas
 // -----------------------------------------------------------------------------
         function drawRealisticSuitcase(ctx, cx, cy, wPx, hPx, angleRad, label1, label2, isAlphaStyle = false, colorOverride = null) {
             if (colorOverride) {
@@ -6298,7 +6005,6 @@ function paintPath(ctx, d, fill, stroke, lw, evenodd) {
 // SUBBLOCO 05.3 - Intradorso e folga ate a cabeca
 // Guarda o contorno inferior e consulta intersecoes para cotas.
 // -----------------------------------------------------------------------------
-let referenceBinUndersides = { alpha: [] };
 let cachedAlphaUnderside = null;
 function alphaUndersideForTheta(thetaDeg) {
     if (cachedAlphaUnderside && cachedAlphaUnderside.thetaDeg === thetaDeg)
@@ -6325,114 +6031,12 @@ function lowerBinSurfaceAtX(points, x) {
     }
     return Number.isFinite(lower) ? lower : null;
 }
-// Guarda os controles originais da curva inferior (quadrática) para que
-// a cota coincida com o CAD, sem erro de discretização dos 100 segmentos.
-let referenceConventionalBelly = null;
-function exactConventionalUndersideY(x) {
-    if (!Number.isFinite(x) || !referenceConventionalBelly) return null;
-    // Intersecta a vertical da cabeça com as curvas cúbicas efetivamente
-    // desenhadas no casco convencional (inclusive a barriga inferior).
-    const cubics = referenceConventionalBelly.cubics;
-    if (!cubics || !cubics.length) return null;
-    const candidates = [];
-    const bez = (a, b, c, d, t, axis) => {
-        const u = 1-t;
-        return u*u*u*a[axis] + 3*u*u*t*b[axis] + 3*u*t*t*c[axis] + t*t*t*d[axis];
-    };
-    for (const [p0, p1, p2, p3] of cubics) {
-        const A = -p0.x + 3*p1.x - 3*p2.x + p3.x;
-        const B = 3*p0.x - 6*p1.x + 3*p2.x;
-        const C = 3*(p1.x - p0.x);
-        // Dividir por extremos em X garante intervalos monotônicos da Bézier.
-        const stops = [0, 1];
-        const qa = 3*A, qb = 2*B, qc = C;
-        if (Math.abs(qa) < 1e-12) {
-            if (Math.abs(qb) > 1e-12) stops.push(-qc/qb);
-        } else {
-            const disc = qb*qb - 4*qa*qc;
-            if (disc >= 0) {
-                stops.push((-qb-Math.sqrt(disc))/(2*qa));
-                stops.push((-qb+Math.sqrt(disc))/(2*qa));
-            }
-        }
-        const ts = [...new Set(stops.filter(t => t >= 0 && t <= 1))].sort((a,b) => a-b);
-        for (let i=1; i<ts.length; i++) {
-            let lo=ts[i-1], hi=ts[i];
-            const xl=bez(p0,p1,p2,p3,lo,'x'), xh=bez(p0,p1,p2,p3,hi,'x');
-            if (x < Math.min(xl,xh)-1e-7 || x > Math.max(xl,xh)+1e-7) continue;
-            const ascending = xh >= xl;
-            for (let j=0; j<48; j++) {
-                const mid=(lo+hi)/2;
-                if ((bez(p0,p1,p2,p3,mid,'x') < x) === ascending) lo=mid;
-                else hi=mid;
-            }
-            candidates.push(bez(p0,p1,p2,p3,(lo+hi)/2,'y'));
-        }
-    }
-    return candidates.length ? Math.min(...candidates) : null;
-}
-window.getUniBinUndersideY = (x, isAlpha) =>
-    isAlpha ? lowerBinSurfaceAtX(referenceBinUndersides.alpha, x) : exactConventionalUndersideY(x);
-
-// Telemetria HTML separada do desenho CAD; mantém as seis fórmulas originais.
-
-// -----------------------------------------------------------------------------
-// SUBBLOCO 05.4 - Indicadores numericos da Aba 5
-// Atualiza os seis valores de altura no HTML; nao altera o CAD.
-// -----------------------------------------------------------------------------
-function updateHeightReadouts(alpha) {
-    // Medidas do CAD exibido: 153,04 cm (ponta fechada) e 138,50 cm (base).
-    // O legado dava 153,0428 cm; toFixed(2) mostrava os mesmos 153,04.
-    const highConv = CONV_CAD_TIP_Y_CM, lowConv = CONV_CAD_BASE_Y_CM;
-    const highAlpha = alpha.floorHighY, lowAlpha = alpha.baseY;
-    const fmt = n => Number(n).toFixed(2);
-    const vals = {
-        'uni-height-conv-high': fmt(highConv) + ' cm',
-        'uni-height-alpha-high': fmt(highAlpha) + ' cm',
-        'uni-height-delta-high': (highAlpha-highConv>=0?'+':'')+fmt(highAlpha-highConv)+' cm',
-        'uni-height-conv-low': fmt(lowConv) + ' cm',
-        'uni-height-alpha-low': fmt(lowAlpha) + ' cm',
-        'uni-height-delta-low': (lowAlpha-lowConv>=0?'+':'')+fmt(lowAlpha-lowConv)+' cm'
-    };
-    for (const [id, val] of Object.entries(vals)) {
-        const el = document.getElementById(id);
-        if (el) el.textContent = val;
-    }
-}
-
-
-// -----------------------------------------------------------------------------
-// SUBBLOCO 05.5 - Desenho final e abertura das portas
-// Compoe o convencional e o Alpha; respeita fade e progresso da porta.
-// A Aba 6 pode informar overrideDoorU sem mudar os indicadores da Aba 5.
-// -----------------------------------------------------------------------------
-function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
-    const cabin = window.cabinSectionReference;
-    if (!cabin) return;
-    // A aba 6 move a porta independentemente, sem alterar a aba 5.
-    const map = cabin.map(W, H);
-    const u = clamp(Number(overrideDoorU == null ? window.__uniRefDoorProgress : overrideDoorU) || 0);
-    // Somente o CAD efetivo; sem atualizar estados de uma porta legada.
-    const alpha = computeRightAlphaLocked();
-
-    // A curva quadrática intermediária do convencional não era consumida:
-    // a cota usa exactConventionalUndersideY(), baseada no próprio Path2D.
-    // O ALPHA reaproveita o contorno transformado enquanto theta não muda.
-    referenceBinUndersides.alpha = alphaUndersideForTheta(alpha.thetaDeg);
-
-    // Original CAD SVG has downward-positive Y. Map to existing Tab 5 cabin.
-    ctx.save();
-    ctx.translate(map.toX(0), map.toY(0));
-    ctx.scale(map.scale, map.scale);
-
-
-    if (fadeConv > 0.001) {
-        // Conventional bin replaced with the geometry and pivoted-door mechanism
-        // from bin_aeronave_simples.html (fixed CAD dimensions in centimetres).
-        ctx.save();
-        ctx.globalAlpha *= clamp(fadeConv);
-        // Usa o mesmo raio/centro da fuselagem compartilhada pelas Abas 5 e 6.
-        const R = CABIN_R, CY = CABIN_YC, bottomY = CONV_CAD_BASE_Y_CM, floorY = CONV_CAD_TIP_Y_CM;
+// Geometria convencional independente do Canvas e do progresso da porta.
+// Valores constantes nesta cena: uma unica entrada de cache e suficiente.
+let cachedConventionalGeometry = null;
+function getConventionalCadGeometry() {
+    if (cachedConventionalGeometry) return cachedConventionalGeometry;
+const R = CABIN_R, CY = CABIN_YC, bottomY = CONV_CAD_BASE_Y_CM, floorY = CONV_CAD_TIP_Y_CM;
         const wallX = -Math.sqrt(R*R-(bottomY-CY)**2);
         const src = {x0:8322.484375, y1:21044.689453125,
                      xr:34924.74609375, yTip:15503};
@@ -6488,55 +6092,181 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             inner.push({x:o.x-1.2*q.x,y:o.y-1.2*q.y});
         }
         const pivot={x:ext[N].x-2.4*norm[N].x,y:ext[N].y-2.4*norm[N].y};
+
+        const Ep={x:-Math.sqrt(Math.max(0,R*R-(bottom0.y-CY)**2)),y:bottom0.y};
+        const cB1=W([8570.39,21313.78]),cB2=W([19845.34,20898.17]),bEnd=W([20243.48,20945.80]);
+        const cC1=W([21136.70,21052.74]),cC2=W([30508.64,18191.16]);
+        const cubics = [
+            [Ep,cB1,cB2,bEnd], [bEnd,cC1,cC2,e0],
+            [e0,e1,e2,D], [D,c1,c2,S]
+        ];
+        cachedConventionalGeometry = {
+            R, CY, Ep, cB1, cB2, bEnd, cC1, cC2,
+            e0, e1, e2, D, c1, c2, S, ext, inner, N, pivot, cubics
+        };
+        return cachedConventionalGeometry;
+}
+
+function conventionalPolyPath(pts) {
+    const p = new Path2D();
+    pts.forEach((v,i) => i ? p.lineTo(v.x,-v.y) : p.moveTo(v.x,-v.y));
+    p.closePath();
+    return p;
+}
+// Casco, vazado, folha, lingueta e braco sao Path2D estaticos.
+// Somente o envelope de movimento da porta e dinamico.
+let cachedConventionalPaths = null;
+function getConventionalCadPaths() {
+    if (cachedConventionalPaths) return cachedConventionalPaths;
+    const { R, CY, Ep, cB1, cB2, bEnd, cC1, cC2,
+            e0, e1, e2, D, c1, c2, S, ext, inner, N, pivot } = getConventionalCadGeometry();
+    const shell = new Path2D();
+    shell.moveTo(Ep.x,-Ep.y);
+    shell.bezierCurveTo(cB1.x,-cB1.y,cB2.x,-cB2.y,bEnd.x,-bEnd.y);
+    shell.bezierCurveTo(cC1.x,-cC1.y,cC2.x,-cC2.y,e0.x,-e0.y);
+    shell.bezierCurveTo(e1.x,-e1.y,e2.x,-e2.y,D.x,-D.y);
+    shell.bezierCurveTo(c1.x,-c1.y,c2.x,-c2.y,S.x,-S.y);
+    const angS=Math.atan2(-S.y+CY,S.x),angE=Math.atan2(-Ep.y+CY,Ep.x);
+    const sweep=angE-angS;
+    for(let j=1;j<=70;j++){
+        const angle=angS+sweep*j/70;
+        shell.lineTo(R*Math.cos(angle),-(CY-R*Math.sin(angle)));
+    }
+    shell.closePath();
+    const blade=conventionalPolyPath(ext.concat(inner.slice().reverse()));
+    const cavity=new Path2D();
+    cavity.addPath(shell);cavity.addPath(blade);
+    const armEnd=inner[Math.max(0,N-Math.round(7/.4))];
+    const arm=new Path2D();
+    arm.moveTo(pivot.x,-pivot.y);arm.lineTo(armEnd.x,-armEnd.y);
+    const latch=conventionalPolyPath(ext.slice(0,7).concat(inner.slice(0,7).reverse()));
+    cachedConventionalPaths = { shell, blade, cavity, arm, latch };
+    return cachedConventionalPaths;
+}
+
+// A medicao usa as cubicas do CAD sem precisar desenhar a cena.
+function exactConventionalUndersideY(x) {
+    if (!Number.isFinite(x)) return null;
+    // Intersecta a vertical da cabeça com as curvas cúbicas efetivamente
+    // desenhadas no casco convencional (inclusive a barriga inferior).
+    const cubics = getConventionalCadGeometry().cubics;
+    if (!cubics || !cubics.length) return null;
+    const candidates = [];
+    const bez = (a, b, c, d, t, axis) => {
+        const u = 1-t;
+        return u*u*u*a[axis] + 3*u*u*t*b[axis] + 3*u*t*t*c[axis] + t*t*t*d[axis];
+    };
+    for (const [p0, p1, p2, p3] of cubics) {
+        const A = -p0.x + 3*p1.x - 3*p2.x + p3.x;
+        const B = 3*p0.x - 6*p1.x + 3*p2.x;
+        const C = 3*(p1.x - p0.x);
+        // Dividir por extremos em X garante intervalos monotônicos da Bézier.
+        const stops = [0, 1];
+        const qa = 3*A, qb = 2*B, qc = C;
+        if (Math.abs(qa) < 1e-12) {
+            if (Math.abs(qb) > 1e-12) stops.push(-qc/qb);
+        } else {
+            const disc = qb*qb - 4*qa*qc;
+            if (disc >= 0) {
+                stops.push((-qb-Math.sqrt(disc))/(2*qa));
+                stops.push((-qb+Math.sqrt(disc))/(2*qa));
+            }
+        }
+        const ts = [...new Set(stops.filter(t => t >= 0 && t <= 1))].sort((a,b) => a-b);
+        for (let i=1; i<ts.length; i++) {
+            let lo=ts[i-1], hi=ts[i];
+            const xl=bez(p0,p1,p2,p3,lo,'x'), xh=bez(p0,p1,p2,p3,hi,'x');
+            if (x < Math.min(xl,xh)-1e-7 || x > Math.max(xl,xh)+1e-7) continue;
+            const ascending = xh >= xl;
+            for (let j=0; j<48; j++) {
+                const mid=(lo+hi)/2;
+                if ((bez(p0,p1,p2,p3,mid,'x') < x) === ascending) lo=mid;
+                else hi=mid;
+            }
+            candidates.push(bez(p0,p1,p2,p3,(lo+hi)/2,'y'));
+        }
+    }
+    return candidates.length ? Math.min(...candidates) : null;
+}
+window.getUniBinUndersideY = (x, isAlpha) =>
+    isAlpha
+        ? lowerBinSurfaceAtX(alphaUndersideForTheta(computeRightAlphaLocked().thetaDeg), x)
+        : exactConventionalUndersideY(x);
+
+// Telemetria HTML separada do desenho CAD; mantém as seis fórmulas originais.
+
+// -----------------------------------------------------------------------------
+// SUBBLOCO 05.4 - Indicadores numericos da Aba 5
+// Atualiza os seis valores de altura no HTML; nao altera o CAD.
+// -----------------------------------------------------------------------------
+function updateHeightReadouts(alpha) {
+    // Medidas do CAD exibido: 153,04 cm (ponta fechada) e 138,50 cm (base).
+    // O legado dava 153,0428 cm; toFixed(2) mostrava os mesmos 153,04.
+    const highConv = CONV_CAD_TIP_Y_CM, lowConv = CONV_CAD_BASE_Y_CM;
+    const highAlpha = alpha.floorHighY, lowAlpha = alpha.baseY;
+    const fmt = n => Number(n).toFixed(2);
+    const vals = {
+        'uni-height-conv-high': fmt(highConv) + ' cm',
+        'uni-height-alpha-high': fmt(highAlpha) + ' cm',
+        'uni-height-delta-high': (highAlpha-highConv>=0?'+':'')+fmt(highAlpha-highConv)+' cm',
+        'uni-height-conv-low': fmt(lowConv) + ' cm',
+        'uni-height-alpha-low': fmt(lowAlpha) + ' cm',
+        'uni-height-delta-low': (lowAlpha-lowConv>=0?'+':'')+fmt(lowAlpha-lowConv)+' cm'
+    };
+    for (const [id, val] of Object.entries(vals)) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+    }
+}
+
+
+// -----------------------------------------------------------------------------
+// SUBBLOCO 05.5 - Desenho final e abertura das portas
+// Compoe o convencional e o Alpha; respeita fade e progresso da porta.
+// A Aba 6 pode informar overrideDoorU sem mudar os indicadores da Aba 5.
+// -----------------------------------------------------------------------------
+function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
+    const cabin = window.cabinSectionReference;
+    if (!cabin) return;
+    // A aba 6 move a porta independentemente, sem alterar a aba 5.
+    const map = cabin.map(W, H);
+    const u = clamp(Number(overrideDoorU == null ? window.__uniRefDoorProgress : overrideDoorU) || 0);
+    // Somente o CAD efetivo; sem atualizar estados de uma porta legada.
+    const alpha = computeRightAlphaLocked();
+
+    // Headroom consulta a geometria CAD diretamente, sem depender do fade
+    // ou da ordem em que as Abas 5 e 6 foram desenhadas.
+
+    // Original CAD SVG has downward-positive Y. Map to existing Tab 5 cabin.
+    ctx.save();
+    ctx.translate(map.toX(0), map.toY(0));
+    ctx.scale(map.scale, map.scale);
+
+
+    if (fadeConv > 0.001) {
+        // Conventional bin replaced with the geometry and pivoted-door mechanism
+        // from bin_aeronave_simples.html (fixed CAD dimensions in centimetres).
+        ctx.save();
+        ctx.globalAlpha *= clamp(fadeConv);
+        // Usa o mesmo raio/centro da fuselagem compartilhada pelas Abas 5 e 6.
+        // Casco, intradorso e folha da porta sao compartilhados entre os frames.
+        const { ext, inner, pivot, N } = getConventionalCadGeometry();
+        const { shell, blade, cavity, arm, latch } = getConventionalCadPaths();
         const turn=(p,angle)=>{
             const r=angle*Math.PI/180,c=Math.cos(r),si=Math.sin(r),dx=p.x-pivot.x,dy=p.y-pivot.y;
             return {x:pivot.x+dx*c-dy*si,y:pivot.y+dx*si+dy*c};
         };
-        const polyPath=pts=>{
-            const p=new Path2D();pts.forEach((v,i)=>i?p.lineTo(v.x,-v.y):p.moveTo(v.x,-v.y));
-            p.closePath();return p;
-        };
-        // Exact reference shell: lower cubic floor, continuous fuselage arc and oval front.
-        const shell=new Path2D();
-        const Ep={x:-Math.sqrt(Math.max(0,R*R-(bottom0.y-CY)**2)),y:bottom0.y};
-        shell.moveTo(Ep.x,-Ep.y);
-        const cB1=W([8570.39,21313.78]),cB2=W([19845.34,20898.17]),bEnd=W([20243.48,20945.80]);
-        const cC1=W([21136.70,21052.74]),cC2=W([30508.64,18191.16]);
-        shell.bezierCurveTo(cB1.x,-cB1.y,cB2.x,-cB2.y,bEnd.x,-bEnd.y);
-        shell.bezierCurveTo(cC1.x,-cC1.y,cC2.x,-cC2.y,e0.x,-e0.y);
-        shell.bezierCurveTo(e1.x,-e1.y,e2.x,-e2.y,D.x,-D.y);
-        shell.bezierCurveTo(c1.x,-c1.y,c2.x,-c2.y,S.x,-S.y);
-        // A cota de headroom usa exatamente estas quatro curvas cúbicas do
-        // intradorso desenhado, não a curva quadrática do bin legado.
-        referenceConventionalBelly = { cubics: [
-            [Ep,cB1,cB2,bEnd], [bEnd,cC1,cC2,e0],
-            [e0,e1,e2,D], [D,c1,c2,S]
-        ] };
-        // Return along the aircraft's circular shell.
-        const angS=Math.atan2(-S.y+CY,S.x),angE=Math.atan2(-Ep.y+CY,Ep.x);
-        const sweep=angE-angS;
-        for(let j=1;j<=70;j++){
-            const angle=angS+sweep*j/70;
-            shell.lineTo(R*Math.cos(angle),-(CY-R*Math.sin(angle)));
-        }
-        shell.closePath();
-        const blade=polyPath(ext.concat(inner.slice().reverse()));
-        // Remove closed-door leaf region from shell, making the interior visible as it opens.
-        const cavity=new Path2D();
-        cavity.addPath(shell);cavity.addPath(blade);
         ctx.fillStyle='#9ba9b5';
         ctx.fill(cavity,'evenodd');
         ctx.strokeStyle='#273e57';ctx.lineWidth=.55;ctx.stroke(shell);
         // Abertura final exibida na Simulação Integrada: 82 graus.
-        // A cinemática de 39 graus em computeLeftBinAtY é apenas legado
-        // de medição; não controla esta porta visível.
         const visibleDoorMaxDeg = 82;
         const angle = u * visibleDoorMaxDeg;
         if(overrideDoorU==null&&u>0){
             const sweepPath=new Path2D();
             for(let j=0;j<=Math.ceil(angle);j++){
                 const a=angle*j/Math.max(1,Math.ceil(angle));
-                sweepPath.addPath(polyPath(ext.map(p=>turn(p,a)).concat(inner.map(p=>turn(p,a)).reverse())));
+                sweepPath.addPath(conventionalPolyPath(ext.map(p=>turn(p,a)).concat(inner.map(p=>turn(p,a)).reverse())));
             }
             ctx.save();ctx.fillStyle='rgba(255,107,0,.16)';ctx.fill(sweepPath);
             const t0={x:(ext[0].x+inner[0].x)/2,y:(ext[0].y+inner[0].y)/2};
@@ -6546,16 +6276,12 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             ctx.restore();
         }
         // Curved laminate, latch and rigid arm rotate together around the upper pivot.
-        const armEnd=inner[Math.max(0,N-Math.round(7/.4))];
         ctx.save();ctx.translate(pivot.x,-pivot.y);ctx.rotate(-angle*Math.PI/180);
         ctx.translate(-pivot.x,pivot.y);
-        const arm=new Path2D();
-        arm.moveTo(pivot.x,-pivot.y);arm.lineTo(armEnd.x,-armEnd.y);
         ctx.strokeStyle='#373435';ctx.lineWidth=2.3;ctx.lineCap='round';ctx.stroke(arm);
         ctx.strokeStyle='#7A75B5';ctx.lineWidth=1.8;ctx.stroke(arm);
         ctx.fillStyle='#aebecb';ctx.strokeStyle='#273e57';ctx.lineWidth=.4;
         ctx.fill(blade);ctx.stroke(blade);
-        const latch=polyPath(ext.slice(0,7).concat(inner.slice(0,7).reverse()));
         ctx.fillStyle='#72869e';ctx.fill(latch);ctx.stroke(latch);
         ctx.restore();
         ctx.beginPath();ctx.arc(pivot.x,-pivot.y,1.08,0,2*Math.PI);
@@ -6757,7 +6483,6 @@ window.drawUniReferenceBins = drawReferenceBins;
             const T = opts.T != null ? opts.T : cadAnim.t;
             const dimFade = opts.dimFade != null ? opts.dimFade : 1;
             const FD = Object.assign({ conv: 1, alpha: 1, arc: 1, dims: 1 }, opts.fade || {});   // Simulação Completa: cada parte entra no seu tempo
-            const faded = (a, fn) => { if (a >= 0.999) return fn(); ctx.save(); ctx.globalAlpha *= Math.max(0, a); try { return fn(); } finally { ctx.restore(); } };
             const S = i => cadEase(Math.min(1, Math.max(0, (T - i) / 0.85)));
             // cota animada: k<6 -> etapa 4 (escalonadas); k==6 -> etapa 2 (diâmetro)
             const cadDim = (k, ctx, x1, y1, x2, y2, lbl, col, fs, off, e1, e2) => {
@@ -6770,16 +6495,6 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const mx = (x1 + x2) / 2, my = (y1 + y2) / 2, L = e => e && { x1: e.x1, y1: e.y1, x2: e.x1 + (e.x2 - e.x1) * p, y2: e.y1 + (e.y2 - e.y1) * p };
                 ctx.save(); ctx.globalAlpha = Math.min(1, p * 1.6) * fade * FD.dims;
                 drawDimensionLine(ctx, mx + (x1 - mx) * p, my + (y1 - my) * p, mx + (x2 - mx) * p, my + (y2 - my) * p, lbl, col, fs, off, L(e1), L(e2));
-                ctx.restore();
-            };
-            // mala: cai de cima com leve "quique"
-            const cadBag = (k, ctx, cx, cy, w, h, ang, l1, l2, isA, col) => {
-                if (opts.noBags) return;
-                const s = Math.min(1, Math.max(0, (T - 3 - k * 0.2) / 0.6));
-                if (s <= 0) return;
-                const c1 = 1.70158, c3 = c1 + 1, e = s >= 1 ? 1 : 1 + c3 * Math.pow(s - 1, 3) + c1 * Math.pow(s - 1, 2);
-                ctx.save(); ctx.globalAlpha = Math.min(1, s * 3);
-                drawRealisticSuitcase(ctx, cx, cy - (1 - Math.min(e, 1)) * 26, w * e, h * e, ang, l1, l2, isA, col);
                 ctx.restore();
             };
             const canvas = opts.canvas || document.getElementById(opts.canvasId || 'cadCanvas');
@@ -6904,55 +6619,17 @@ window.drawUniReferenceBins = drawReferenceBins;
             // calculadas anteriormente pelos perfis legados (sem redesenhá-los).
             const yPsuEmb = yTopApex - 22.5 * CM_PER_IN * scaleFactor;
             const yBottomAlpha = yTopApex - 20.0 * CM_PER_IN * scaleFactor;
-            let alphaProf;
-
-            if (opts.referenceBins) {
-                // Abas 5/6 e tour: usar apenas o CAD exato, último modelo validado.
-                // Antes esses perfis eram desenhados com globalAlpha=0 por frame.
-                // Preservar somente os 3 valores usados pelas cotas externas.
-                const alphaRefOuterX = g.x_livre + 88.90 * scaleFactor;
-                alphaProf = {
-                    xRampEnd: g.x_livre +
-                        (25.91 + 35.67 * Math.cos(17 * Math.PI / 180)) * scaleFactor,
-                    yLowest: yTopApex - 25.0 * CM_PER_IN * scaleFactor,
-                    yOuterTip: Math.sqrt(Math.max(0, g.R * g.R -
-                        alphaRefOuterX * alphaRefOuterX))
-                };
-                if (window.drawUniReferenceBins)
-                    window.drawUniReferenceBins(ctx, W, H, FD.conv * S(1), FD.alpha * S(1));
-            } else {
-                // Outros usos do CAD conservam os perfis vetoriais de referência.
-                const clipBin = (sg) => {
-                    const a = toX(sg * g.x_livre) - sg * 4;
-                    const b = toX(sg * (g.R + 6));
-                    const e = a + (b - a) * S(1);
-                    ctx.beginPath();
-                    ctx.rect(Math.min(a, e), 0, Math.abs(e - a), H);
-                    ctx.clip();
-                };
-                ctx.save();
-                clipBin(-1);
-                const embProf = faded(FD.conv, () =>
-                    traceEmbraerBinProfile(ctx, toX, toY, g.x_livre,
-                        yPsuEmb, -1, g.R, 0.0, true));
-                ctx.restore();
-                cadBag(0, ctx, toX(embProf.bagCx), toY(embProf.bagCy),
-                    embProf.bagW * scale, embProf.bagH * scale,
-                    embProf.bagAngleRad, 'IATA standard', '', false, COR_CONV);
-
-                ctx.save();
-                clipBin(1);
-                alphaProf = faded(FD.alpha, () =>
-                    traceBinAlphaProfile(ctx, toX, toY, g.x_livre,
-                        yBottomAlpha, 1, scaleFactor, g.R, 0.0));
-                ctx.restore();
-                cadBag(1, ctx, toX(alphaProf.m1Cx), toY(alphaProf.m1Cy),
-                    alphaProf.m1W * scale, alphaProf.m1H * scale,
-                    0, 'IATA standard', '', true, COR_ALPHA);
-                cadBag(2, ctx, toX(alphaProf.m2Cx), toY(alphaProf.m2Cy),
-                    alphaProf.m2W * scale, alphaProf.m2H * scale,
-                    alphaProf.rad17, 'IATA standard', '', true, COR_ALPHA);
-            }
+            // CAD unico efetivamente usado pela apresentacao.
+            const alphaRefOuterX = g.x_livre + 88.90 * scaleFactor;
+            const alphaProf = {
+                xRampEnd: g.x_livre +
+                    (25.91 + 35.67 * Math.cos(17 * Math.PI / 180)) * scaleFactor,
+                yLowest: yTopApex - 25.0 * CM_PER_IN * scaleFactor,
+                yOuterTip: Math.sqrt(Math.max(0, g.R * g.R -
+                    alphaRefOuterX * alphaRefOuterX))
+            };
+            if (window.drawUniReferenceBins)
+                window.drawUniReferenceBins(ctx, W, H, FD.conv * S(1), FD.alpha * S(1));
             // COTAS TÉCNICAS EXTERNAS DOS BINS (35" LARGURA, 22,5" CONV., 20" E 25" ALPHA)
             // Posicionadas pelo lado de fora da fuselagem para limpar o interior
             // =========================================================================
@@ -7959,11 +7636,7 @@ window.drawUniReferenceBins = drawReferenceBins;
         function ergoTorqueCurve(H, Fg, Ft, tBack, tFront) {
             const key = [H, Fg, Ft, tBack, tFront].join('|');
             if (ergoCurveCache && ergoCurveCache.key === key) return ergoCurveCache;
-            const cad = typeof window.getUniAlphaGeometry === 'function'
-                ? window.getUniAlphaGeometry() : null;
-            const prof = cad ? ergoCADAlphaProfile(cad)
-                : traceBinAlphaProfile(document.createElement('canvas').getContext('2d'),
-                    x => x, y => y, 23.6, 150.0, 1, 1.0, 135.0, 65.0, true);
+            const prof = ergoCADAlphaProfile(window.getUniAlphaGeometry());
             const T = tBack + tFront, fb = tBack / T, N = 360, pts = [];
             let pa = 0, pc = 0;
             for (let i = 0; i <= N; i++) {
@@ -8029,8 +7702,6 @@ window.drawUniReferenceBins = drawReferenceBins;
             const R = cabin ? cabin.R : APHA_CABIN_GEOMETRY.fuselageRadiusCm;
             const centerY = cabin ? cabin.centerY : APHA_CABIN_GEOMETRY.fuselageCenterYCm;
             const aisle = cabin ? cabin.aisle : APHA_CABIN_GEOMETRY.aisleHalfWidthCm;
-            const binFloor = cabin ? cabin.binFloorY()
-                : centerY + Math.sqrt(R * R - aisle * aisle) - 20.0 * CM_PER_IN;
 
             // No canvas principal da Aba 6, a malha uniforme está no CSS
             // do viewport. Não desenhar outra grade, limitada às coordenadas
@@ -8090,21 +7761,14 @@ window.drawUniReferenceBins = drawReferenceBins;
             // O desenho e a porta rolante são exatamente os mesmos da aba 5.
             // A cinemática lê a linha de apoio desse CAD, sem redesenhar o bin
             // antigo sobre o novo. Porta aberta durante a estiva e fechada no fim.
-            const cad = typeof window.getUniAlphaGeometry === 'function'
-                ? window.getUniAlphaGeometry() : null;
-            const exactCAD = cad && typeof window.drawUniReferenceBins === 'function';
-            const prof = exactCAD ? ergoCADAlphaProfile(cad)
-                : traceBinAlphaProfile(ctx, toX, toY,
-                    aisle, binFloor, 1, 1.0, R, centerY, false);
-            if (exactCAD) {
-                const timeline = APHA_CINE_TIMELINE;
-                // A abertura termina na Aba 5; não é repetida na Aba 6.
-                const doorU = window.__aphaBridgeDoorU != null ? window.__aphaBridgeDoorU :
-                    1 - ergoSmooth((phase - timeline.doorClose.start / timeline.duration) /
-                        ((timeline.doorClose.end - timeline.doorClose.start) / timeline.duration));
-                withAba5CabinColors(() => window.drawUniReferenceBins(ctx, W, H,
-                    window.__aphaShowConventional !== false ? 1 : 0, 1, doorU));
-            }
+            const prof = ergoCADAlphaProfile(window.getUniAlphaGeometry());
+            const timeline = APHA_CINE_TIMELINE;
+            // A abertura termina na Aba 5; não é repetida na Aba 6.
+            const doorU = window.__aphaBridgeDoorU != null ? window.__aphaBridgeDoorU :
+                1 - ergoSmooth((phase - timeline.doorClose.start / timeline.duration) /
+                    ((timeline.doorClose.end - timeline.doorClose.start) / timeline.duration));
+            withAba5CabinColors(() => window.drawUniReferenceBins(ctx, W, H,
+                window.__aphaShowConventional !== false ? 1 : 0, 1, doorU));
 
             // Renderiza somente a cabine durante o movimento contínuo da câmera.
             if (window.__aphaOnlyCabin) return {tTotal: tBack + tFront, rest: true};
@@ -8514,7 +8178,7 @@ window.drawUniReferenceBins = drawReferenceBins;
 
             // Abaixo de cada cabeça, consulta-se o perfil CAD realmente desenhado
             // pela Aba 5 (escala 1:10 em cm e estado fechado de referência).
-            // Não usar traceBinAlphaProfile/vectorBinUnderY, que eram de bins antigos.
+            // A folga usa o contorno CAD ativo, sem perfis alternativos.
             const ceilingAtX = (xc, isRight) =>
                 typeof window.getUniBinUndersideY === 'function'
                     ? window.getUniBinUndersideY(xc, isRight) : null;
@@ -8663,102 +8327,7 @@ window.drawUniReferenceBins = drawReferenceBins;
         (function () {
             const FC = APHA_CABIN_GEOMETRY.fuselageCenterYCm; // centro da fuselagem acima do piso (cm)
             // ---- Paleta lilás/roxa só nesta aba: enquanto BIN_SOLID está ativo (só durante o desenho da Simulação Integrada e da sua exportação), cinzas-azulados viram lilás ----
-            (function installUniPalette() {
-                if (CanvasRenderingContext2D.prototype.__uniPal) return;
-                CanvasRenderingContext2D.prototype.__uniPal = true;
-                const cache = new Map();
-                const toRGBA = c => {
-                    let m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(c);
-                    if (m) { let h = m[1]; if (h.length === 3) h = h.split('').map(x => x + x).join(''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16), 1]; }
-                    m = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:[\s,/]+([\d.]+))?\s*\)$/i.exec(c);
-                    return m ? [+m[1], +m[2], +m[3], m[4] == null ? 1 : +m[4]] : null;
-                };
-                const lilac = c => {
-                    if (cache.has(c)) return cache.get(c);
-                    let out = c; const v = toRGBA(c.trim());
-                    if (v) {
-                        const r = v[0] / 255, g = v[1] / 255, b = v[2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
-                        let h = 0, sat = 0;
-                        if (d > 0) {
-                            sat = d / (1 - Math.abs(2 * l - 1));
-                            h = mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
-                            h *= 60;
-                        }
-                        if (d > 0 && sat <= 0.5 && h >= 190 && h <= 250 && l > 0.1 && l < 0.97) {   // família cinza-azulada (slate) e índigo suave
-                            const s2 = Math.min(0.42, 0.18 + sat * 0.55);
-                            out = `hsla(258, ${(s2 * 100).toFixed(1)}%, ${(l * 100).toFixed(1)}%, ${v[3]})`;
-                        }
-                    }
-                    if (cache.size > 2000) cache.clear();
-                    cache.set(c, out); return out;
-                };
-                // ---- Paleta escura opcional (só na exportação "P95 Male · no background", para uso sobre fundo #000223) ----
-                // Tudo que é desenhado passa para a paleta #5b7b9e / #9ba9b5 / #bababa, por luminância; textos ficam #bababa;
-                // caixas de rótulo e halos de texto (cinza-claro 245) viram a cor do fundo para continuarem ocultando as linhas atrás.
-                const DK = { bg: APHA_CABIN_PALETTE.bgRGB, ramp: APHA_CABIN_PALETTE.ramp };
-                const hslToRGBA = c => {
-                    const m = /^hsla?\(\s*([\d.]+)[\s,]+([\d.]+)%[\s,]+([\d.]+)%(?:[\s,/]+([\d.]+))?\s*\)$/i.exec(c); if (!m) return null;
-                    const h = (+m[1]) / 360, sl = (+m[2]) / 100, l = (+m[3]) / 100, q = l < 0.5 ? l * (1 + sl) : l + sl - l * sl, p = 2 * l - q;
-                    const f = t => { t = (t + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < 0.5 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; };
-                    return [f(h + 1 / 3) * 255, f(h) * 255, f(h - 1 / 3) * 255, m[4] == null ? 1 : +m[4]];
-                };
-                const dkCache = new Map();
-                const dark = (c, kind) => {
-                    const role = window.__dkRole || '', key = role + '|' + kind + '|' + c;
-                    if (dkCache.has(key)) return dkCache.get(key);
-                    // Background da cabine é fixo, não uma superfície a remapear.
-                    if (c.trim().toLowerCase() === APHA_BLUEPRINT.background) return c;
-                    const v = toRGBA(c.trim()) || hslToRGBA(c.trim()); let out = c;
-                    if (v) {
-                        const a = v[3];
-                        // poltrona: um pouco mais escura que os bonecos (preenchimento #9ba9b5) e linhas/contornos em #5b7b9e
-                        if (role === 'seat') out = kind === 'stroke' ? APHA_CABIN_PALETTE.rgba('cyan', a) : APHA_CABIN_PALETTE.rgba('border', a);   // poltrona: azul escuro (#2f4a6b) com contorno azul médio (#6d90b8)
-                        else if (role === 'dummy' && kind === 'stroke' && (0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]) / 255 < 0.3) out = `rgba(8,18,42,${a})`;   // boneco: contorno azul-marinho quase preto, bem nítido sobre o corpo cinza
-                        else if (Math.round(v[0]) === 245 && Math.round(v[1]) === 245 && Math.round(v[2]) === 245) out = `rgba(${DK.bg[0]},${DK.bg[1]},${DK.bg[2]},${a})`;
-                        else {
-                            const L = (0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]) / 255; let col = DK.ramp[DK.ramp.length - 1][1];
-                            for (let i = 1; i < DK.ramp.length; i++) if (L <= DK.ramp[i][0]) { const [l0, c0] = DK.ramp[i - 1], [l1, c1] = DK.ramp[i], t = l1 === l0 ? 0 : (L - l0) / (l1 - l0); col = c0.map((x, j) => x + (c1[j] - x) * t); break; }
-                            out = `rgba(${col.map(Math.round).join(',')},${a})`;
-                        }
-                    }
-                    if (dkCache.size > 2000) dkCache.clear();
-                    dkCache.set(key, out); return out;
-                };
-                ['fillStyle', 'strokeStyle'].forEach(k => {
-                    const d = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, k);
-                    Object.defineProperty(CanvasRenderingContext2D.prototype, k, {
-                        configurable: true, enumerable: d.enumerable, get: d.get,
-                        set(val) {
-                            // Preserve o contraste da porta tambour na tela e nas exportações,
-                            // inclusive na variante de fundo escuro.
-                            const lowerColor = typeof val === 'string' ? val.toLowerCase() : '';
-                            // Exceção temporária exclusiva às lâminas da porta tambour.
-                            const tambourAccent = window.__aphaTambourOrange === true &&
-                                ['#b84a16', '#ff8a45', '#ff6b1a', '#a43d12'].includes(lowerColor);
-                            const accent = typeof val === 'string' && (tambourAccent ||
-                                (window.BIN_SOLID &&
-                                ['#4fc1ff', '#569cd6', '#8dd7ff', '#143550', '#ff6b00', 'rgba(255,107,0,0.22)'].includes(lowerColor)));
-                            d.set.call(this, typeof val !== 'string' || accent ? val : window.BIN_DARK ? dark(val, k === 'strokeStyle' ? 'stroke' : 'fill') : window.BIN_SOLID ? lilac(val) : val);
-                        }
-                    });
-                });
-                const acs0 = CanvasGradient.prototype.addColorStop;
-                CanvasGradient.prototype.addColorStop = function (o, c) { return acs0.call(this, o, (window.BIN_DARK && typeof c === 'string') ? dark(c, 'fill') : c); };
-                const st0 = CanvasRenderingContext2D.prototype.stroke;
-                CanvasRenderingContext2D.prototype.stroke = function (...a) {
-                    if (window.BIN_DARK && window.__dkRole === 'dummy' && this.lineWidth >= 1.3 && this.lineWidth <= 1.7) {
-                        const w = this.lineWidth; this.lineWidth = w * 2.6;   // contorno dos bonecos mais forte
-                        try { return st0.apply(this, a); } finally { this.lineWidth = w; }
-                    }
-                    return st0.apply(this, a);
-                };
-                const ft0 = CanvasRenderingContext2D.prototype.fillText;
-                CanvasRenderingContext2D.prototype.fillText = function (...a) {
-                    if (!window.BIN_DARK) return ft0.apply(this, a);
-                    const prev = this.fillStyle; window.BIN_DARK = false;
-                    try { this.fillStyle = '#bababa'; ft0.apply(this, a); this.fillStyle = prev; } finally { window.BIN_DARK = true; }
-                };
-            })();
+            // Filtros Canvas registrados uma unica vez no motor compartilhado.
             const UNI_CAD_SEC = 0.4;                            // velocidade da construção da seção do bin nesta aba (a aba CAD 2D segue com CAD_STAGE_SEC)
             const P1 = UNI_CAD_SEC * 4;                         // 1,6 s: contorno CAD 2D (bins surgem junto com a cota Ø 108")
             const TL = { ring: P1, floor: P1 + 0.6, seats: P1 + 1.1, pax: P1 + 1.6, stat: P1 + 2.3, dur: 3.4 };
@@ -8786,9 +8355,6 @@ window.drawUniReferenceBins = drawReferenceBins;
                 centerY: APHA_CABIN_GEOMETRY.fuselageCenterYCm,
                 wall: APHA_CABIN_GEOMETRY.shellThicknessCm,
                 aisle: APHA_CABIN_GEOMETRY.aisleHalfWidthCm,
-                binFloorY() {
-                    return this.centerY + Math.sqrt(this.R * this.R - this.aisle * this.aisle) - 20.0 * CM_PER_IN;
-                },
                 drawShell(ctx, toX, toY, scale) {
                     const R = this.R, rOut = R + this.wall, cY = this.centerY;
                     const aEnd = Math.asin(cY / R), N = 180;
@@ -8822,14 +8388,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                         }
                         ctx.stroke();
                     });
-                    // Piso coincidente com a Aba 5: 252 cm de vão visual, 8 cm de espessura.
-                    ctx.fillStyle = APHA_CABIN_PALETTE.floorFill;
-                    ctx.strokeStyle = APHA_CABIN_PALETTE.floorOutline;
-                    ctx.lineWidth = 1.8;
-                    const x = toX(-APHA_CABIN_GEOMETRY.floorWidthCm / 2), w = APHA_CABIN_GEOMETRY.floorWidthCm * scale,
-                          y = toY(0), h = APHA_CABIN_GEOMETRY.floorThicknessCm * scale;
-                    ctx.fillRect(x, y, w, h);
-                    ctx.strokeRect(x, y, w, h);
+                    drawAphaCabinFloor(ctx, toX, toY, scale);
                     ctx.restore();
                 }
             };
@@ -8881,12 +8440,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 }
                 const pf = ph(TL.floor, 0.6);                  // piso da cabine, abrindo a partir do centro
                 if (pf > 0) {
-                    ctx.fillStyle = APHA_CABIN_PALETTE.floorFill;
-                    ctx.strokeStyle = APHA_CABIN_PALETTE.floorOutline; ctx.lineWidth = 1.8;
-                    const floorW = APHA_CABIN_GEOMETRY.floorWidthCm;
-                    const floorH = APHA_CABIN_GEOMETRY.floorThicknessCm;
-                    ctx.fillRect(toX(-floorW * pf / 2), toY(0), floorW * pf * scale, floorH * scale);
-                    ctx.strokeRect(toX(-floorW * pf / 2), toY(0), floorW * pf * scale, floorH * scale);
+                    drawAphaCabinFloor(ctx, toX, toY, scale, pf);
                 }
             }
 
