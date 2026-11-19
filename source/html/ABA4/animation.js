@@ -274,18 +274,13 @@
         }
 
         // ------------------------- controles -------------------------
-        const btn = document.getElementById('top-play'), scrub = document.getElementById('top-scrub'), chips = document.getElementById('top-chips');
-        // Phase navigation buttons were removed; keep the timeline node for JS.
+        const btn = document.getElementById('top-play'), scrub = document.getElementById('top-scrub');
+        // Keep the hidden timeline input for full-tour synchronization.
 
         function refresh() {
             draw();
             const T = A.t;
             scrub.value = T;
-            const idx = Math.min(N_ST - 1, Math.floor(T));
-            [...chips.children].forEach((c, i) => {
-                c.classList.toggle('done', T >= i + 1);
-                c.classList.toggle('on', i === idx && T < N_ST);
-            });
             btn.textContent = '↻ Replay';
         }
         function tick(now) {
@@ -303,7 +298,6 @@
             cancelAnimationFrame(A.raf); A.raf = requestAnimationFrame(tick);
         }
         btn.addEventListener('click', () => { play(0, N_ST); refresh(); });
-        chips.addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b) { const i = +b.dataset.i; play(i, i + 1); } });
         scrub.addEventListener('input', () => { A.playing = false; A.t = parseFloat(scrub.value); refresh(); });
 
         new ResizeObserver(() => refresh()).observe(stage);

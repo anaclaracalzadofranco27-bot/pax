@@ -22,8 +22,7 @@
                 </div>
                 <div class="px-4 py-2 bg-cad-panel border-b border-cad-border flex items-center gap-3">
                     <button id="top-play" type="button" class="cad-btn" title="Restart the top-view animation from the beginning">↻ Replay</button>
-                    <!-- Keep internal timeline elements for simulation and full-tour synchronization. -->
-                    <div id="top-chips" style="display:none !important" aria-hidden="true"></div>
+                    <!-- Hidden timeline input retained for full-tour synchronization. -->
                     <input id="top-scrub" type="range" min="0" max="6" step="0.001" value="0" style="display:none !important" tabindex="-1" aria-hidden="true">
                 </div>
                 <div class="overflow-x-auto">
