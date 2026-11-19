@@ -104,6 +104,8 @@ python tools/verify_preservation.py
 
 Esses testes não substituem a reprodução visual das oito abas nem a gravação dos takes em navegador.
 
+**Verificação consolidada (18/11/2026):** os contratos completos dos passageiros (três construções, anatomia, manta, cores, shaders, receitas de textura e detecção de código obsoleto) foram incorporados ao `tools/verify_preservation.py` em uma seção dedicada à Aba 1. O antigo `tools/verify_passengers.py` foi excluído; o GitHub Actions executa um único verificador Python para as oito abas, os cinco takes, a resolução Full HD e os testes de passageiros. O `node --check` da Aba 1 continua separado por ser uma checagem sintática JavaScript. Nenhuma lógica da apresentação nem o HTML gerado foi modificada.
+
 ## Passageiros: limpeza conservadora e testes
 
 A Aba 1 desenha os três passageiros em `source/html/ABA1/js/passengers.js`. As receitas
@@ -122,7 +124,7 @@ Além de reconstruir o HTML, o GitHub Actions executa:
 
 ```bash
 node --check source/html/ABA1/js/passengers.js
-python3 tools/verify_passengers.py
+python3 tools/verify_preservation.py
 ```
 
 Essas verificações detectam regressões estáticas, mas **não substituem**
