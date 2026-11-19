@@ -26,7 +26,7 @@ jobs:
         run: python3 tools/build.py --check
       - name: Check passenger JavaScript syntax
         run: node --check source/html/ABA1/js/passengers.js
-      - name: Check all tabs, passenger invariants, transitions and five Full HD takes
+      - name: Verify eight tabs, CSS, passengers, assets, transitions and Full HD takes
         run: python3 tools/verify_preservation.py
       - name: Commit the generated HTML only if it changed
         shell: bash
@@ -56,5 +56,5 @@ jobs:
         run: python3 tools/build.py --check
       - name: Check passenger JavaScript syntax
         run: node --check source/html/ABA1/js/passengers.js
-      - name: Check all tabs, passenger invariants, transitions and five Full HD takes
+      - name: Verify eight tabs, CSS, passengers, assets, transitions and Full HD takes
         run: python3 tools/verify_preservation.py

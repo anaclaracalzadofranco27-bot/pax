@@ -1,44 +1,18 @@
 #!/usr/bin/env python3
-"""Static checks for all tabs and passenger assets; not browser/video tests."""
+"""Testes estáticos consolidados do Overhead Bin Alpha.
+
+O verificador não substitui reprodução visual, WebGL nem gravação real.
+"""
+from __future__ import annotations
 import re
+import sys
+from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-html = (ROOT / "FINALPROJECT_APHA.html").read_text(encoding="utf-8")
-director = (ROOT / "source/html/ABA8/director-and-recording.js").read_text(encoding="utf-8")
-# Verify visual invariants against the assembled CSS, not the modular include manifest.
-css = html.split("<style>", 1)[1].split("</style>", 1)[0]
-
-tabs = ("pax", "cad3d", "nova", "topview", "unified", "sim", "closing", "tour")
-for tab in tabs:
-    assert html.count(f'id="tab-btn-{tab}"') == 1, f"Tab missing or duplicated: {tab}"
-    assert html.count(f'id="module-{tab}"') == 1, f"Module missing or duplicated: {tab}"
-# Each navigation tab has its own HTML source. File numbers follow tab order,
-# not the legacy DOM order (the original Aba 6 block lives earlier in the page).
-template = (ROOT / "source/page.template.html").read_text(encoding="utf-8")
-# One engine owns shared CAD drawing and seated-cabin drawing.
-# The Aba 6 manikin is inlined *between* them to keep original runtime order.
-cabin_path = ROOT / "source/js/engine/cabin-shared.js"
-navigation_path = ROOT / "source/js/core/navigation.js"
-assert cabin_path.is_file(), "Missing unified cabin-shared.js"
-assert navigation_path.is_file(), "Missing navigation.js"
-cabin_source = cabin_path.read_text(encoding="utf-8")
-navigation_source = navigation_path.read_text(encoding="utf-8")
-assert template.count("@@APHA_INCLUDE:source/js/engine/cabin-shared.js@@") == 1, "Broken shared cabin include"
-assert "@@APHA_INCLUDE:source/js/engine/cad2d-and-shared.js@@" not in template, "Outdated CAD include"
-assert "@@APHA_INCLUDE:source/js/engine/sectioncabin.js@@" not in template, "Outdated seated-cabin include"
-assert cabin_source.count("@@APHA_INCLUDE:source/js/core/navigation.js@@") == 1, "Navigation not placed in original position"
-assert cabin_source.count("@@APHA_INCLUDE:source/html/ABA6/manikin.js@@") == 1, "ABA6 manikin not placed between engine halves"
-assert cabin_source.index("@@APHA_INCLUDE:source/js/core/navigation.js@@") < cabin_source.index("@@APHA_INCLUDE:source/html/ABA6/controller.js@@") < cabin_source.index("function computeAllGeometries("), "Navigation, controller and CAD order changed"
-assert cabin_source.index("function drawCADCanvas(") < cabin_source.index("@@APHA_INCLUDE:source/html/ABA6/manikin.js@@") < cabin_source.index("window.drawSeatedScene = drawSeatedScene;"), "Shared engine draw order changed"
-assert navigation_source.count("function switchTab(tab) {") == 1, "Navigation handler missing or duplicated"
-assert "function switchTab(tab) {" not in cabin_source, "Navigation handler duplicated in cabin engine"
-assert "window.SEATED_STAT =" in cabin_source, "Missing seated-cabin ergonomics state"
-
-# CSS modules are expanded at the exact original cascade positions.
-# Never append them to the end of the HTML or introduce new <link> tags.
-css_source = (ROOT / "source/css/global.css").read_text(encoding="utf-8")
-css_paths = (
+TABS = ("pax", "cad3d", "nova", "topview", "unified", "sim", "closing", "tour")
+# Contratos antigos continuam obrigatórios. CSS novo é descoberto automaticamente.
+CSS_REQUIRED = (
     "source/html/ABA6/viewport-theme.css",
     "source/html/ABA5/viewport-theme.css",
     "source/html/ABA8/tour-frame.css",
@@ -59,127 +33,279 @@ css_paths = (
     "source/html/ABA3/presentation.css",
     "source/html/ABA7/closing-illustrations.css",
 )
-assert template.count("@@APHA_INCLUDE:source/css/global.css@@") == 1, "Global CSS entry point missing"
-for css_path in css_paths:
-    css_marker = f"@@APHA_INCLUDE:{css_path}@@"
-    assert css_source.count(css_marker) == 1, f"CSS fragment missing or duplicated: {css_path}"
-    assert (ROOT / css_path).is_file(), f"Missing CSS fragment: {css_path}"
-assert "body {" in css_source and "html, body {" in css_source, "Global theme moved out"
-assert "source/html/ABA1/styles.css" not in css_source, "PAX iframe styles must remain isolated"
-
-# Standalone Aba 5 and Aba 6: a single continuous 48px blueprint grid is
-# drawn by .sim-bg *behind* transparent canvases, not in camera coordinates.
-aba5_theme = (ROOT / "source/html/ABA5/viewport-theme.css").read_text(encoding="utf-8")
-aba6_theme = (ROOT / "source/html/ABA6/viewport-theme.css").read_text(encoding="utf-8")
-aba5_sim = (ROOT / "source/html/ABA5/unified-simulation.js").read_text(encoding="utf-8")
-aba6_manikin = (ROOT / "source/html/ABA6/manikin.js").read_text(encoding="utf-8")
-tour_frame_css = (ROOT / "source/html/ABA8/tour-frame.css").read_text(encoding="utf-8")
-assert ".sim-bg{background-color:var(--apha-bg);background-image:" in css_source, "Global blueprint grid missing"
-assert "background-size:48px 48px" in css_source, "Full-viewport blueprint grid spacing changed"
-assert "#module-unified .sim-bg{background:var(--apha-bg)}" not in aba5_theme, "ABA5 still overrides CSS grid"
-assert "#aba6-module-ergo .sim-bg{background:var(--apha-bg)}" not in aba6_theme, "ABA6 still overrides CSS grid"
-assert "#aba6-module-ergo .sim-card > div:first-child{background:" not in aba6_theme, "ABA6 first-child still hides the viewport grid"
-assert "cssGridBackdrop: !inTourView()" in aba5_sim, "ABA5 standalone canvas grid opt-in lost"
-assert "drawUnifiedCabinBackground(ctx, m.W, m.H, { paint: false, toX, toY });" not in aba5_sim, "ABA5 draws duplicate camera grid"
-assert "paint: !opts.cssGridBackdrop" in cabin_source, "Shared CAD engine still paints over CSS grid"
-assert "ctx.canvas.id !== 'aba6-manikinCanvas'" in aba6_manikin, "ABA6 overlays camera grid"
-assert "tour: !!canvas.closest('#tour-stage'), paint: false" in aba6_manikin, "ABA6 canvas still paints opaque background"
-assert "#tour-stage .sim-bg{background:none}" in tour_frame_css, "Tour must retain a single stationary blueprint grid"
-assert "#tour-stage #module-unified .sim-bg" in (ROOT / "source/html/ABA5/tour-layout.css").read_text(encoding="utf-8"), "ABA5 tour layout moved"
 
 
-# The standalone biomechanical tab has its own heading, hidden during the tour.
-# Recording CSS's Aba 6 include is nested inside the shared recording fragment,
-# so it must not be counted among global.css's immediate imports.
-aba6_html = (ROOT / "source/html/ABA6/ABA6.html").read_text(encoding="utf-8")
-aba6_fullscreen_css = (ROOT / "source/html/ABA6/fullscreen.css").read_text(encoding="utf-8")
-aba6_tour_css = (ROOT / "source/html/ABA6/tour-layout.css").read_text(encoding="utf-8")
-recording_css = (ROOT / "source/css/recording-and-transitions.css").read_text(encoding="utf-8")
-aba6_recording_css = (ROOT / "source/html/ABA6/recording-layout.css").read_text(encoding="utf-8")
-assert aba6_html.count('id="aba6-header"') == 1, "ABA6 heading missing or repeated"
-assert "Biomechanical Validation &amp; Boarding Time" in aba6_html, "ABA6 title changed"
-assert "#tour-stage #aba6-header{display:none !important;}" in aba6_tour_css, "ABA6 title visible in tour"
-assert "--aba6-header-height:58px" in aba6_fullscreen_css, "ABA6 heading height missing"
-assert "height:clamp(480px, 70vh, 740px)" in aba6_fullscreen_css, "ABA6 standalone viewport height not constrained"
-assert "body.apha-simulation-view > header" not in aba6_fullscreen_css, "ABA6 still hides the shared navigation header"
-assert "body.apha-simulation-view > main" not in aba6_fullscreen_css, "ABA6 still overrides the shared page layout"
-assert "body.apha-simulation-view #apha-return-tabs" not in aba6_fullscreen_css, "Redundant return-tabs control shown"
-assert "#module-unified > .bg-cad-panel:first-of-type { display:none !important; }" in aba5_theme, "ABA5 legacy heading rule not moved to its own theme"
-assert css.count("#module-unified > .bg-cad-panel:first-of-type { display:none !important; }") == 1, "ABA5 heading rule missing or duplicated"
-assert "#aba6-module-ergo > .bg-cad-panel:first-child" not in css, "ABA6 title still hidden by CSS"
-assert "#aba6-module-ergo, #module-unified { row-gap:0 !important; }" not in css, "Obsolete row-gap override still present"
-assert "@@APHA_INCLUDE:source/css/shared-viewport.css@@" not in css_source, "Obsolete shared viewport include"
-assert "#tour-stage #aba6-header{display:none !important;}" in aba6_tour_css, "ABA6 title must remain hidden in tour"
-assert '<header class="bg-cad-panel/95' in template, "Global tab navigation header missing"
-assert recording_css.count("@@APHA_INCLUDE:source/html/ABA6/recording-layout.css@@") == 1, "ABA6 recording CSS not in original cascade position"
-
-# Recording geometry for CAD3D (ABA2) and bin comparison (ABA3) belongs to
-# those tabs, not the shared capture stylesheet. Nested includes keep cascade order.
-aba2_recording_path = ROOT / "source/html/ABA2/recording-layout.css"
-aba3_recording_path = ROOT / "source/html/ABA3/recording-layout.css"
-aba2_rec_marker = "@@APHA_INCLUDE:source/html/ABA2/recording-layout.css@@"
-aba3_rec_marker = "@@APHA_INCLUDE:source/html/ABA3/recording-layout.css@@"
-aba6_rec_marker = "@@APHA_INCLUDE:source/html/ABA6/recording-layout.css@@"
-assert aba2_recording_path.is_file(), "Missing ABA2 recording layout"
-assert aba3_recording_path.is_file(), "Missing ABA3 recording layout"
-aba2_recording_css = aba2_recording_path.read_text(encoding="utf-8")
-aba3_recording_css = aba3_recording_path.read_text(encoding="utf-8")
-assert recording_css.count(aba2_rec_marker) == 1, "ABA2 recording include missing/duplicated"
-assert recording_css.count(aba3_rec_marker) == 1, "ABA3 recording include missing/duplicated"
-assert recording_css.index(aba2_rec_marker) < recording_css.index(aba3_rec_marker) < recording_css.index(aba6_rec_marker), "Recording CSS cascade order changed"
-assert "#tour-stage.rec #cad3d-container { height: 100% !important; }" in aba2_recording_css, "CAD3D capture sizing lost"
-assert "#tour-stage.rec > #module-nova {" in aba3_recording_css and "top:2.2%" in aba3_recording_css, "ABA3 capture positioning lost"
-assert "#tour-stage.rec #cad3d-container" not in recording_css, "ABA2 styling still in shared recording CSS"
-assert "#tour-stage.rec > #module-nova" not in recording_css, "ABA3 styling still in shared recording CSS"
-
-assert "#tour-stage.rec #aba6-module-ergo" not in recording_css, "ABA6-specific recording CSS still in shared file"
-assert "#tour-stage.rec #aba6-module-ergo" in aba6_recording_css, "ABA6 recording frame rule lost"
-assert html.count('id="aba6-header"') == 1, "Compiled ABA6 heading missing"
-# The individual Aba 6 canvas is boxed like the other tabs. Tour mode
-# suppresses the visual frame and its margin to protect the 1920x1080 take.
-assert 'class="aba6-sim-card sim-card bg-cad-panel border border-cad-border rounded-xl overflow-hidden"' in aba6_html, "ABA6 canvas card markup missing"
-assert "margin-top:14px !important;" in aba6_fullscreen_css, "ABA6 card spacing missing"
-assert "border:1px solid var(--apha-mid-45)" in aba6_fullscreen_css, "ABA6 frame border missing"
-assert "border-radius:12px;" in aba6_fullscreen_css, "ABA6 rounded corners missing"
-assert "#tour-stage #aba6-module-ergo .sim-card {height:100% !important;margin-top:0 !important;overflow:visible !important;}" in aba6_fullscreen_css, "ABA6 tour frame spacing/clip not restored"
-assert "#tour-stage #aba6-module-ergo .sim-card{border:0;border-radius:0;box-shadow:none;background:transparent}" in aba6_tour_css, "Tour must hide individual card frame"
-assert html.count('id="aba6-manikinCanvas"') == 1, "Biomechanical canvas duplicated"
+def normalized(text: str) -> str:
+    return re.sub(r"\s+", "", re.sub(r"/\*.*?\*/", "", text, flags=re.S))
 
 
+class Checker:
+    def __init__(self) -> None:
+        self.errors: list[str] = []
+        self.cache: dict[str, str | None] = {}
+        self.label = "Geral"
+        self._css_loaded = False
+        self._css: str | None = None
 
-for index, name in enumerate(tabs, start=1):
-    relative_path = f"source/html/ABA{index}/ABA{index}.html"
-    source_path = ROOT / relative_path
-    source = source_path.read_text(encoding="utf-8")
-    assert f'id="module-{name}"' in source, f"Broken section: ABA{index} ({name})"
-    assert f"@@APHA_INCLUDE:{relative_path}@@" in template, (
-        f"Template does not include ABA{index} ({name})"
-    )
+    def check(self, ok: bool, message: str) -> None:
+        if not ok:
+            self.errors.append(f"[{self.label}] {message}")
 
-# Preserve the embedded iframe and inline closing illustration references.
-pax_template = (ROOT / "source/html/ABA1/index.template.html").read_text(encoding="utf-8")
-for name in ("aircraft.js", "passengers.js", "controls.js"):
-    assert f"@@APHA_INCLUDE:source/html/ABA1/js/{name}@@" in pax_template, name
-for name in ("illustration-01.svg", "illustration-02.svg"):
-    assert f"@@APHA_INCLUDE:source/html/ABA1/svg/{name}@@" in pax_template, name
-assert "@@APHA_INCLUDE:source/html/ABA1/styles.css@@" in pax_template
-assert "@@APHA_PAX:source/html/ABA1/index.template.html@@" in template
-closing_source = (ROOT / "source/html/ABA7/ABA7.html").read_text(encoding="utf-8")
-for n in ("01", "02", "04", "06", "08", "10", "13"):
-    assert f"@@APHA_INCLUDE:source/html/ABA7/svg/illustration-{n}.svg@@" in closing_source, n
+    def read(self, path: str) -> str | None:
+        if path not in self.cache:
+            try:
+                self.cache[path] = (ROOT / path).read_text(encoding="utf-8")
+            except (OSError, UnicodeError) as exc:
+                self.cache[path] = None
+                self.check(False, f"Arquivo ausente/ilegível: {path} ({type(exc).__name__}: {exc})")
+        return self.cache[path]
 
-# ---------------------------------------------------------------------------
-# Aba 1 — Contratos estáticos dos três passageiros e seus shaders/materiais.
-# Integrado integralmente do antigo verify_passengers.py, sem relaxar testes.
-# Esta checagem não substitui renderização WebGL no navegador.
-# ---------------------------------------------------------------------------
-def verify_aba1_passengers() -> None:
-    code = (ROOT / "source/html/ABA1/js/passengers.js").read_text(encoding="utf-8")
+    def css(self) -> str | None:
+        if not self._css_loaded:
+            self._css_loaded = True
+            html = self.read("FINALPROJECT_APHA.html")
+            if html is not None:
+                block = re.search(r"<style>(.*?)</style>", html, re.S)
+                self.check(block is not None, "Bloco <style> principal ausente")
+                if block is not None:
+                    self._css = block.group(1)
+        return self._css
+
+    def has_css(self, source: str, fragment: str) -> bool:
+        return normalized(fragment) in normalized(source)
+
+    def order(self, source: str, markers: tuple[str, ...], message: str) -> None:
+        positions = [source.find(marker) for marker in markers]
+        self.check(all(n >= 0 for n in positions) and
+                   all(a < b for a, b in zip(positions, positions[1:])), message)
+
+
+def verify_tabs(v: Checker) -> None:
+    html = v.read("FINALPROJECT_APHA.html")
+    template = v.read("source/page.template.html")
+    if html is None or template is None:
+        return
+    for index, tab in enumerate(TABS, 1):
+        v.check(html.count(f'id="tab-btn-{tab}"') == 1, f"Aba {index}: botão ausente/duplicado")
+        v.check(html.count(f'id="module-{tab}"') == 1, f"Aba {index}: módulo ausente/duplicado")
+        path = f"source/html/ABA{index}/ABA{index}.html"
+        fragment = v.read(path)
+        if fragment is not None:
+            v.check(f'id="module-{tab}"' in fragment, f"Aba {index}: módulo ausente do fonte")
+        v.check(f"@@APHA_INCLUDE:{path}@@" in template, f"Aba {index}: inclusão ausente")
+    v.check('<header class="bg-cad-panel/95' in template, "Cabeçalho global ausente")
+
+
+def verify_engine(v: Checker) -> None:
+    template = v.read("source/page.template.html")
+    engine = v.read("source/js/engine/cabin-shared.js")
+    nav = v.read("source/js/core/navigation.js")
+    if template is not None:
+        v.check(template.count("@@APHA_INCLUDE:source/js/engine/cabin-shared.js@@") == 1,
+                "Motor compartilhado ausente/duplicado no template")
+        for obsolete in ("cad2d-and-shared.js", "sectioncabin.js"):
+            v.check(f"@@APHA_INCLUDE:source/js/engine/{obsolete}@@" not in template,
+                    f"Motor antigo referenciado: {obsolete}")
+    if engine is not None:
+        for marker in ("@@APHA_INCLUDE:source/js/core/navigation.js@@",
+                       "@@APHA_INCLUDE:source/html/ABA6/manikin.js@@"):
+            v.check(engine.count(marker) == 1, f"Include do motor ausente/duplicado: {marker}")
+        v.order(engine, ("@@APHA_INCLUDE:source/js/core/navigation.js@@",
+                         "@@APHA_INCLUDE:source/html/ABA6/controller.js@@",
+                         "function computeAllGeometries("),
+                "Ordem navegação/controlador/geometria alterada")
+        v.order(engine, ("function drawCADCanvas(",
+                         "@@APHA_INCLUDE:source/html/ABA6/manikin.js@@",
+                         "window.drawSeatedScene = drawSeatedScene;"),
+                "Ordem CAD/manequim/cabine alterada")
+        v.check("function switchTab(tab) {" not in engine, "switchTab duplicada no motor")
+        v.check("window.SEATED_STAT =" in engine, "Estado SEATED_STAT ausente")
+    if nav is not None:
+        v.check(nav.count("function switchTab(tab) {") == 1, "switchTab ausente/duplicada")
+
+
+def verify_css(v: Checker) -> None:
+    template = v.read("source/page.template.html")
+    manifest = v.read("source/css/global.css")
+    if template is not None:
+        v.check(template.count("@@APHA_INCLUDE:source/css/global.css@@") == 1,
+                "Inclusão principal do CSS ausente/duplicada")
+    if manifest is None:
+        return
+    refs = re.findall(r"@@APHA_INCLUDE:([^@]+\.css)@@", manifest)
+    counts = Counter(refs)
+    for path in CSS_REQUIRED:
+        v.check(counts[path] == 1, f"Estilo histórico ausente/duplicado: {path}")
+    for path, amount in counts.items():
+        v.check(amount == 1, f"Include CSS duplicado ({amount}): {path}")
+    def descend(path: str, parents: tuple[str, ...]) -> None:
+        if path in parents:
+            v.check(False, f"Ciclo de includes CSS: {' -> '.join((*parents, path))}")
+            return
+        data = v.read(path)
+        if data is None:
+            return
+        children = re.findall(r"@@APHA_INCLUDE:([^@]+\.css)@@", data)
+        for child, amount in Counter(children).items():
+            v.check(amount == 1, f"Include CSS duplicado em {path}: {child}")
+        for child in set(children):
+            descend(child, (*parents, path))
+    for path in set(refs):
+        descend(path, ("source/css/global.css",))
+    v.check("body {" in manifest and "html, body {" in manifest, "Tema global ausente")
+    v.check("source/html/ABA1/styles.css" not in manifest, "CSS isolado PAX no manifesto global")
+    v.check("source/css/shared-viewport.css" not in manifest, "Include CSS obsoleto")
+    css = v.css()
+    if css is not None:
+        v.check("#aba6-module-ergo > .bg-cad-panel:first-child" not in css,
+                "Cabeçalho da Aba 6 ocultado por regra antiga")
+        v.check(not v.has_css(css, "#aba6-module-ergo, #module-unified {row-gap:0 !important;}"),
+                "Regra row-gap obsoleta reintroduzida")
+
+
+def verify_blueprint(v: Checker) -> None:
+    manifest = v.read("source/css/global.css")
+    theme5 = v.read("source/html/ABA5/viewport-theme.css")
+    theme6 = v.read("source/html/ABA6/viewport-theme.css")
+    sim5 = v.read("source/html/ABA5/unified-simulation.js")
+    manikin = v.read("source/html/ABA6/manikin.js")
+    engine = v.read("source/js/engine/cabin-shared.js")
+    frame = v.read("source/html/ABA8/tour-frame.css")
+    tour5 = v.read("source/html/ABA5/tour-layout.css")
+    if manifest is not None:
+        v.check(v.has_css(manifest, ".sim-bg{background-color:var(--apha-bg);background-image:"),
+                "Malha blueprint CSS removida")
+        v.check(v.has_css(manifest, "background-size:48px 48px"), "Grade 48px alterada")
+    if theme5 is not None:
+        v.check(not v.has_css(theme5, "#module-unified .sim-bg{background:var(--apha-bg)}"),
+                "Aba 5 voltou a usar fundo liso")
+        v.check(v.has_css(theme5,
+                "#module-unified > .bg-cad-panel:first-of-type { display:none !important; }"),
+                "Regra exclusiva do título antigo da Aba 5 ausente")
+    if theme6 is not None:
+        v.check(not v.has_css(theme6, "#aba6-module-ergo .sim-bg{background:var(--apha-bg)}"),
+                "Aba 6 voltou ao fundo liso")
+        v.check(not v.has_css(theme6, "#aba6-module-ergo .sim-card > div:first-child{background:"),
+                "Aba 6 voltou a cobrir a malha com fundo opaco")
+    if sim5 is not None:
+        v.check(re.search(r"cssGridBackdrop\s*:\s*!inTourView\(\)", sim5) is not None,
+                "Canvas da Aba 5 deixou de ser transparente")
+        v.check(re.search(r"drawUnifiedCabinBackground\s*\(\s*ctx\s*,\s*m\.W\s*,\s*m\.H", sim5) is None,
+                "Aba 5 desenha malha física duplicada")
+    if manikin is not None:
+        v.check("ctx.canvas.id !== 'aba6-manikinCanvas'" in manikin,
+                "Aba 6 desenha malha dupla")
+        v.check(re.search(r"tour\s*:\s*!!canvas\.closest\('#tour-stage'\)\s*,\s*paint\s*:\s*false", manikin) is not None,
+                "Aba 6 pinta fundo opaco")
+    if engine is not None:
+        v.check(re.search(r"paint\s*:\s*!opts\.cssGridBackdrop", engine) is not None,
+                "Motor CAD sobrepõe a malha CSS")
+    if frame is not None:
+        v.check(v.has_css(frame, "#tour-stage .sim-bg{background:none}"),
+                "Simulação Geral perdeu malha fixa")
+    if tour5 is not None:
+        v.check("#tour-stage #module-unified .sim-bg" in tour5,
+                "Simulação Geral perdeu layout da Aba 5")
+
+
+def verify_aba6_layout(v: Checker) -> None:
+    html6 = v.read("source/html/ABA6/ABA6.html")
+    standalone = v.read("source/html/ABA6/fullscreen.css")
+    tour = v.read("source/html/ABA6/tour-layout.css")
+    css = v.css()
+    if html6 is not None:
+        v.check(html6.count('id="aba6-header"') == 1,
+                "Título no HTML-fonte da Aba 6 ausente/duplicado")
+        v.check("Biomechanical Validation &amp; Boarding Time" in html6,
+                "Título biomecânico alterado")
+        v.check('class="aba6-sim-card sim-card bg-cad-panel border border-cad-border rounded-xl overflow-hidden"' in html6,
+                "Moldura do canvas biomecânico removida")
+    if standalone is not None:
+        for rule, name in (
+            ("--aba6-header-height:58px", "Altura do título"),
+            ("height:clamp(480px, 70vh, 740px)", "Altura do viewport"),
+            ("margin-top:14px !important;", "Margem do cartão"),
+            ("border:1px solid var(--apha-mid-45)", "Borda do cartão"),
+            ("border-radius:12px;", "Cantos arredondados"),
+            ("#tour-stage #aba6-module-ergo .sim-card {height:100% !important;margin-top:0 !important;overflow:visible !important;}", "Enquadramento do tour"),
+        ):
+            v.check(v.has_css(standalone, rule), f"Aba 6: {name} alterado")
+        for obsolete in ("body.apha-simulation-view > header",
+                         "body.apha-simulation-view > main",
+                         "body.apha-simulation-view #apha-return-tabs"):
+            v.check(obsolete not in standalone, f"Regra fullscreen antiga: {obsolete}")
+    if tour is not None:
+        v.check(v.has_css(tour, "#tour-stage #aba6-header{display:none !important;}"),
+                "Título da Aba 6 aparece no tour")
+        v.check(v.has_css(tour,
+                "#tour-stage #aba6-module-ergo .sim-card{border:0;border-radius:0;box-shadow:none;background:transparent}"),
+                "Moldura biomecânica aparece no take")
+    if css is not None:
+        rule = "#module-unified > .bg-cad-panel:first-of-type { display:none !important; }"
+        v.check(normalized(css).count(normalized(rule)) == 1,
+                "Regra do título da Aba 5 ausente/duplicada no CSS final")
+    html = v.read("FINALPROJECT_APHA.html")
+    if html is not None:
+        v.check(html.count('id="aba6-header"') == 1,
+                "Cabeçalho da Aba 6 ausente/duplicado no HTML final")
+        v.check(html.count('id="aba6-manikinCanvas"') == 1,
+                "Canvas biomecânico ausente/duplicado no HTML final")
+
+
+def verify_recording_css(v: Checker) -> None:
+    shared = v.read("source/css/recording-and-transitions.css")
+    css2 = v.read("source/html/ABA2/recording-layout.css")
+    css3 = v.read("source/html/ABA3/recording-layout.css")
+    css6 = v.read("source/html/ABA6/recording-layout.css")
+    if shared is None:
+        return
+    marks = tuple(f"@@APHA_INCLUDE:source/html/ABA{i}/recording-layout.css@@"
+                  for i in (2, 3, 6))
+    for mark in marks:
+        v.check(shared.count(mark) == 1, f"Include de gravação ausente/duplicado: {mark}")
+    v.order(shared, marks, "Ordem das regras de gravação alterada")
+    for rule in ("#tour-stage.rec #cad3d-container",
+                 "#tour-stage.rec > #module-nova",
+                 "#tour-stage.rec #aba6-module-ergo"):
+        v.check(rule not in shared, f"CSS exclusivo de aba no arquivo compartilhado: {rule}")
+    if css2 is not None:
+        v.check(v.has_css(css2, "#tour-stage.rec #cad3d-container{height:100% !important;}"),
+                "Altura do CAD na gravação alterada")
+    if css3 is not None:
+        v.check(v.has_css(css3, "#tour-stage.rec > #module-nova{"),
+                "Quadro dos bins na gravação ausente")
+        v.check(v.has_css(css3, "top:2.2%"),
+                "Margem de 2,2% alterada")
+    if css6 is not None:
+        v.check("#tour-stage.rec #aba6-module-ergo" in css6,
+                "Altura da Aba 6 na gravação ausente")
+
+
+def verify_aba1_assets(v: Checker) -> None:
+    pax = v.read("source/html/ABA1/index.template.html")
+    template = v.read("source/page.template.html")
+    if pax is not None:
+        for name in ("aircraft.js", "passengers.js", "controls.js"):
+            v.check(f"@@APHA_INCLUDE:source/html/ABA1/js/{name}@@" in pax,
+                    f"Script do iframe PAX ausente: {name}")
+        for name in ("illustration-01.svg", "illustration-02.svg"):
+            v.check(f"@@APHA_INCLUDE:source/html/ABA1/svg/{name}@@" in pax,
+                    f"Ilustração do iframe PAX ausente: {name}")
+        v.check("@@APHA_INCLUDE:source/html/ABA1/styles.css@@" in pax,
+                "CSS isolado do iframe PAX ausente")
+    if template is not None:
+        v.check("@@APHA_PAX:source/html/ABA1/index.template.html@@" in template,
+                "Inclusão do iframe PAX ausente")
+
+
+def verify_aba1_passengers(v: Checker) -> None:
+    code = v.read("source/html/ABA1/js/passengers.js")
+    if code is None:
+        return
 
 
     def require(test: bool, message: str) -> None:
-        if not test:
-            raise SystemExit("ERROR (passengers): " + message)
+        v.check(test, message)
 
 
     def once(needle: str) -> None:
@@ -245,77 +371,135 @@ def verify_aba1_passengers() -> None:
         require(removed not in code, "obsolete rendering branch reintroduced: " + removed)
 
 
-verify_aba1_passengers()
 
-# The two top-view drawings are owned by ABA4 and embedded, not fetched at runtime.
-topview_js = (ROOT / "source/html/ABA4/animation.js").read_text(encoding="utf-8")
-for asset in ("aircraft.svg.base64", "detail-s.svg.base64"):
-    asset_path = ROOT / "source/html/ABA4" / asset
-    assert asset_path.is_file(), f"Missing ABA4 asset: {asset_path}"
-    marker = f"@@APHA_INCLUDE:source/html/ABA4/{asset}@@"
-    assert topview_js.count(marker) == 1, f"Missing or duplicate ABA4 asset include: {asset}"
-assert "source/assets/topview/" not in topview_js, "Outdated topview asset path"
-
-# ABA6 owns its own animation controller, but it is expanded inside the
-# original combined script (before CAD geometry) to preserve execution order.
-aba6_control_path = ROOT / "source/html/ABA6/controller.js"
-assert aba6_control_path.is_file(), "Missing ABA6 animation controller"
-aba6_control_source = aba6_control_path.read_text(encoding="utf-8")
-shared_cad_source = cabin_source
-assert shared_cad_source.count("@@APHA_INCLUDE:source/html/ABA6/controller.js@@") == 1, "Broken ABA6 controller include"
-assert shared_cad_source.index("@@APHA_INCLUDE:source/html/ABA6/controller.js@@") < shared_cad_source.index("function computeAllGeometries("), "ABA6 controller position changed"
-for name in ("initAba6Engine", "scheduleAba6Engine", "pauseAba6Engine"):
-    assert f"function {name}(" in aba6_control_source, f"Missing ABA6 controller function: {name}"
-    assert f"function {name}(" not in shared_cad_source, f"ABA6 controller duplicated in shared CAD: {name}"
-assert "scheduleAba6Engine({tour:true,reset:true" in director, "Tour does not start ABA6"
-assert "pauseAba6Engine()" in director, "Tour does not stop ABA6"
-
-# ABA3's two comparison renderers share the CAD3D closure and must stay
-# embedded at their original position, not loaded as a separate script.
-cad3d_source = (ROOT / "source/html/ABA2/cad3d.js").read_text(encoding="utf-8")
-aba3_renderers_path = ROOT / "source/html/ABA3/bin-comparison-renderers.js"
-assert aba3_renderers_path.is_file(), "Missing ABA3 comparison renderers"
-aba3_renderers = aba3_renderers_path.read_text(encoding="utf-8")
-assert cad3d_source.count("@@APHA_INCLUDE:source/html/ABA3/bin-comparison-renderers.js@@") == 1, "Broken ABA3 renderer include"
-assert cad3d_source.index("@@APHA_INCLUDE:source/html/ABA3/bin-comparison-renderers.js@@") < cad3d_source.index("window.cad3dExportImages"), "Incorrect renderer ordering"
-for required in (
-    "function drawTopDimension(",
-    "(function novaFront() {",
-    "(function conventionalSVGTopView(){",
-    "window.novaEnter =",
-    "window.__novaRender =",
-    "window.__convDraw=draw;",
-    "window.__convCapture=",
-    "window.novaShowHeader=",
-):
-    assert required in aba3_renderers, f"Missing comparison renderer: {required}"
+def verify_aba3(v: Checker) -> None:
+    cad = v.read("source/html/ABA2/cad3d.js")
+    render = v.read("source/html/ABA3/bin-comparison-renderers.js")
+    include = "@@APHA_INCLUDE:source/html/ABA3/bin-comparison-renderers.js@@"
+    if cad is not None:
+        v.check(cad.count(include) == 1, "Inclusão dos renderers da Aba 3 ausente/duplicada")
+        v.order(cad, (include, "window.cad3dExportImages"),
+                "Ordem do renderer/exportador da Aba 3 alterada")
+    if render is not None:
+        for required in (
+            "function drawTopDimension(", "(function novaFront() {",
+            "(function conventionalSVGTopView(){", "window.novaEnter =",
+            "window.__novaRender =", "window.__convDraw=draw;",
+            "window.__convCapture=", "window.novaShowHeader=",
+        ):
+            v.check(required in render, f"Função da comparação ausente: {required}")
 
 
-block = re.search(r"const TOUR_TAKES = \[([\s\S]*?)\];", director)
-assert block, "Missing take manifest"
-takes = [
-    (int(start), int(end), mode, name)
-    for start, end, mode, name in re.findall(
-        r"\{\s*start:(\d+),end:(\d+),mode:'([^']+)',name:'([^']+)'\s*\}",
-        block.group(1),
+def verify_aba4(v: Checker) -> None:
+    animation = v.read("source/html/ABA4/animation.js")
+    if animation is None:
+        return
+    for name in ("aircraft.svg.base64", "detail-s.svg.base64"):
+        path = f"source/html/ABA4/{name}"
+        v.read(path)
+        v.check(animation.count(f"@@APHA_INCLUDE:{path}@@") == 1,
+                f"SVG da Aba 4 ausente/duplicado: {name}")
+    v.check("source/assets/topview/" not in animation,
+            "Caminho antigo dos SVG da Aba 4 reapareceu")
+
+
+def verify_aba6_controller(v: Checker) -> None:
+    controller = v.read("source/html/ABA6/controller.js")
+    cabin = v.read("source/js/engine/cabin-shared.js")
+    director = v.read("source/html/ABA8/director-and-recording.js")
+    if cabin is not None:
+        inc = "@@APHA_INCLUDE:source/html/ABA6/controller.js@@"
+        v.check(cabin.count(inc) == 1, "Inclusão do controlador biomecânico ausente/duplicada")
+        v.order(cabin, (inc, "function computeAllGeometries("),
+                "Controlador biomecânico fora da ordem do motor")
+    if controller is not None:
+        for name in ("initAba6Engine", "scheduleAba6Engine", "pauseAba6Engine"):
+            v.check(f"function {name}(" in controller, f"Função biomecânica ausente: {name}")
+            if cabin is not None:
+                v.check(f"function {name}(" not in cabin,
+                        f"Função biomecânica duplicada no motor: {name}")
+    if director is not None:
+        v.check("scheduleAba6Engine({tour:true,reset:true" in director,
+                "Simulação Geral não inicia Aba 6")
+        v.check("pauseAba6Engine()" in director, "Simulação Geral não pausa Aba 6")
+
+
+def verify_aba7(v: Checker) -> None:
+    closing = v.read("source/html/ABA7/ABA7.html")
+    if closing is None:
+        return
+    for n in ("01", "02", "04", "06", "08", "10", "13"):
+        v.check(f"@@APHA_INCLUDE:source/html/ABA7/svg/illustration-{n}.svg@@" in closing,
+                f"SVG da conclusão ausente: {n}")
+
+
+def verify_takes(v: Checker) -> None:
+    director = v.read("source/html/ABA8/director-and-recording.js")
+    html = v.read("FINALPROJECT_APHA.html")
+    css = v.css()
+    if director is not None:
+        manifest = re.search(r"const TOUR_TAKES = \[([\s\S]*?)\];", director)
+        v.check(manifest is not None, "Manifesto TOUR_TAKES ausente")
+        if manifest is not None:
+            takes = [(int(a), int(b), mode, name) for a, b, mode, name in re.findall(
+                r"\{\s*start:(\d+),end:(\d+),mode:'([^']+)',name:'([^']+)'\s*\}",
+                manifest.group(1))]
+            v.check(takes == [
+                (0, 0, "full", "01-aviao"),
+                (1, 3, "full", "02-cad-bins-vista-superior"),
+                (4, 5, "full", "03-secao-manikin"),
+                (6, 6, "closing", "04-conclusao-sem-logo"),
+                (6, 6, "logo", "05-logo"),
+            ], f"Agrupamento dos cinco takes alterado: {takes}")
+        v.check(re.search(r"const\s+OW\s*=\s*1920\s*,\s*OH\s*=\s*1080", director) is not None,
+                "Resolução de gravação Full HD alterada")
+    if css is not None:
+        v.check(v.has_css(css, "#scene-1 #s1-stage{width:1920px;height:1080px"),
+                "Enquadramento do encerramento 1 alterado")
+        v.check(v.has_css(css,
+                "#scene-2 #s2-stage{position:absolute;left:0;top:0;width:1920px;height:1080px"),
+                "Enquadramento do encerramento 2 alterado")
+    if html is not None:
+        for marker in ("window.cad3dTourMorph", "fitBagDimensionLabels",
+                       "async function fxNovaIn", "async function fxCabinToStow",
+                       "function measureNovaCol", "function startCrossfade"):
+            v.check(marker in html, f"Handler de transição/cotas ausente: {marker}")
+        v.check(len(re.findall(r"<script\b", html)) == 12,
+                "Número de blocos script do HTML final alterado")
+
+
+def main() -> int:
+    v = Checker()
+    groups = (
+        ("Abas e fontes", verify_tabs),
+        ("Motor e navegação", verify_engine),
+        ("CSS e módulos", verify_css),
+        ("Abas 5/6: malha", verify_blueprint),
+        ("Aba 6: layout", verify_aba6_layout),
+        ("CSS de gravação", verify_recording_css),
+        ("Aba 1: recursos", verify_aba1_assets),
+        ("Aba 1: passageiros", verify_aba1_passengers),
+        ("Aba 3: comparação", verify_aba3),
+        ("Aba 4: SVG", verify_aba4),
+        ("Aba 6: controlador", verify_aba6_controller),
+        ("Aba 7: conclusão", verify_aba7),
+        ("Aba 8: takes", verify_takes),
     )
-]
-assert takes == [
-    (0, 0, "full", "01-aviao"),
-    (1, 3, "full", "02-cad-bins-vista-superior"),
-    (4, 5, "full", "03-secao-manikin"),
-    (6, 6, "closing", "04-conclusao-sem-logo"),
-    (6, 6, "logo", "05-logo"),
-], f"Changed take grouping: {takes}"
+    for section, verify in groups:
+        v.label = section
+        try:
+            verify(v)
+        except Exception as exc:
+            v.check(False, f"Erro inesperado: {type(exc).__name__}: {exc}")
+    if v.errors:
+        print(f"FALHA: {len(v.errors)} problema(s):", file=sys.stderr)
+        for message in v.errors:
+            print(" - " + message, file=sys.stderr)
+        return 1
+    print(f"OK: {len(groups)} grupos; oito abas, CSS, passageiros, "
+          "transições e cinco takes Full HD preservados.")
+    return 0
 
-assert "const OW = 1920, OH = 1080" in director, "1920x1080 recorder changed"
-assert "#scene-1 #s1-stage{width:1920px;height:1080px" in css, "Closing frame 1 changed"
-assert "#scene-2 #s2-stage{position:absolute;left:0;top:0;width:1920px;height:1080px" in css, "Closing frame 2 changed"
-for marker in (
-    "window.cad3dTourMorph", "fitBagDimensionLabels",
-    "async function fxNovaIn", "async function fxCabinToStow",
-    "function measureNovaCol", "function startCrossfade",
-):
-    assert marker in html, f"Missing transition or dimension handler: {marker}"
-assert len(re.findall(r"<script\b", html)) == 12, "Script layout changed"
-print("OK: eight tabs, eight source sections, five takes, Full HD and transition handlers preserved.")
+
+if __name__ == "__main__":
+    sys.exit(main())

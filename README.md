@@ -95,6 +95,8 @@ Foram removidas funções sem referência literal, constantes não lidas, seleto
 
 **Intocados naquela limpeza:** os módulos originais, hoje em `source/html/ABA1/` até `source/html/ABA8/`, incluindo `source/html/ABA2/cad3d.js` (malas, câmera e cotas), `source/html/ABA8/director-and-recording.js` (cinco takes, suas transições e gravação Full HD) e os demais estilos em uso.
 
+**Verificador aprimorado:** `tools/verify_preservation.py` agora organiza as checagens em 13 grupos por responsabilidade, acumula os problemas encontrados e retorna código de saída diferente de zero se houver alguma falha. Arquivos ausentes são relatados com caminho e causa, sem impedir a análise das demais áreas. As verificações usam funções explícitas em vez de `assert`, funcionando também com `python -O`. Os estilos CSS históricos continuam obrigatórios, enquanto novos includes CSS são descobertos e validados automaticamente. Comparações simples de CSS toleram diferenças de espaços; a verificação não substitui ensaios visuais em navegador.
+
 Verificação estática:
 
 ```bash
