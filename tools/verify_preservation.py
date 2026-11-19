@@ -742,7 +742,7 @@ def verify_html_cleanup(v: Checker) -> None:
         v.check(pax.count("<div") == pax.count("</div>"),
                 "Iframe da Aba 1 voltou a ter divs desbalanceadas")
     if pax_css is not None:
-        v.check(pax_css.count("#viewport {") == 1 and
+        v.check(pax_css.count("\n#viewport {") == 1 and
                 pax_css.count("button:hover {") == 1 and
                 "body.no-ctl #viewport" in pax_css and
                 "aspect-ratio: 16 / 9" in pax_css,
