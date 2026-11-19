@@ -88,6 +88,17 @@
             floorWidthCm: 252, floorThicknessCm: 8
         });
         window.APHA_CABIN_GEOMETRY = APHA_CABIN_GEOMETRY;
+        // Primitiva unica do piso fisico em cm: completa (progress=1)
+        // ou revelada do centro durante o take da Aba 5 (0..1).
+        function drawAphaCabinFloor(ctx, toX, toY, scale, progress = 1) {
+            const widthCm = APHA_CABIN_GEOMETRY.floorWidthCm * progress;
+            const heightCm = APHA_CABIN_GEOMETRY.floorThicknessCm;
+            ctx.fillStyle = APHA_CABIN_PALETTE.floorFill;
+            ctx.strokeStyle = APHA_CABIN_PALETTE.floorOutline;
+            ctx.lineWidth = 1.8;
+            ctx.fillRect(toX(-widthCm / 2), toY(0), widthCm * scale, heightCm * scale);
+            ctx.strokeRect(toX(-widthCm / 2), toY(0), widthCm * scale, heightCm * scale);
+        }
         // Linha do tempo VISUAL normalizada pelo mesmo phase (0..1) do motor biomecânico.
         // Altere tempos/durações em segundos aqui; a postura, a cinemática e o cronômetro
         // continuam usando os valores físicos originais, sem relógios paralelos.

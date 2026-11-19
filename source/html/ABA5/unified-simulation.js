@@ -32,9 +32,6 @@
                 centerY: APHA_CABIN_GEOMETRY.fuselageCenterYCm,
                 wall: APHA_CABIN_GEOMETRY.shellThicknessCm,
                 aisle: APHA_CABIN_GEOMETRY.aisleHalfWidthCm,
-                binFloorY() {
-                    return this.centerY + Math.sqrt(this.R * this.R - this.aisle * this.aisle) - 20.0 * CM_PER_IN;
-                },
                 drawShell(ctx, toX, toY, scale) {
                     const R = this.R, rOut = R + this.wall, cY = this.centerY;
                     const aEnd = Math.asin(cY / R), N = 180;
@@ -68,14 +65,7 @@
                         }
                         ctx.stroke();
                     });
-                    // Piso coincidente com a Aba 5: 252 cm de vão visual, 8 cm de espessura.
-                    ctx.fillStyle = APHA_CABIN_PALETTE.floorFill;
-                    ctx.strokeStyle = APHA_CABIN_PALETTE.floorOutline;
-                    ctx.lineWidth = 1.8;
-                    const x = toX(-APHA_CABIN_GEOMETRY.floorWidthCm / 2), w = APHA_CABIN_GEOMETRY.floorWidthCm * scale,
-                          y = toY(0), h = APHA_CABIN_GEOMETRY.floorThicknessCm * scale;
-                    ctx.fillRect(x, y, w, h);
-                    ctx.strokeRect(x, y, w, h);
+                    drawAphaCabinFloor(ctx, toX, toY, scale);
                     ctx.restore();
                 }
             };
@@ -127,12 +117,7 @@
                 }
                 const pf = ph(TL.floor, 0.6);                  // piso da cabine, abrindo a partir do centro
                 if (pf > 0) {
-                    ctx.fillStyle = APHA_CABIN_PALETTE.floorFill;
-                    ctx.strokeStyle = APHA_CABIN_PALETTE.floorOutline; ctx.lineWidth = 1.8;
-                    const floorW = APHA_CABIN_GEOMETRY.floorWidthCm;
-                    const floorH = APHA_CABIN_GEOMETRY.floorThicknessCm;
-                    ctx.fillRect(toX(-floorW * pf / 2), toY(0), floorW * pf * scale, floorH * scale);
-                    ctx.strokeRect(toX(-floorW * pf / 2), toY(0), floorW * pf * scale, floorH * scale);
+                    drawAphaCabinFloor(ctx, toX, toY, scale, pf);
                 }
             }
 
