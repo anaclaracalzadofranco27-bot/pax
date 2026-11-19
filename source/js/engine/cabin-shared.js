@@ -224,8 +224,8 @@
         // Constantes de tempo/easing do contorno CAD (reutilizadas pela Simulação Integrada)
 
 // -----------------------------------------------------------------------------
-// SUBBLOCO 02.2 - Tempo de animacao e cotas tecnicas
-// Easing, duracao do CAD e desenho unificado de linhas de dimensao.
+// SUBBLOCO 02.2 - Cotas compartilhadas
+// Desenha as cotas efetivamente utilizadas nas Abas 5 e 6.
 // -----------------------------------------------------------------------------
 
         // Cotas técnicas compartilhadas pela Aba 5, simulação integrada e exportações.
@@ -329,20 +329,21 @@
         // Manequim Android: paleta unica compartilhada com os assentos.
         // Estilos antigos de madeira e branco foram retirados anteriormente.
         // =========================================================================
-        const DUMMY_PALETTES = {
-            android: { hi: '#ffffff', light: '#f4f7fa', mid: '#e2e8f0', dark: '#cbd5e1', edge: '#1e293b', seam: '#1e293b', joint: '#94a3b8', jointDark: '#64748b' }
+        const DUMMY_PALETTE = {
+            hi: '#ffffff', light: '#f4f7fa', mid: '#e2e8f0',
+            dark: '#cbd5e1', edge: '#1e293b',
+            joint: '#94a3b8', jointDark: '#64748b'
         };
-        const dummyPal = () => DUMMY_PALETTES.android;
 
         // Esfera de articulação estilo manequim técnico (cinza-azulada com contorno escuro e brilho)
         function drawDummyJointBall(ctx, cx, cy, rPx) {
             if (rPx < 0.8) return;
-            const P = dummyPal();
+            const P = DUMMY_PALETTE;
             ctx.save();
             const grad = ctx.createRadialGradient(cx - rPx * 0.3, cy - rPx * 0.3, rPx * 0.1, cx, cy, rPx);
             grad.addColorStop(0.0, '#cbd5e1');
             grad.addColorStop(0.55, P.joint);
-            grad.addColorStop(1.0, P.jointDark || '#64748b');
+            grad.addColorStop(1.0, P.jointDark);
             ctx.fillStyle = grad;
             ctx.strokeStyle = P.edge;
             ctx.lineWidth = 1.45;
@@ -358,7 +359,7 @@
             const dx = x2 - x1, dy = y2 - y1;
             const len = Math.hypot(dx, dy);
             if (len < 1) return;
-            const P = dummyPal();
+            const P = DUMMY_PALETTE;
             const ux = dx / len, uy = dy / len;
             const nx = -uy, ny = ux;
             let lx = nx, ly = ny;
@@ -404,7 +405,7 @@
 
         // Cabeça escultural limpa estilo boneco ergonômico (crânio arredondado + mandíbula suave, branco-gelo e contorno escuro)
         function drawDummyHead3D(ctx, cx, cy, rPx) {
-            const P = dummyPal();
+            const P = DUMMY_PALETTE;
             const w = rPx * 0.80;
             ctx.save();
             const grad = ctx.createLinearGradient(cx - w, cy - rPx, cx + w, cy + rPx);
@@ -468,7 +469,7 @@
 
         // Tronco frontal estilo manequim técnico (peitoral branco-gelo esculpido + faixa abdominal cinza-azulada + pelve clara)
         function drawDummyTorsoFront3D(ctx, cx, yHip, yShoulder, halfShoulderW, halfWaistW, halfHipW) {
-            const P = dummyPal();
+            const P = DUMMY_PALETTE;
             const H = yHip - yShoulder;                 // altura do tronco em px (y cresce para baixo)
             const yChestBot = yShoulder + H * 0.48;
             const yAbsBot   = yShoulder + H * 0.68;
@@ -485,7 +486,7 @@
             const waistGrad = ctx.createLinearGradient(cx - halfAbs, 0, cx + halfAbs, 0);
             waistGrad.addColorStop(0.00, '#cbd5e1');
             waistGrad.addColorStop(0.35, P.joint);
-            waistGrad.addColorStop(1.00, P.jointDark || '#64748b');
+            waistGrad.addColorStop(1.00, P.jointDark);
 
             ctx.strokeStyle = P.edge;
             ctx.lineWidth = 1.55;
@@ -562,7 +563,7 @@
 // -----------------------------------------------------------------------------
         function drawDummyFrontFigure(ctx, toX, toY, scale, o) {
             const __dkPrev = window.__dkRole; window.__dkRole = 'dummy';   // paleta escura da exportação: boneco
-            const P = dummyPal();
+            const P = DUMMY_PALETTE;
             const S = o.S, px = o.px;
             const ankleY = 5.5;
             const K = 0.74;
@@ -598,7 +599,7 @@
                 const gNeck = ctx.createLinearGradient(nx - nr, 0, nx + nr, 0);
                 gNeck.addColorStop(0, '#cbd5e1');
                 gNeck.addColorStop(0.45, P.joint);
-                gNeck.addColorStop(1, P.jointDark || '#64748b');
+                gNeck.addColorStop(1, P.jointDark);
                 ctx.fillStyle = gNeck;
                 ctx.strokeStyle = P.edge;
                 ctx.lineWidth = 1.45;
@@ -811,8 +812,8 @@ const ALPHA_CAD_STYLE = Object.freeze({
     inner: '#2a6fc9',
     innerWash: 'rgba(74, 144, 226, 0.16)'
 });
-function paintPath(ctx, path, fill, stroke, lw, evenodd) {
-    if (fill) { ctx.fillStyle = fill; ctx.fill(path, evenodd ? 'evenodd' : 'nonzero'); }
+function paintPath(ctx, path, fill, stroke, lw) {
+    if (fill) { ctx.fillStyle = fill; ctx.fill(path, 'nonzero'); }
     if (stroke && lw) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(path); }
 }
 // O casco Alpha, os vazados, os detalhes e o trilho nao se movem no
@@ -1041,7 +1042,7 @@ window.getUniBinUndersideY = (x, isAlpha) =>
 // -----------------------------------------------------------------------------
 // SUBBLOCO 05.4 - Desenho final e abertura das portas
 // Compoe o convencional e o Alpha; respeita fade e progresso da porta.
-// A Aba 6 pode informar overrideDoorU sem mudar os indicadores da Aba 5.
+// A Aba 6 pode informar overrideDoorU sem alterar o controle da Aba 5.
 // -----------------------------------------------------------------------------
 function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
     const cabin = window.cabinSectionReference;
@@ -1068,7 +1069,7 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
         ctx.globalAlpha *= clamp(fadeConv);
         // Usa o mesmo raio/centro da fuselagem compartilhada pelas Abas 5 e 6.
         // Casco, intradorso e folha da porta sao compartilhados entre os frames.
-        const { ext, inner, pivot, N } = getConventionalCadGeometry();
+        const { ext, inner, pivot } = getConventionalCadGeometry();
         const { shell, blade, cavity, arm, latch } = getConventionalCadPaths();
         const turn=(p,angle)=>{
             const r=angle*Math.PI/180,c=Math.cos(r),si=Math.sin(r),dx=p.x-pivot.x,dy=p.y-pivot.y;
