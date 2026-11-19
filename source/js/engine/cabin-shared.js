@@ -886,16 +886,39 @@ const clamp = n => Math.max(0, Math.min(1, n));
 // Single CAD styling source for the Alpha body in tabs 5 and 6.
 // Keep the exact SVG paths; do not replace them with generic rectangles.
 const ALPHA_CAD_STYLE = Object.freeze({
-    shell: 'rgba(74, 144, 226, 0.45)',
     shellAt: opacity => `rgba(74, 144, 226, ${Math.max(0, Math.min(1, opacity))})`,
     outline: '#4a90e2',
     inner: '#2a6fc9',
     innerWash: 'rgba(74, 144, 226, 0.16)'
 });
-function paintPath(ctx, d, fill, stroke, lw, evenodd) {
-    const p = new Path2D(d);
-    if (fill) { ctx.fillStyle = fill; ctx.fill(p, evenodd ? 'evenodd' : 'nonzero'); }
-    if (stroke && lw) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(p); }
+function paintPath(ctx, path, fill, stroke, lw, evenodd) {
+    if (fill) { ctx.fillStyle = fill; ctx.fill(path, evenodd ? 'evenodd' : 'nonzero'); }
+    if (stroke && lw) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(path); }
+}
+// O casco Alpha, os vazados, os detalhes e o trilho nao se movem no
+// referencial CAD local. Apenas o grupo inteiro gira: cachear os Path2D
+// evita reconstruir sua geometria em cada quadro das Abas 5 e 6.
+let cachedAlphaCadPaths = null;
+function getAlphaCadPaths() {
+    if (cachedAlphaCadPaths) return cachedAlphaCadPaths;
+    const shell = new Path2D();
+    ALPHA_OUTLINE.forEach((p, i) => i ? shell.lineTo(p[0], p[1]) : shell.moveTo(p[0], p[1]));
+    shell.closePath();
+    const upper = new Path2D(ALPHA_UPPER_DETAIL);
+    const lower = new Path2D(ALPHA_LOWER_TRIANGLE);
+    const withCutouts = new Path2D(shell);
+    withCutouts.addPath(upper);
+    withCutouts.addPath(lower);
+    const seam = new Path2D();
+    seam.moveTo(2882.10, 9351.24);
+    seam.bezierCurveTo(4353.21, 9328.50, 7185.94, 9385.51, 7185.94, 9385.51);
+    const track = new Path2D();
+    ALPHA_TRACK.forEach((pt, i) => i ? track.lineTo(pt[0], pt[1]) : track.moveTo(pt[0], pt[1]));
+    return (cachedAlphaCadPaths = {
+        shell, withCutouts, upper, lower, seam, track,
+        rail: new Path2D(ALPHA_SOURCE_RAIL),
+        inner: new Path2D(ALPHA_SOURCE_INNER)
+    });
 }
 // A folga até a cabeça usa os mesmos perfis CAD em centímetros da renderização.
 // A interseção vertical encontra a face inferior efetiva em cada assento,
@@ -1172,18 +1195,12 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
         ctx.translate(0, CABIN_YC);
         ctx.translate(ALPHA_FIXED.tx, ALPHA_FIXED.ty);
         ctx.scale(ALPHA_FIXED.scaleX, ALPHA_FIXED.scaleY);
-        // Contorno CAD único e vazados estruturais preservados nas Abas 5 e 6.
-        const alphaShell = new Path2D();
-        ALPHA_OUTLINE.forEach((p, i) => i ? alphaShell.lineTo(p[0], p[1]) : alphaShell.moveTo(p[0], p[1]));
-        alphaShell.closePath();
-        // Mesmo corpo, recortes, preenchimento e borda nas Abas 5 e 6.
-        // A diferença entre as abas é somente o tempo da porta e a telemetria.
+        // Geometria estatica unica; opacidade e porta continuam por quadro.
+        const alphaPaths = getAlphaCadPaths();
+        const alphaShell = alphaPaths.shell;
+        const alphaWithCutouts = alphaPaths.withCutouts;
         {
-            // Os triângulos são subpaths de recorte reais: a malha azul-escura
-            // da cabine aparece através deles, sem apagar a fuselagem de fundo.
-            const alphaWithCutouts = new Path2D(alphaShell);
-            alphaWithCutouts.addPath(new Path2D(ALPHA_UPPER_DETAIL));
-            alphaWithCutouts.addPath(new Path2D(ALPHA_LOWER_TRIANGLE));
+            // Os triângulos vazados continuam expondo a fuselagem de fundo.
             ctx.save();
             ctx.clip(alphaShell);
             // Aba 5: corpo mais visível (0.75). Aba 6: semitransparente (0.45).
@@ -1209,27 +1226,22 @@ function drawReferenceBins(ctx, W, H, fadeConv, fadeAlpha, overrideDoorU) {
             ctx.strokeStyle = ALPHA_CAD_STYLE.outline;
             ctx.stroke(alphaShell);
             // Somente bordas finas dos vazados; nenhum preenchimento opaco.
-            paintPath(ctx, ALPHA_UPPER_DETAIL, null, 'rgba(39,62,87,0.75)', 70);
-            ctx.beginPath();
-            ctx.moveTo(2882.10, 9351.24);
-            ctx.bezierCurveTo(4353.21, 9328.50, 7185.94, 9385.51, 7185.94, 9385.51);
-            ctx.lineWidth = 78; ctx.strokeStyle = '#8298b2'; ctx.stroke();
+            paintPath(ctx, alphaPaths.upper, null, 'rgba(39,62,87,0.75)', 70);
+            ctx.lineWidth = 78; ctx.strokeStyle = '#8298b2'; ctx.stroke(alphaPaths.seam);
             // Interior escalonado: reutiliza os paths SVG originais, não linhas
             // aproximadas. Primeiro o preenchimento translúcido da parede,
             // depois o perfil em escada em azul mais escuro, sempre recortado
             // dentro do contorno externo para não criar resíduos visuais.
             ctx.save();
             ctx.clip(alphaShell);
-            paintPath(ctx, ALPHA_SOURCE_RAIL,
+            paintPath(ctx, alphaPaths.rail,
                 ALPHA_CAD_STYLE.innerWash, ALPHA_CAD_STYLE.inner, 120);
-            paintPath(ctx, ALPHA_SOURCE_INNER,
+            paintPath(ctx, alphaPaths.inner,
                 null, ALPHA_CAD_STYLE.inner, 95);
             ctx.restore();
-            ctx.beginPath();
-            ALPHA_TRACK.forEach((pt, i) => i ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]));
-            ctx.lineWidth = 155; ctx.strokeStyle = '#8DD7FF'; ctx.stroke();
+            ctx.lineWidth = 155; ctx.strokeStyle = '#8DD7FF'; ctx.stroke(alphaPaths.track);
             // Triângulo inferior direito também realmente vazado.
-            paintPath(ctx, ALPHA_LOWER_TRIANGLE, null, 'rgba(39,62,87,0.75)', 85);
+            paintPath(ctx, alphaPaths.lower, null, 'rgba(39,62,87,0.75)', 85);
         }
         // Porta rolante compartilhada pelas abas 5 e 6, acompanhando
         // o trilho curvo existente sem alterar os vazados estruturais.
