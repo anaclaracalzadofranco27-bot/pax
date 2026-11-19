@@ -315,7 +315,7 @@ def verify_bin_kinematics(v: Checker) -> None:
                 "Alvo de altura Alpha duplicado/ausente")
         v.check("cachedAlphaTheta" in kinetics and
                 "cachedAlphaGeometry" in kinetics and
-                "alphaUndersideForTheta(alpha.thetaDeg)" in kinetics,
+                "alphaUndersideForTheta(computeRightAlphaLocked().thetaDeg)" in kinetics,
                 "Cache geométrico ALPHA incompleto")
         v.check(kinetics.count("uni-height-") == 6 and
                 "function updateHeightReadouts(" in kinetics,
@@ -345,6 +345,13 @@ def verify_bin_kinematics(v: Checker) -> None:
                 "Cotas históricas ou desenho do CAD exato ausentes")
         v.check("cachedAlphaFloor" in kinetics,
                 "Apoio CAD do ALPHA voltou a ser transformado a cada consulta")
+        v.check("function drawAphaCabinFloor(" in config and
+                "drawAphaCabinFloor(ctx, toX, toY, scale);" in aba5 and
+                "drawAphaCabinFloor(ctx, toX, toY, scale, pf);" in aba5,
+                "Piso completo e transição perderam a geometria compartilhada")
+        v.check("function traceBinAlphaProfile(" not in kinetics and
+                "function traceEmbraerBinProfile(" not in kinetics,
+                "Modelos paralelos de bin reintroduzidos")
 
         for flag in ("__uniRefDoorProgress", "__aphaAlphaBodyOpacity",
                      "__aphaTambourOrange", "cabinSectionReference"):
@@ -354,8 +361,8 @@ def verify_bin_kinematics(v: Checker) -> None:
                 "Aba 5 não disponibiliza o mapa da cabine compartilhado")
         v.check("window.__uniRefDoorProgress" in aba5,
                 "Aba 5 não sincroniza o progresso da porta")
-        v.check("__aphaTambourOrange" in aba5,
-                "Aba 5 não respeita a exceção laranja da porta")
+        v.check("__aphaTambourOrange" in kinetics,
+                "Motor compartilhado não respeita a exceção laranja da porta")
     if door is not None:
         v.check("window.__uniRefDoorProgress =" in door,
                 "Controle de porta da Aba 5 não inicializa seu estado")
