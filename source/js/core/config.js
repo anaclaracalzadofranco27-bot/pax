@@ -81,6 +81,13 @@
             }
         }
         window.drawUnifiedCabinBackground = drawUnifiedCabinBackground;
+        // Helpers numericos de uso comum nas Abas 5 e 6.
+        // Smoothstep ergonomico permanece distinto do easing cubico.
+        const aphaClamp01 = value => Math.max(0, Math.min(1, value));
+        const aphaEaseCubic = value => {
+            const x = aphaClamp01(value);
+            return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+        };
         // Dimensões físicas compartilhadas pela projeção m4 (centímetros).
         const APHA_CABIN_GEOMETRY = Object.freeze({
             fuselageRadiusCm: 137.16, fuselageCenterYCm: 62.84,
