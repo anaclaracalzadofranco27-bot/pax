@@ -198,6 +198,9 @@
            inteira do viewport. O canvas é transparente fora da geometria.
            No tour, apenas a malha fixa do #tour-stage continua ativa. */
         #aba6-module-ergo .sim-card > div:first-child span, #aba6-module-ergo .sim-card > div:first-child div{color:var(--apha-muted)}
+        /* Aba 5: o cabeçalho interno legado permanece oculto.
+           A regra pertence somente a esta aba; não esconde o título da Aba 6. */
+        #module-unified > .bg-cad-panel:first-of-type { display:none !important; }
         #module-unified aside, #module-unified .sim-card > div:last-child{background:var(--apha-bg);border-color:var(--apha-mid-45)}
         #module-unified aside .font-mono, #module-unified .sim-card > div:last-child span{color:var(--apha-muted)}
         /* Aba 5 individual: a classe global .sim-bg desenha a malha blueprint
@@ -389,11 +392,6 @@
            legado permanece oculto para não duplicar os controles da barra. */
         #apha-return-tabs {display:none !important;}
 
-        /* O painel de título legado da Aba 5 continua oculto.
-           O cabeçalho próprio da Aba 6 (#aba6-header) deve ficar visível
-           na aba individual e é ocultado apenas dentro de #tour-stage. */
-        #module-unified > .bg-cad-panel:first-of-type { display:none !important; }
-        #aba6-module-ergo, #module-unified { row-gap:0 !important; }
         /* ===== Aba 6: Full Simulation ===== */
         #module-tour #tour-btn{padding:10px 22px;font:700 12px 'JetBrains Mono',monospace;color:#000223;background:#5b7b9e;border:1px solid #5b7b9e;border-radius:8px;cursor:pointer;transition:background .2s}
         #module-tour #tour-btn:hover{background:#6d90b8}
