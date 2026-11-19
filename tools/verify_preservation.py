@@ -512,11 +512,10 @@ def verify_recording_css(v: Checker) -> None:
     shared = v.read("source/css/recording-and-transitions.css")
     css2 = v.read("source/html/ABA2/recording-layout.css")
     css3 = v.read("source/html/ABA3/recording-layout.css")
-    css6 = v.read("source/html/ABA6/recording-layout.css")
     if shared is None:
         return
     marks = tuple(f"@@APHA_INCLUDE:source/html/ABA{i}/recording-layout.css@@"
-                  for i in (2, 3, 6))
+                  for i in (2, 3))
     for mark in marks:
         v.check(shared.count(mark) == 1, f"Include de gravação ausente/duplicado: {mark}")
     v.order(shared, marks, "Ordem das regras de gravação alterada")
@@ -532,9 +531,15 @@ def verify_recording_css(v: Checker) -> None:
                 "Quadro dos bins na gravação ausente")
         v.check(v.has_css(css3, "top:2.2%"),
                 "Margem de 2,2% alterada")
-    if css6 is not None:
-        v.check("#tour-stage.rec #aba6-module-ergo" in css6,
-                "Altura da Aba 6 na gravação ausente")
+    # Seletor antigo .sm:h-[740px] nao corresponde a nenhuma classe atual.
+    v.check(not (ROOT / "source/html/ABA6/recording-layout.css").exists(),
+            "CSS obsoleto de gravacao da Aba 6 reapareceu")
+    v.check("@@APHA_INCLUDE:source/html/ABA6/recording-layout.css@@" not in shared,
+            "Include de gravacao obsoleto reapareceu")
+    hud = v.read("source/html/ABA2/cad-hud.css")
+    v.check("@keyframes cbIn{" in shared and
+            (hud is None or "@keyframes cbIn{" not in hud),
+            "Keyframe cbIn deixou de ser compartilhado")
 
 
 def verify_aba1_assets(v: Checker) -> None:

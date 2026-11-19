@@ -19,6 +19,6 @@
 
 /* Palco de gravação 16:9: --rec-w/--rec-h controlam o tamanho em tela. */
         #tour-stage.rec { width: var(--rec-w, 1456px) !important; height: var(--rec-h, 819px) !important; aspect-ratio: 16 / 9; margin-left: auto !important; margin-right: auto !important; padding: calc(var(--rec-h, 819px) * 0.022) calc(var(--rec-w, 1456px) * 0.022) !important; overflow: hidden !important; box-sizing: border-box !important; }
-@@APHA_INCLUDE:source/html/ABA2/recording-layout.css@@@@APHA_INCLUDE:source/html/ABA3/recording-layout.css@@@@APHA_INCLUDE:source/html/ABA6/recording-layout.css@@
+@@APHA_INCLUDE:source/html/ABA2/recording-layout.css@@@@APHA_INCLUDE:source/html/ABA3/recording-layout.css@@
         /* Entrada compartilhada: HUD da Aba 2 e titulos da Aba 5 no roteiro. */
         @keyframes cbIn{from{opacity:0;transform:translateY(.8cqw) scale(.97)}to{opacity:1;transform:none}}

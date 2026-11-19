@@ -1,3 +1,0 @@
-        /* Aba 6: 95,6% da altura = palco menos as margens superior/inferior de 2,2%.
-           Mantém o manequim dentro da área segura sem alterar o canvas exportado. */
-        #tour-stage.rec #aba6-module-ergo .sm\:h-\[740px\] { height: calc(var(--rec-h, 819px) * 0.956) !important; }
