@@ -1,8 +1,6 @@
         /* Simulação Geral: esconde o cabeçalho da Aba 6 para preservar o take 03.
            O viewport continua preenchendo o palco 16:9 sem alteração das transições. */
         #tour-stage #aba6-header{display:none !important;}
-        /* roteiro (simulação final): sem a caixa de título, sem a barra "BIOMECHANICAL CAD 2D VIEWPORT" e sem a moldura do cartão */
-        
-        
+        /* Roteiro: remove a moldura do cartão, mantendo o viewport 16:9. */
         #tour-stage #aba6-module-ergo .sim-card{border:0;border-radius:0;box-shadow:none;background:transparent}
 

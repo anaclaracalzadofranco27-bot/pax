@@ -1,6 +1,6 @@
 
     // -------------------------------------------------------------------------
-    // ABA 1 · SEÇÃO 2: VISTA SUPERIOR DA CABINE (bins Alpha × Convencional)
+    // ABA 4 · VISTA SUPERIOR DA CABINE (bins Alpha × Convencional)
     // -------------------------------------------------------------------------
     // Renderer 2D convencional substituído pela cena Three.js compartilhada acima.
     // __convDraw() é registrado em conventional3DTopView(), dentro de initCAD3DModule().

@@ -1,4 +1,4 @@
-        /* Integrated Simulation (2D Section) no roteiro: sem a barra de controles */
+        /* Aba 3: Bin Top View no roteiro, sem os cartões de título e faixas sobre os bins. */
         #tour-stage #module-nova > div:first-child{display:none}   /* Bin Top View no roteiro: sem o cartão de título */
         #tour-stage #module-nova .sim-card{border:0;border-radius:0;box-shadow:none;background:transparent}   /* roteiro: sem a moldura retangular em volta dos bins */
         #tour-stage #module-nova .sim-card .grid > div > div:first-child{display:none}   /* roteiro: sem as faixas "ALPHA BIN — TOP VIEW" e "CONVENTIONAL BIN — TOP VIEW" */

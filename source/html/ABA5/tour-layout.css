@@ -1,6 +1,6 @@
         #tour-stage #module-unified .sim-card > div:first-child{display:none}
 
-        /* Aba 4 (Simulação Integrada) no roteiro/vídeo: SÓ a cena (bin + personagens), a escala de estatura e os títulos CONVENTIONAL / ALPHA */
+        /* Aba 5 (Simulação Integrada) no roteiro/vídeo: SÓ a cena (bin + personagens), a escala de estatura e os títulos CONVENTIONAL / ALPHA */
         #tour-stage #module-unified{position:relative;width:100%;aspect-ratio:16/9;container-type:inline-size;margin:0 !important}
         #tour-stage.rec #module-unified{position:absolute !important;inset:0 !important;width:auto;aspect-ratio:auto}
         #tour-stage #module-unified > div:first-of-type{display:none !important}
