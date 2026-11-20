@@ -139,3 +139,4 @@
         window.APHA_INTRO_CFG = APHA_INTRO_CFG;
         // Adaptador visual exigido pelo Tailwind CDN; CSS permanece a fonte das cores.
 @@APHA_INCLUDE:source/js/core/tailwind-theme.js@@
+@@APHA_INCLUDE:source/js/core/download.js@@
