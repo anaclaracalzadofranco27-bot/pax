@@ -352,7 +352,7 @@
                 const statName = isP95 ? 'P95 MALE' : 'WORLD AVERAGE';
                 // Posiciona a simulação exatamente na estatura exportada (Média Mundial 165,0 cm / 65,0" ou P95 Male)
                 const prev = { t: U.t, custom: U.customStature, playing: U.playing, door: window.__uniRefDoorProgress, wide: U.exportCabinWideFrame };
-                U.exporting = true; U.exportCabinWideFrame = isP95; window.EXPORT_EN = true;
+                U.exporting = true; U.exportCabinWideFrame = isP95; 
                 U.playing = false;
                 cancelAnimationFrame(U.raf);
                 const exportFinalDoorState=prev.t>=TOTAL-.01;
@@ -397,7 +397,7 @@
 
                 } finally { window.BIN_DARK = false; }
                 window.BIN_SOLID = false;
-                U.exporting = false; window.EXPORT_EN = false;
+                U.exporting = false; 
                 // devolve a tela ao estado em que estava antes da exportação
                 U.t = prev.t; U.customStature = prev.custom; U.exportCabinWideFrame = prev.wide;
                 window.__uniRefDoorProgress=prev.door; refresh();
