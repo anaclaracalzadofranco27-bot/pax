@@ -19,7 +19,6 @@ const xrayEls = () => [...document.querySelectorAll('#camera-rig > svg path, #pa
 const isBag = el => el.classList.contains('bag-top') || el.classList.contains('bag-front') || el.classList.contains('bag-detail');
 function xrayReset() {
   if (!xrayOn) return; xrayOn = false;
-  const ov = document.getElementById('xray-bags'); if (ov) ov.style.display = 'none';
   const all = [document.querySelector('#camera-rig > svg'), document.getElementById('pax-front'), document.getElementById('pax-layer'), document.getElementById('pax-labels'), ...xrayEls()];
   all.forEach(el => { if (el) { el.style.transition = 'none'; el.style.opacity = ''; el.style.willChange = ''; } });
   void rig.offsetWidth;

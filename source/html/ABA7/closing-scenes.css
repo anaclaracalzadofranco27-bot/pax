@@ -11,7 +11,7 @@
 
         /* ===== scene 1 (0–10 s) ===== */
         #scene-1 *{box-sizing:border-box;margin:0}
-        #scene-1 #s1-stage{width:1920px;height:1080px;flex:none;position:relative;overflow:hidden;container-type:inline-size}
+        #scene-1 #s1-stage{width:1920px;height:1080px;flex:none;overflow:hidden;container-type:inline-size}
         #scene-1 #s1-cam{position:absolute;inset:0;transform-origin:50% 50%}
         #scene-1 svg{display:block;width:100%;height:100%;fill-rule:evenodd;clip-rule:evenodd;shape-rendering:geometricPrecision}
         #scene-1 .fil0{fill:#00B4D8}
@@ -103,9 +103,6 @@
         #scene-2 .bh{height:46px;display:flex;align-items:center;gap:16px}
         #scene-2 .bdg{width:46px;height:46px;flex:none;overflow:visible}
         #scene-2 .bt{font-weight:600;font-size:26px;letter-spacing:.07em;text-transform:uppercase}
-        #scene-2 .pill{margin-left:auto;height:38px;padding:0 20px 0 28px;border-radius:19px;display:flex;align-items:center;font-weight:800;font-size:17px;letter-spacing:.2em;color:#fff;transform-origin:100% 50%}
-        #scene-2 .pill.b{background:transparent;border:1.5px solid var(--blue);color:var(--blue)}
-        #scene-2 .pill.g{background:transparent;border:1.5px solid var(--gray);color:var(--gray)}
         #scene-2 .bm{position:relative;height:172px;margin-top:10px}
         #scene-2 .bm1,#scene-2 .bm3{display:flex;align-items:center}
         #scene-2 .slat{width:138px;height:142px;flex:none;margin-right:36px;overflow:visible}
@@ -119,9 +116,6 @@
         #scene-2 .lbl{position:absolute;width:240px;font-weight:800;font-size:24px;line-height:29px}
         #scene-2 .lbl.l{left:0;top:72px;text-align:right}
         #scene-2 .lbl.r{left:614px;top:63px}
-        #scene-2 .lead{position:absolute;left:0;top:0;width:881px;height:172px;overflow:visible}
-        #scene-2 .lead path{fill:none;stroke:var(--blue);stroke-width:2.5;stroke-dasharray:1;stroke-dashoffset:1}
-        #scene-2 .lead circle{fill:var(--blue);opacity:0}
         #scene-2 .alus{width:275px;height:172px;flex:none;overflow:visible;margin-right:59px}
         #scene-2 ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:30px}
         #scene-2 li{display:flex;align-items:center;gap:16px;font-weight:800;font-size:26px}
@@ -163,8 +157,6 @@
         #scene-2.go .hcc{animation:s2-fi .5s var(--ease) calc(4.6s + var(--o)) both}
         #scene-2.go .hct{animation:s2-exT 1s var(--ease) calc(4.8s + var(--o)) both}
         #scene-2.go .hcb{animation:s2-exB 1s var(--ease) calc(4.8s + var(--o)) both}
-        #scene-2.go .lead path{animation:s2-dr .6s var(--ease) calc(var(--t) + var(--o)) both}
-        #scene-2.go .lead circle{animation:s2-fi .3s var(--ease) calc(var(--t) + var(--o)) both}
         #scene-2.go .sh1,#scene-2.go .sh2,#scene-2.go .sh3{animation:s2-cas .8s var(--ease) calc(var(--t) + var(--o)) both}
         #scene-2.go #s2-pgf{animation:s2-pgr 10s linear var(--o) both}
         @media (prefers-reduced-motion:reduce){#scene-2.go *{animation-duration:.01s!important;animation-delay:var(--o)!important}}
@@ -183,7 +175,7 @@
         #scene-3 .cards{position:absolute;left:0;top:200px;width:1536px;height:620px;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:stretch}
         #scene-3 .card{border-radius:24px;padding:32px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);display:flex;flex-direction:column;justify-content:center}
         #scene-3 .card.c{background:rgba(0,180,216,.07);border-color:rgba(0,180,216,.38)}
-        #scene-3 .ch{display:flex;align-items:center;gap:30px}
+        #scene-3 .ch{display:flex;align-items:center;gap:16px}
         #scene-3 .clip{width:118px;max-width:100%;height:auto;flex:none;display:block;overflow:visible;object-fit:contain}
         #scene-3 .ct{font-weight:800;font-size:29px;line-height:38px;letter-spacing:.03em;color:var(--blue)}
         #scene-3 ul{list-style:none;margin-top:38px;display:flex;flex-direction:column;gap:26px}
@@ -199,17 +191,14 @@
         #scene-3 .logo{width:672px;height:auto;display:block;overflow:visible}
         #scene-3 .logo .ar{transform-box:fill-box;transform-origin:50% 50%}
         #scene-3 .logo .wp{transform-box:view-box}
-        #scene-3 .mkA,#scene-3 .mkB,#scene-3 .ckd{fill:none;stroke:#fff;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1 2;stroke-dashoffset:1.02}
+        #scene-3 .mkA,#scene-3 .mkB{fill:none;stroke:#fff;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1 2;stroke-dashoffset:1.02}
         #scene-3 .mkA{stroke-width:1150}
         #scene-3 .mkB{stroke-width:520}
-        #scene-3 .ckd{stroke-width:230}
-        #scene-3 .ckd.bk{stroke-width:296}
         #scene-3 .a,#scene-3 .logo,#scene-3 .card{opacity:0}
         @keyframes s3-fu{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
         @keyframes s3-fi{from{opacity:0}to{opacity:1}}
         @keyframes s3-rx{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
         @keyframes s3-bounce{0%{opacity:0;transform:scale(0)}60%{opacity:1;transform:scale(1.1)}100%{opacity:1;transform:scale(1)}}
-        @keyframes s3-dr{from{stroke-dashoffset:1.02}to{stroke-dashoffset:0}}
         @keyframes s3-stamp{from{opacity:0;transform:translateY(-30px) scale(1.25)}to{opacity:1;transform:none}}
         @keyframes s3-pulse{0%{opacity:0;transform:scale(.9)}35%{opacity:1;transform:scale(1.1);text-shadow:0 0 30px rgba(243,112,33,.95),0 0 6px rgba(243,112,33,1)}100%{opacity:1;transform:scale(1);text-shadow:0 0 14px rgba(243,112,33,.55),0 0 2px rgba(243,112,33,.9)}}
         @keyframes s3-out{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(.96)}}
@@ -222,7 +211,6 @@
         #scene-3.go .fi{animation:s3-fi var(--d,.6s) var(--ease) calc(var(--t) + var(--o)) both}
         #scene-3.go .rx{animation:s3-rx .6s var(--ease) calc(var(--t) + var(--o)) both}
         #scene-3.go .bn{animation:s3-bounce .6s var(--ease) calc(var(--t) + var(--o)) both}
-        #scene-3.go .ckd{animation:s3-dr .45s var(--ease) calc(var(--t) + var(--o)) both}
         #scene-3.go .st{animation:s3-stamp .25s var(--ease) calc(var(--t) + var(--o)) both}
         #scene-3.go .pp{animation:s3-pulse .9s var(--ease) calc(var(--t) + var(--o)) both}
         #scene-3.go .logo{animation:s3-fi .01s linear calc(6.4s + var(--o)) both,s3-zoom 3.6s linear calc(6.4s + var(--o)) both}
@@ -243,5 +231,4 @@
         #scene-1 #s1-stage{position:absolute;left:0;top:0;transform-origin:0 0}
     /* Scene 3: self-contained accessible vector icons; no external asset 404s. */
 /* Scene 3 SVG artworks use their native viewBox and component-specific sizes below. */
-#scene-3 .ch{align-items:center;gap:16px}
 

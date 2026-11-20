@@ -762,6 +762,27 @@ def verify_html_cleanup(v: Checker) -> None:
         v.check("[data-cad3d-v]" not in cad and
                 "views.iso" in cad and "views.side" in cad,
                 "Handler morto voltou ou cameras reais da Aba 2 foram removidas")
+    if manikin is not None:
+        v.check("toggleManikinAnimation" not in manikin and
+                "PDFN_SIL_D" not in manikin and
+                "PDFN_SIL =" not in manikin and
+                "kneeP =" not in manikin,
+                "Controle de animacao ou silhueta PDF sem consumidor voltou")
+    aba5 = v.read("source/html/ABA5/unified-simulation.js")
+    if aba5 is not None:
+        v.check("window.EXPORT_EN" not in aba5,
+                "Flag global de exportacao sem consumidor voltou")
+    if cad is not None:
+        v.check("LILAC_D" not in cad and "LILAC =" not in cad,
+                "Constantes de cor sem leitura voltaram na Aba 2")
+    closing_css = v.read("source/html/ABA7/closing-scenes.css")
+    closing_illus = v.read("source/html/ABA7/closing-illustrations.css")
+    if closing_css is not None and closing_illus is not None:
+        v.check(all(token not in closing_css for token in
+                    (".ckd", ".lead", ".pill",
+                     "#scene-3 .ch{display:flex;align-items:center;gap:30px}")) and
+                ".operator-benefits-workflow" not in closing_illus,
+                "CSS residual do encerramento reapareceu")
     if hidden is not None:
         v.check("#cad3d-export-side" not in hidden and
                 "[data-cad3d-v]" not in hidden and

@@ -881,7 +881,7 @@
                 if (exporting) return;
                 exporting = true;
                 stopAllAnimations();
-                const EW = 3840, EH = 2160, LILAC = 0x9ba9b5, LILAC_D = 0x9ba9b5;
+                const EW = 3840, EH = 2160;
                 // estado atual (restaurado no final)
                 const saved = {
                     az, el, R, T: T.clone(), door: openProgress,
