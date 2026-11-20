@@ -388,6 +388,8 @@
 
         // ---- empréstimo de módulos ----
         let token = 0, active = null, live = false;        // active = { step, sec, ph }
+        // A sessao de captura tem um unico dono e impede execucoes simultaneas.
+        let rec = null, snap = null, captureStarting = false;
         const clearCols = sec => { const g = sec.querySelector('.sim-card .grid'); if (g && sec.id === 'module-nova') [...g.children].forEach(c => { c.style.opacity = ''; c.style.transform = ''; c.style.transition = ''; }); };
         const clearSec = sec => ['opacity', 'filter', 'transform', 'transition', 'position', 'top', 'left', 'right', 'width', 'zIndex', 'pointerEvents', 'clipPath'].forEach(k => { sec.style[k] = ''; });
         let outgoing = null;                               // módulo que está saindo (some por completo ANTES de o próximo aparecer)
@@ -487,6 +489,7 @@
         }
         function fadeIn(h0, gap) {                              // h0 = altura do quadro no passo anterior (0 no primeiro) · gap = espera até o módulo anterior sumir
             const sec = active.sec; gap = gap || 0;
+            const thisRun = token;
             const split = active.step.key === 'nova';            // tela dividida: cada metade entra na própria coluna (nada cruza o centro)
             const cols = split ? [...(sec.querySelector('.sim-card .grid') || { children: [] }).children] : [];
             if (split && cols.length === 2) {
@@ -499,10 +502,10 @@
             if (h0 && !stage.classList.contains('rec')) { stage.style.height = 'auto'; h1 = stage.offsetHeight; stage.style.height = h0 + 'px'; }
             void stage.offsetHeight;
             const reveal = () => {
-                if (!active || active.sec !== sec) return;
+                if (thisRun !== token || !active || active.sec !== sec) return;
                 if (h1 !== null) stage.style.transition = 'height .55s cubic-bezier(.4,0,.2,1)';
                 requestAnimationFrame(() => requestAnimationFrame(() => {
-                    if (!active || active.sec !== sec) return;
+                    if (thisRun !== token || !active || active.sec !== sec) return;
                     if (h1 !== null) stage.style.height = h1 + 'px';
                     if (split && cols.length === 2) {
                         cols[0].style.transition = 'opacity .5s ease-in-out';
@@ -514,7 +517,7 @@
             };
             if (gap) setTimeout(reveal, gap); else reveal();
             setTimeout(() => {
-                if (active && active.sec === sec) {
+                if (thisRun === token && active && active.sec === sec) {
                     stage.style.height = ''; stage.style.transition = '';
                     sec.style.transition = ''; clearCols(sec);
                 }
@@ -532,7 +535,8 @@
             return false;
         }
 
-        async function run(from, through = STEPS.length - 1, segmentMode = 'full') {
+        async function run(from, through = STEPS.length - 1, segmentMode = 'full', fromCapture = false) {
+            if (live || captureStarting || ((rec || snap) && !fromCapture)) return;
             const my = ++token; live = true;
             destroyBridge();
             giveBack();
@@ -566,8 +570,15 @@
                 if (!started) call(st.start);                  // inicia a animação imediatamente junto com o fade-in (sem travar no 1º frame)
                 call(st.afterIn);
                 if (window.__tourEdge) { const si = i; setTimeout(() => { if (my === token) window.__tourEdge(si, st, 'inicio'); }, st.startSnapMs || 750); }   // foto do COMEÇO (após o fade-in)
-                await waitFor(st, my);
+                const completed = await waitFor(st, my);
                 if (my !== token) return;
+                if (!completed) {
+                    console.error('PAX tour: stage ' + st.key + ' timed out after ' + st.timeout + 'ms');
+                    abort();
+                    btn.textContent = '⚠ Playback interrupted — retry';
+                    btn.title = 'Stage ' + st.key + ' did not finish within the configured time.';
+                    return;
+                }
                 await sleep(st.hold);
                 if (my !== token) return;
                 if (window.__tourEdge) window.__tourEdge(i, st, 'fim');   // foto do FINAL (antes de dissolver para a próxima aba)
@@ -591,28 +602,34 @@
             }
             if (my !== token) return;
             if (window.__tourEnded) await window.__tourEnded();
+            if (my !== token) return;
             frameOn(false);
             btn.textContent = '↻ Run full simulation again'; btn.dataset.mode = 'run'; live = false;
             // Do not loop or restart the full presentation without the user's click.
         }
         function abort() {
-            if (!live && !active) return;                       // nada rodando: não mexe em nada
-            live = false; token++; destroyBridge(); giveBack(); currentTab = 'tour'; frameOn(false);
-            if (window.__tourEnded) window.__tourEnded();
+            if (!live && !active && !outgoing && !rec && !snap) return;
+            live = false; token++; destroyBridge(); giveBack(); entryGap = 0; currentTab = 'tour'; frameOn(false);
+            if (window.__tourEnded) void window.__tourEnded();
             btn.textContent = '▶ Run full simulation'; btn.dataset.mode = 'run';
             stage.style.transition = 'none'; stage.style.opacity = '1';
         }
 
-        btn.addEventListener('click', () => { if (btn.dataset.mode === 'stop') abort(); else run(0); });
+        const startTour = (...args) => run(...args).catch(error => {
+            console.error('PAX tour error:', error);
+            abort();
+            btn.textContent = '⚠ Playback interrupted — retry';
+            btn.title = String(error && error.message || error);
+        });
+        btn.addEventListener('click', () => { if (btn.dataset.mode === 'stop') abort(); else void startTour(0); });
         document.querySelectorAll('#tour-takes [data-take-play]').forEach(b => b.addEventListener('click', () => {
             if (rec) return;
             const take=TOUR_TAKES[Number(b.dataset.takePlay)];
-            if(take) run(take.start,take.end,take.mode);
+            if(take) void startTour(take.start,take.end,take.mode);
         }));
 
         // ---- exportar vídeo: grava o quadro com suporte universal (file://, Guia, Janela ou Tela Cheia) em 1920x1080 ----
         const recBtn = $('tour-rec');
-        let rec = null;
         function stopRec() {
             if (!rec) return;
             const r = rec;
@@ -622,13 +639,6 @@
                 try { r.mr.stop(); } catch (e) {}
             }
         }
-        window.__stopTourRec = () => { if (rec) { stopRec(); abort(); } };
-        window.__tourEnded = async () => {
-            if (!rec) return;
-            await sleep(350);
-            stopRec();
-            await sleep(250);
-        };
         async function suppressRecordedCursor(track) {
             // Pede ao navegador para excluir o ponteiro quando a superfície oferecer suporte.
             // Fallback: a classe rec-clean oculta o cursor no conteúdo HTML da guia.
@@ -828,7 +838,6 @@
 
         // ---- exportar PNGs do COMEÇO e do FINAL de cada aba: mesma captura/recorte do vídeo, quadros 1920x1080 num único ZIP ----
         const snapBtn = $('tour-snap');
-        let snap = null;
         const snapLabel = () => '■ Stop and save PNGs (' + (snap ? snap.frames.length : 0) + ')';
 
         // ZIP mínimo (método "store", sem compressão — PNG já é comprimido)
@@ -962,13 +971,12 @@
         snapBtn.addEventListener('click', startSnap);
         window.__tourEdge = (i, st, when) => { if (snap) snapTake(pad(i + 1, 2) + '_' + st.key + '_' + when + '.png'); };
 
-        // integra com o fim/parada da sequência (o handler do vídeo só age quando há gravação de vídeo)
-        const prevTourEnded = window.__tourEnded, prevStopRec = window.__stopTourRec;
+        // Um unico handler coordena o fim normal, a parada e os dois formatos de captura.
         window.__tourEnded = async () => {
-            if (snap) { await sleep(150); await snapFinish(); return; }   // gera o ZIP
-            return prevTourEnded();
+            if (snap) { await sleep(150); await snapFinish(); return; }
+            if (rec) { await sleep(350); stopRec(); await sleep(250); }
         };
-        window.__stopTourRec = () => { if (snap) { snapFinish().then(() => abort()); return; } prevStopRec(); };
+        window.__stopTourRec = () => { if (rec) stopRec(); abort(); };
 
         window.tourStart = () => { if (!live) run(0); }; // explicit start only (general presentation button)
         window.tourAbort = abort;               // chamado ao sair da aba 8
