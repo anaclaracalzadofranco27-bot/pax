@@ -801,6 +801,10 @@ def verify_final_lifecycle(v: Checker) -> None:
     page = v.read("source/page.template.html")
     download = v.read("source/js/core/download.js")
     css = v.read("source/css/global.css")
+    controller = v.read("source/html/ABA6/controller.js")
+    if controller is not None:
+        v.check("setAnimLabel(" not in controller,
+                "Aba 6 voltou a chamar controle de animacao que nao existe")
     if nav is not None:
         v.check("navigationLaunchToken" in nav and
                 "launchToken !== navigationLaunchToken" in nav and

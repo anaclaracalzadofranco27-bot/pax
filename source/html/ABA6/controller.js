@@ -26,7 +26,6 @@
             manikinFrameTime = 0;
             manikinState.animating = true;
             startManikinLoop(); // relógio novo; startManikinLoop usa performance.now()
-            setAnimLabel();
             updateErgonomics();
             // Sem resize global: evita reentrância no tour e nos outros canvases.
             return true;
@@ -55,6 +54,5 @@
             manikinState.animating = false;
             stopManikinLoop();
             window.__aba6TourMode = false;
-            setAnimLabel();
         }
 
