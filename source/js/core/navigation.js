@@ -1,8 +1,11 @@
         let currentTab = 'cad3d';
+        // Invalidar inicializacoes atrasadas quando uma nova aba e selecionada.
+        let navigationLaunchToken = 0;
         function switchTab(tab) {
             if (tab !== 'tour' && window.tourAbort) window.tourAbort();
             const previousTab = currentTab;
             currentTab = tab;
+            const launchToken = ++navigationLaunchToken;
             document.body.classList.toggle('apha-simulation-view', tab === 'sim');
             if (previousTab === 'sim' && tab !== 'sim') pauseAba6Engine();
             if (tab !== 'unified' && window.uniPause) window.uniPause();
@@ -21,7 +24,8 @@
                     btn.className = "flex-1 xl:flex-initial flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all text-slate-700 hover:text-slate-900 hover:bg-slate-200";
                 }
             });
-            setTimeout(() => {
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                if (launchToken !== navigationLaunchToken || currentTab !== tab) return;
                 if (tab === 'sim') scheduleAba6Engine({tour:false,reset:true});
                 if (tab === 'pax' && window.paxEnter) window.paxEnter();
                 if (tab === 'nova' && window.novaEnter) { window.novaEnter(); if(window.novaShowHeader)window.novaShowHeader(true); }
@@ -29,5 +33,5 @@
                 
                 if (tab === 'cad3d' && window.resizeCAD3D) window.resizeCAD3D();
                 if (tab === 'closing' && window.closingEnter) window.closingEnter();   // encerramento: recalcula a escala e toca do início
-            }, 30);
+            }));
         }

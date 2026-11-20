@@ -388,6 +388,8 @@
 
         // ---- empréstimo de módulos ----
         let token = 0, active = null, live = false;        // active = { step, sec, ph }
+        // A sessao de captura tem um unico dono e impede execucoes simultaneas.
+        let rec = null, snap = null, captureStarting = false, captureGeneration = 0;
         const clearCols = sec => { const g = sec.querySelector('.sim-card .grid'); if (g && sec.id === 'module-nova') [...g.children].forEach(c => { c.style.opacity = ''; c.style.transform = ''; c.style.transition = ''; }); };
         const clearSec = sec => ['opacity', 'filter', 'transform', 'transition', 'position', 'top', 'left', 'right', 'width', 'zIndex', 'pointerEvents', 'clipPath'].forEach(k => { sec.style[k] = ''; });
         let outgoing = null;                               // módulo que está saindo (some por completo ANTES de o próximo aparecer)
@@ -487,6 +489,7 @@
         }
         function fadeIn(h0, gap) {                              // h0 = altura do quadro no passo anterior (0 no primeiro) · gap = espera até o módulo anterior sumir
             const sec = active.sec; gap = gap || 0;
+            const thisRun = token;
             const split = active.step.key === 'nova';            // tela dividida: cada metade entra na própria coluna (nada cruza o centro)
             const cols = split ? [...(sec.querySelector('.sim-card .grid') || { children: [] }).children] : [];
             if (split && cols.length === 2) {
@@ -499,10 +502,10 @@
             if (h0 && !stage.classList.contains('rec')) { stage.style.height = 'auto'; h1 = stage.offsetHeight; stage.style.height = h0 + 'px'; }
             void stage.offsetHeight;
             const reveal = () => {
-                if (!active || active.sec !== sec) return;
+                if (thisRun !== token || !active || active.sec !== sec) return;
                 if (h1 !== null) stage.style.transition = 'height .55s cubic-bezier(.4,0,.2,1)';
                 requestAnimationFrame(() => requestAnimationFrame(() => {
-                    if (!active || active.sec !== sec) return;
+                    if (thisRun !== token || !active || active.sec !== sec) return;
                     if (h1 !== null) stage.style.height = h1 + 'px';
                     if (split && cols.length === 2) {
                         cols[0].style.transition = 'opacity .5s ease-in-out';
@@ -514,7 +517,7 @@
             };
             if (gap) setTimeout(reveal, gap); else reveal();
             setTimeout(() => {
-                if (active && active.sec === sec) {
+                if (thisRun === token && active && active.sec === sec) {
                     stage.style.height = ''; stage.style.transition = '';
                     sec.style.transition = ''; clearCols(sec);
                 }
@@ -532,7 +535,8 @@
             return false;
         }
 
-        async function run(from, through = STEPS.length - 1, segmentMode = 'full') {
+        async function run(from, through = STEPS.length - 1, segmentMode = 'full', fromCapture = false) {
+            if (live || captureStarting || ((rec || snap) && !fromCapture)) return;
             const my = ++token; live = true;
             destroyBridge();
             giveBack();
@@ -566,8 +570,15 @@
                 if (!started) call(st.start);                  // inicia a animação imediatamente junto com o fade-in (sem travar no 1º frame)
                 call(st.afterIn);
                 if (window.__tourEdge) { const si = i; setTimeout(() => { if (my === token) window.__tourEdge(si, st, 'inicio'); }, st.startSnapMs || 750); }   // foto do COMEÇO (após o fade-in)
-                await waitFor(st, my);
+                const completed = await waitFor(st, my);
                 if (my !== token) return;
+                if (!completed) {
+                    console.error('PAX tour: stage ' + st.key + ' timed out after ' + st.timeout + 'ms');
+                    abort();
+                    btn.textContent = '⚠ Playback interrupted — retry';
+                    btn.title = 'Stage ' + st.key + ' did not finish within the configured time.';
+                    return;
+                }
                 await sleep(st.hold);
                 if (my !== token) return;
                 if (window.__tourEdge) window.__tourEdge(i, st, 'fim');   // foto do FINAL (antes de dissolver para a próxima aba)
@@ -591,28 +602,36 @@
             }
             if (my !== token) return;
             if (window.__tourEnded) await window.__tourEnded();
+            if (my !== token) return;
             frameOn(false);
             btn.textContent = '↻ Run full simulation again'; btn.dataset.mode = 'run'; live = false;
             // Do not loop or restart the full presentation without the user's click.
         }
         function abort() {
-            if (!live && !active) return;                       // nada rodando: não mexe em nada
-            live = false; token++; destroyBridge(); giveBack(); currentTab = 'tour'; frameOn(false);
-            if (window.__tourEnded) window.__tourEnded();
+            if (!live && !active && !outgoing && !rec && !snap && !captureStarting) return;
+            ++captureGeneration;
+            captureStarting = false;
+            live = false; token++; destroyBridge(); giveBack(); entryGap = 0; currentTab = 'tour'; frameOn(false);
+            if (window.__tourEnded) void window.__tourEnded();
             btn.textContent = '▶ Run full simulation'; btn.dataset.mode = 'run';
             stage.style.transition = 'none'; stage.style.opacity = '1';
         }
 
-        btn.addEventListener('click', () => { if (btn.dataset.mode === 'stop') abort(); else run(0); });
+        const startTour = (...args) => run(...args).catch(error => {
+            console.error('PAX tour error:', error);
+            abort();
+            btn.textContent = '⚠ Playback interrupted — retry';
+            btn.title = String(error && error.message || error);
+        });
+        btn.addEventListener('click', () => { if (btn.dataset.mode === 'stop') abort(); else void startTour(0); });
         document.querySelectorAll('#tour-takes [data-take-play]').forEach(b => b.addEventListener('click', () => {
             if (rec) return;
             const take=TOUR_TAKES[Number(b.dataset.takePlay)];
-            if(take) run(take.start,take.end,take.mode);
+            if(take) void startTour(take.start,take.end,take.mode);
         }));
 
         // ---- exportar vídeo: grava o quadro com suporte universal (file://, Guia, Janela ou Tela Cheia) em 1920x1080 ----
         const recBtn = $('tour-rec');
-        let rec = null;
         function stopRec() {
             if (!rec) return;
             const r = rec;
@@ -622,13 +641,23 @@
                 try { r.mr.stop(); } catch (e) {}
             }
         }
-        window.__stopTourRec = () => { if (rec) { stopRec(); abort(); } };
-        window.__tourEnded = async () => {
-            if (!rec) return;
-            await sleep(350);
-            stopRec();
-            await sleep(250);
-        };
+        // Descarta permissoes de captura que chegaram depois de abandonar a Aba 8.
+        function discardCapture(captureId, stream, video = null) {
+            if (captureId === captureGeneration && currentTab === 'tour') return false;
+            if (video) { video.srcObject = null; video.remove(); }
+            if (stream) stream.getTracks().forEach(track => track.stop());
+            if (captureId === captureGeneration) {
+                captureStarting = false;
+                document.body.classList.remove('rec-clean');
+                document.body.style.removeProperty('--rec-w');
+                stage.classList.remove('rec');
+                stage.style.removeProperty('--rec-w');
+                stage.style.removeProperty('--rec-h');
+                $('tour-rec').disabled = false;
+                frameOn(false);
+            }
+            return true;
+        }
         async function suppressRecordedCursor(track) {
             // Pede ao navegador para excluir o ponteiro quando a superfície oferecer suporte.
             // Fallback: a classe rec-clean oculta o cursor no conteúdo HTML da guia.
@@ -644,11 +673,14 @@
         }
         async function startRec(takeIndex = null) {
             if (rec) { stopRec(); abort(); return; }
+            if (snap || live || captureStarting) return;
             const selectedTake = Number.isInteger(takeIndex) && takeIndex >= 0 && takeIndex < TOUR_TAKES.length ? TOUR_TAKES[takeIndex] : null;
             if (!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) || !window.MediaRecorder) {
                 alert('Video export requires the Google Chrome or Microsoft Edge browser (open the HTML file directly in the browser).');
                 return;
             }
+            const captureId = ++captureGeneration;
+            captureStarting = true;
             let stream;
             try {
                 stream = await navigator.mediaDevices.getDisplayMedia({
@@ -659,14 +691,17 @@
                     surfaceSwitching: 'include'
                 });
             } catch (e) {
+                if (captureId === captureGeneration) captureStarting = false;
                 if (e && e.name !== 'NotAllowedError' && e.name !== 'AbortError') {
                     alert('Could not start screen capture (' + (e.message || e.name) + '). Open the HTML file directly in a Chrome or Edge tab.');
                 }
                 return;
             }
+            if (discardCapture(captureId, stream)) return;
             const track = stream.getVideoTracks()[0];
-            if (!track) { stream.getTracks().forEach(t => t.stop()); return; }
+            if (!track) { stream.getTracks().forEach(t => t.stop()); captureStarting = false; return; }
             await suppressRecordedCursor(track);
+            if (discardCapture(captureId, stream)) return;
 
             // Ativa modo gravação limpo (sem cabeçalho fixo e com altura par garantida)
             document.body.classList.add('rec-clean');
@@ -684,6 +719,7 @@
             // que o vídeo da logo, que é curto, perca os primeiros keyframes.
             frameOn(true);
             await sleep(250);
+            if (discardCapture(captureId, stream)) return;
 
             // Tenta recortar apenas o #tour-stage via Region Capture (funciona ao compartilhar Guia);
             // se estiver em file:// ou capturando Janela/Tela Inteira, continua sem abortar!
@@ -707,6 +743,7 @@
             document.body.appendChild(recVideo);
             try { await recVideo.play(); } catch (e) {}
             for (let w = 0; w < 20 && !recVideo.videoWidth; w++) await sleep(50);
+            if (discardCapture(captureId, stream, recVideo)) return;
 
             const surf = (track.getSettings && track.getSettings().displaySurface) || '';
             const REC_FPS = 30;
@@ -776,7 +813,7 @@
                     clearInterval(timer); recVideo.remove();
                     stream.getTracks().forEach(t => t.stop());
                     document.body.classList.remove('rec-clean');
-                    stage.classList.remove('rec'); abort();
+                    stage.classList.remove('rec'); captureStarting = false; abort();
                     alert('This browser could not initialize the video recorder.');
                     return;
                 }
@@ -802,23 +839,17 @@
                 }
                 const ext = chosenMime.indexOf('mp4') >= 0 ? 'mp4' : 'webm';
                 const blob = new Blob(chunks, { type: chosenMime.split(';')[0] || 'video/' + ext });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = (selectedTake === null ? 'simulacao-completa-bin-alpha' :
-                    'take-' + selectedTake.name + '-bin-alpha') + '.' + ext;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                setTimeout(() => URL.revokeObjectURL(url), 15000);
+                APHA_downloadBlob(blob, (selectedTake === null ? 'simulacao-completa-bin-alpha' :
+                    'take-' + selectedTake.name + '-bin-alpha') + '.' + ext);
             };
             track.addEventListener('ended', () => { stopRec(); abort(); });
             rec = { mr, timer };
+            captureStarting = false;
             mr.start(500);
             recBtn.classList.add('on');
             recBtn.textContent = '■ Stop and save video';
-            if(selectedTake === null) run(0);
-            else run(selectedTake.start,selectedTake.end,selectedTake.mode);
+            if(selectedTake === null) void startTour(0, STEPS.length - 1, 'full', true);
+            else void startTour(selectedTake.start,selectedTake.end,selectedTake.mode,true);
         }
         recBtn.addEventListener('click', () => startRec());
         document.querySelectorAll('#tour-takes [data-take-rec]').forEach(b => b.addEventListener('click', () => {
@@ -828,7 +859,6 @@
 
         // ---- exportar PNGs do COMEÇO e do FINAL de cada aba: mesma captura/recorte do vídeo, quadros 1920x1080 num único ZIP ----
         const snapBtn = $('tour-snap');
-        let snap = null;
         const snapLabel = () => '■ Stop and save PNGs (' + (snap ? snap.frames.length : 0) + ')';
 
         // ZIP mínimo (método "store", sem compressão — PNG já é comprimido)
@@ -878,11 +908,7 @@
             if (!sn.frames.length) { alert('No frames were captured. Keep the window visible while the simulation runs.'); return; }
             const files = [];
             for (const f of sn.frames) files.push({ name: f.name, data: new Uint8Array(await f.blob.arrayBuffer()) });
-            const url = URL.createObjectURL(buildZip(files));
-            const a = document.createElement('a');
-            a.href = url; a.download = 'simulacao-completa-bin-alpha-frames-png.zip';
-            document.body.appendChild(a); a.click(); a.remove();
-            setTimeout(() => URL.revokeObjectURL(url), 30000);
+            APHA_downloadBlob(buildZip(files), 'simulacao-completa-bin-alpha-frames-png.zip', 30000);
         }
 
         function snapTake(name) {
@@ -910,11 +936,13 @@
 
         async function startSnap() {
             if (snap) { await snapFinish(); abort(); return; }
-            if (rec) { alert('Stop the video recording first.'); return; }
+            if (rec || live || captureStarting) { console.warn('Finish the running tour/capture before starting snapshots.'); return; }
             if (!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia)) {
                 alert('PNG export requires the Google Chrome or Microsoft Edge browser (open the HTML file directly in the browser).');
                 return;
             }
+            const captureId = ++captureGeneration;
+            captureStarting = true;
             let stream;
             try {
                 stream = await navigator.mediaDevices.getDisplayMedia({
@@ -922,12 +950,15 @@
                     audio: false, preferCurrentTab: true, selfBrowserSurface: 'include', surfaceSwitching: 'include'
                 });
             } catch (e) {
+                if (captureId === captureGeneration) captureStarting = false;
                 if (e && e.name !== 'NotAllowedError' && e.name !== 'AbortError') alert('Could not start screen capture (' + (e.message || e.name) + '). Open the HTML file directly in a Chrome or Edge tab.');
                 return;
             }
+            if (discardCapture(captureId, stream)) return;
             const track = stream.getVideoTracks()[0];
-            if (!track) { stream.getTracks().forEach(t => t.stop()); return; }
+            if (!track) { stream.getTracks().forEach(t => t.stop()); captureStarting = false; return; }
             await suppressRecordedCursor(track);
+            if (discardCapture(captureId, stream)) return;
 
             document.body.classList.add('rec-clean');
             const recW = frameWidth(true), recH = recW * 9 / 16;
@@ -936,8 +967,8 @@
             document.body.style.setProperty('--rec-w', recW + 'px');
             stage.classList.add('rec');
             recBtn.disabled = true;
-            run(0);
             await sleep(250);
+            if (discardCapture(captureId, stream)) return;
 
             let cropped = false;
             if (window.CropTarget && typeof track.cropTo === 'function') {
@@ -949,6 +980,7 @@
             document.body.appendChild(video);
             try { await video.play(); } catch (e) {}
             for (let w = 0; w < 20 && !video.videoWidth; w++) await sleep(50);
+            if (discardCapture(captureId, stream, video)) return;
 
             const canvas = document.createElement('canvas'); canvas.width = 1920; canvas.height = 1080;
             const ctx = canvas.getContext('2d', { alpha: false });
@@ -956,21 +988,23 @@
             const surf = (track.getSettings && track.getSettings().displaySurface) || '';
 
             snap = { stream, video, canvas, ctx, cropped, surf, frames: [], pending: [], finishing: false };
+            captureStarting = false;
             track.addEventListener('ended', () => { snapFinish().then(() => abort()); });
             snapBtn.classList.add('on'); snapBtn.textContent = snapLabel();
+            // Capture must be ready before any scene begins (including the first frame).
+            void startTour(0, STEPS.length - 1, 'full', true);
         }
         snapBtn.addEventListener('click', startSnap);
         window.__tourEdge = (i, st, when) => { if (snap) snapTake(pad(i + 1, 2) + '_' + st.key + '_' + when + '.png'); };
 
-        // integra com o fim/parada da sequência (o handler do vídeo só age quando há gravação de vídeo)
-        const prevTourEnded = window.__tourEnded, prevStopRec = window.__stopTourRec;
+        // Um unico handler coordena o fim normal, a parada e os dois formatos de captura.
         window.__tourEnded = async () => {
-            if (snap) { await sleep(150); await snapFinish(); return; }   // gera o ZIP
-            return prevTourEnded();
+            if (snap) { await sleep(150); await snapFinish(); return; }
+            if (rec) { await sleep(350); stopRec(); await sleep(250); }
         };
-        window.__stopTourRec = () => { if (snap) { snapFinish().then(() => abort()); return; } prevStopRec(); };
+        window.__stopTourRec = () => { if (rec) stopRec(); abort(); };
 
-        window.tourStart = () => { if (!live) run(0); }; // explicit start only (general presentation button)
+        window.tourStart = () => { if (!live) void startTour(0); }; // explicit start only (general presentation button)
         window.tourAbort = abort;               // chamado ao sair da aba 8
     })();
 

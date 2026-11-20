@@ -3,7 +3,7 @@
         .tour-frame .c1{top:8px;left:8px;border-right:0;border-bottom:0}.tour-frame .c2{top:8px;right:8px;border-left:0;border-bottom:0}
         .tour-frame .c3{bottom:8px;left:8px;border-right:0;border-top:0}.tour-frame .c4{bottom:8px;right:8px;border-left:0;border-top:0}
         .tour-frame{--cy:91,123,158;position:relative;overflow:hidden;border:1px solid rgba(91,123,158,0.35);border-radius:16px;padding:32px 30px 34px;
-            background-color:var(--apha-bg);background-image:linear-gradient(to right,var(--apha-grid) 1px,transparent 1px),linear-gradient(to bottom,var(--apha-grid) 1px,transparent 1px);background-size:48px 48px}
+            }
         #tour-stage.tour-frame{display:none}
         #tour-stage.tour-frame.on{display:block}
         #tour-stage .sim-bg{background:none}            /* a malha única do quadro aparece atrás de todas as simulações */

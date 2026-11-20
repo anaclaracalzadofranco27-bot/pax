@@ -31,6 +31,6 @@
         const out = document.createElement('canvas'); out.width = W; out.height = H;
         const o = out.getContext('2d'); let x = pad;
         parts.forEach(p => { const w = p.b.x1 - p.b.x0; o.drawImage(p.c, p.b.x0, top, w, bot - top, x, pad, w, bot - top); x += w + gap; });
-        out.toBlob(blob => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = which === 'alpha' ? 'bin_alpha_sem_fundo.png' : which === 'conv' ? 'bin_convencional_sem_fundo.png' : 'bins_alpha_convencional_sem_fundo.png'; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }, 'image/png');
+        out.toBlob(blob => { if (blob) APHA_downloadBlob(blob, which === 'alpha' ? 'bin_alpha_sem_fundo.png' : which === 'conv' ? 'bin_convencional_sem_fundo.png' : 'bins_alpha_convencional_sem_fundo.png', 2000); }, 'image/png');
     };
     

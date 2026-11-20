@@ -244,9 +244,11 @@ def verify_blueprint(v: Checker) -> None:
     frame = v.read("source/html/ABA8/tour-frame.css")
     tour5 = v.read("source/html/ABA5/tour-layout.css")
     if manifest is not None:
-        v.check(v.has_css(manifest, ".sim-bg{background-color:var(--apha-bg);background-image:"),
+        v.check(v.has_css(manifest, ".sim-bg,.tour-frame,#closing-host{background-color:var(--apha-bg);background-image:"),
                 "Malha blueprint CSS removida")
         v.check(v.has_css(manifest, "background-size:48px 48px"), "Grade 48px alterada")
+        v.check(manifest.count(".sim-bg,.tour-frame,#closing-host{") == 1,
+                "Malha blueprint nao esta centralizada numa unica regra")
     if theme5 is not None:
         v.check(not v.has_css(theme5, "#module-unified .sim-bg{background:var(--apha-bg)}"),
                 "Aba 5 voltou a usar fundo liso")
@@ -791,6 +793,48 @@ def verify_html_cleanup(v: Checker) -> None:
                 "CSS de controles fantasmas ou ocultacao duplicada voltou")
 
 
+def verify_final_lifecycle(v: Checker) -> None:
+    """Evita regressao nos contratos de cancelamento, capturas e tema."""
+    nav = v.read("source/js/core/navigation.js")
+    director = v.read("source/html/ABA8/director-and-recording.js")
+    config = v.read("source/js/core/config.js")
+    page = v.read("source/page.template.html")
+    download = v.read("source/js/core/download.js")
+    css = v.read("source/css/global.css")
+    controller = v.read("source/html/ABA6/controller.js")
+    if controller is not None:
+        v.check("setAnimLabel(" not in controller,
+                "Aba 6 voltou a chamar controle de animacao que nao existe")
+    if nav is not None:
+        v.check("navigationLaunchToken" in nav and
+                "launchToken !== navigationLaunchToken" in nav and
+                "setTimeout(() =>" not in nav,
+                "Navegacao voltou a inicializar abas apos troca rapida")
+    if director is not None:
+        v.check(director.count("window.__tourEnded =") == 1 and
+                director.count("window.__stopTourRec =") == 1 and
+                "prevTourEnded" not in director and
+                "prevStopRec" not in director,
+                "Handlers de parada e captura foram reembrulhados")
+        v.check("if (live || captureStarting" in director and
+                "const completed = await waitFor(st, my)" in director and
+                "if (!completed)" in director and
+                "thisRun !== token" in director,
+                "Cancelamento ou falha de etapa da simulacao nao esta protegido")
+        v.check("void startTour(0, STEPS.length - 1, 'full', true)" in director and
+                "snap = { stream, video, canvas" in director,
+                "Captura PNG voltou a iniciar antes do compositor")
+    if config is not None and page is not None and download is not None:
+        v.check(config.count("@@APHA_INCLUDE:source/js/core/download.js@@") == 1 and
+                "APHA_downloadBlob" in download and
+                "source/js/core/download.js" not in page,
+                "Download compartilhado deixou de ser embutido no script existente")
+    if css is not None:
+        v.check(".sim-bg,.tour-frame,#closing-host{" in css,
+                "Fundo de malha deixou de ser compartilhado")
+
+
+
 def main() -> int:
     v = Checker()
     groups = (
@@ -808,6 +852,7 @@ def main() -> int:
         ("Aba 6: controlador", verify_aba6_controller),
         ("Aba 7: conclusão", verify_aba7),
         ("Limpeza HTML/CSS", verify_html_cleanup),
+        ("Ciclo de vida da apresentacao", verify_final_lifecycle),
         ("Aba 8: takes", verify_takes),
     )
     for section, verify in groups:
