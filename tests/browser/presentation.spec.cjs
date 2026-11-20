@@ -53,3 +53,26 @@ test('the five independent takes can start and stop without leftover stage', asy
   }
   expect(errors, 'Javascript errors while starting/stopping the takes').toEqual([]);
 });
+
+test('leaving the tour cancels a pending screen-capture permission', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await loadPresentation(page);
+  await page.evaluate(() => window.switchTab('tour'));
+  await page.evaluate(() => {
+    let grant;
+    Object.defineProperty(navigator.mediaDevices, 'getDisplayMedia', {
+      configurable: true,
+      value: () => new Promise(resolve => { grant = resolve; }),
+    });
+    window.grantLateCapture = () => grant(new MediaStream());
+  });
+  await page.locator('#tour-rec').click();
+  await page.evaluate(() => window.switchTab('pax'));
+  await page.evaluate(() => window.grantLateCapture());
+  await expect(page.locator('#module-pax')).toBeVisible();
+  await page.waitForTimeout(150);
+  await expect(page.locator('#tour-stage')).not.toHaveClass(/\bon\b/);
+  await expect(page.locator('#tour-btn')).toHaveAttribute('data-mode', 'run');
+  expect(errors, 'No stale capture may restart the presentation').toEqual([]);
+});
