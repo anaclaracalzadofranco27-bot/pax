@@ -404,14 +404,7 @@
                 if (prev.playing) play(U.t);
                 offscreen.toBlob(blob => {
                     if (!blob) return;
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'alpha_bin_integrated_simulation_' + (isP95 ? 'p95_male' : 'world_average') + (o.transparent ? '_transparent' : '') + (o.palette === 'dark' ? '_dark_palette' : '') + '_4k.png';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    setTimeout(() => URL.revokeObjectURL(url), 1500);
+                    APHA_downloadBlob(blob, 'alpha_bin_integrated_simulation_' + (isP95 ? 'p95_male' : 'world_average') + (o.transparent ? '_transparent' : '') + (o.palette === 'dark' ? '_dark_palette' : '') + '_4k.png', 1500);
                 }, 'image/png');
             };
         })();

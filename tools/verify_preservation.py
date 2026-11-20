@@ -244,9 +244,11 @@ def verify_blueprint(v: Checker) -> None:
     frame = v.read("source/html/ABA8/tour-frame.css")
     tour5 = v.read("source/html/ABA5/tour-layout.css")
     if manifest is not None:
-        v.check(v.has_css(manifest, ".sim-bg{background-color:var(--apha-bg);background-image:"),
+        v.check(v.has_css(manifest, ".sim-bg,.tour-frame,#closing-host{background-color:var(--apha-bg);background-image:"),
                 "Malha blueprint CSS removida")
         v.check(v.has_css(manifest, "background-size:48px 48px"), "Grade 48px alterada")
+        v.check(manifest.count(".sim-bg,.tour-frame,#closing-host{") == 1,
+                "Malha blueprint nao esta centralizada numa unica regra")
     if theme5 is not None:
         v.check(not v.has_css(theme5, "#module-unified .sim-bg{background:var(--apha-bg)}"),
                 "Aba 5 voltou a usar fundo liso")

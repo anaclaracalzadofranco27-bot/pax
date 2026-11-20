@@ -8,12 +8,6 @@
             const ctx = out.getContext('2d');
             ctx.fillStyle = '#000223'; ctx.fillRect(0, 0, out.width, out.height);
             ctx.drawImage(cv, 0, 0);
-            out.toBlob(b => {
-                if (!b) return;
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(b); a.download = 'top-view.png';
-                document.body.appendChild(a); a.click(); a.remove();
-                setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-            }, 'image/png');
+            out.toBlob(b => { if (b) APHA_downloadBlob(b, 'top-view.png', 2000); }, 'image/png');
         };
         

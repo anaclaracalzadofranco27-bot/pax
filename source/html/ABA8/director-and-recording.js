@@ -815,15 +815,8 @@
                 }
                 const ext = chosenMime.indexOf('mp4') >= 0 ? 'mp4' : 'webm';
                 const blob = new Blob(chunks, { type: chosenMime.split(';')[0] || 'video/' + ext });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = (selectedTake === null ? 'simulacao-completa-bin-alpha' :
-                    'take-' + selectedTake.name + '-bin-alpha') + '.' + ext;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                setTimeout(() => URL.revokeObjectURL(url), 15000);
+                APHA_downloadBlob(blob, (selectedTake === null ? 'simulacao-completa-bin-alpha' :
+                    'take-' + selectedTake.name + '-bin-alpha') + '.' + ext);
             };
             track.addEventListener('ended', () => { stopRec(); abort(); });
             rec = { mr, timer };
@@ -891,11 +884,7 @@
             if (!sn.frames.length) { alert('No frames were captured. Keep the window visible while the simulation runs.'); return; }
             const files = [];
             for (const f of sn.frames) files.push({ name: f.name, data: new Uint8Array(await f.blob.arrayBuffer()) });
-            const url = URL.createObjectURL(buildZip(files));
-            const a = document.createElement('a');
-            a.href = url; a.download = 'simulacao-completa-bin-alpha-frames-png.zip';
-            document.body.appendChild(a); a.click(); a.remove();
-            setTimeout(() => URL.revokeObjectURL(url), 30000);
+            APHA_downloadBlob(buildZip(files), 'simulacao-completa-bin-alpha-frames-png.zip', 30000);
         }
 
         function snapTake(name) {
