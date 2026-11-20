@@ -1,0 +1,43 @@
+name: Browser presentation smoke tests
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  chromium-smoke:
+    name: Check eight tabs and five takes in Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Assemble and check HTML
+        run: |
+          python3 tools/build.py
+          python3 tools/build.py --check
+          python3 tools/verify_preservation.py
+      - name: Verify controller JavaScript syntax
+        run: |
+          node --check source/js/core/navigation.js
+          node --check source/js/core/download.js
+          node --check source/html/ABA8/director-and-recording.js
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save @playwright/test@1.56.0
+          npx playwright install --with-deps chromium
+      - name: Browser smoke tests
+        run: npx playwright test
+      - name: Attach browser traces and screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pax-browser-traces
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7

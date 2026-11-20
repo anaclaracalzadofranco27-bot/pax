@@ -156,3 +156,22 @@ python3 tools/verify_preservation.py
 
 Essas verificações detectam regressões estáticas, mas **não substituem**
 conferir os três passageiros na Aba 1 e no Take 01 com um navegador WebGL.
+
+
+## Estabilidade da apresentação final (branch de refatoração)
+
+A Simulação Geral usa um único handler para finalizar vídeo/PNG, impede capturas concorrentes, invalida a inicialização de abas já abandonadas e para o roteiro se uma etapa ultrapassar o limite configurado. O início da captura de fotogramas ocorre **antes** da reprodução do roteiro. Os cinco takes e as geometrias existentes não foram alterados.
+
+O utilitário de download `source/js/core/download.js` é embutido pelo `core/config.js`, sem criar nova tag `<script>` no HTML final. A malha blueprint de 48 px é definida uma vez em `global.css` e compartilhada entre `.sim-bg`, `.tour-frame` e `#closing-host`. O iframe da Aba 1 preserva suas APIs isoladas.
+
+Para executar os testes em navegador (Chromium, requer internet para as bibliotecas CDN):
+
+```bash
+python tools/build.py
+python tools/verify_preservation.py
+npm install --no-save @playwright/test@1.56.0
+npx playwright install chromium
+npx playwright test
+```
+
+O workflow `Browser presentation smoke tests` executa automaticamente em pull requests. Ele cobre navegação rápida entre as oito abas e **início/parada** dos cinco takes; **não** substitui a conferência visual completa de duração, enquadramento 1920×1080, transições e gravação real do MP4, que necessita permissão de captura no navegador.
