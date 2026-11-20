@@ -654,11 +654,13 @@
         }
         async function startRec(takeIndex = null) {
             if (rec) { stopRec(); abort(); return; }
+            if (snap || live || captureStarting) return;
             const selectedTake = Number.isInteger(takeIndex) && takeIndex >= 0 && takeIndex < TOUR_TAKES.length ? TOUR_TAKES[takeIndex] : null;
             if (!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) || !window.MediaRecorder) {
                 alert('Video export requires the Google Chrome or Microsoft Edge browser (open the HTML file directly in the browser).');
                 return;
             }
+            captureStarting = true;
             let stream;
             try {
                 stream = await navigator.mediaDevices.getDisplayMedia({
@@ -669,13 +671,14 @@
                     surfaceSwitching: 'include'
                 });
             } catch (e) {
+                captureStarting = false;
                 if (e && e.name !== 'NotAllowedError' && e.name !== 'AbortError') {
                     alert('Could not start screen capture (' + (e.message || e.name) + '). Open the HTML file directly in a Chrome or Edge tab.');
                 }
                 return;
             }
             const track = stream.getVideoTracks()[0];
-            if (!track) { stream.getTracks().forEach(t => t.stop()); return; }
+            if (!track) { stream.getTracks().forEach(t => t.stop()); captureStarting = false; return; }
             await suppressRecordedCursor(track);
 
             // Ativa modo gravação limpo (sem cabeçalho fixo e com altura par garantida)
@@ -786,7 +789,7 @@
                     clearInterval(timer); recVideo.remove();
                     stream.getTracks().forEach(t => t.stop());
                     document.body.classList.remove('rec-clean');
-                    stage.classList.remove('rec'); abort();
+                    stage.classList.remove('rec'); captureStarting = false; abort();
                     alert('This browser could not initialize the video recorder.');
                     return;
                 }
@@ -824,11 +827,12 @@
             };
             track.addEventListener('ended', () => { stopRec(); abort(); });
             rec = { mr, timer };
+            captureStarting = false;
             mr.start(500);
             recBtn.classList.add('on');
             recBtn.textContent = '■ Stop and save video';
-            if(selectedTake === null) run(0);
-            else run(selectedTake.start,selectedTake.end,selectedTake.mode);
+            if(selectedTake === null) void startTour(0, STEPS.length - 1, 'full', true);
+            else void startTour(selectedTake.start,selectedTake.end,selectedTake.mode,true);
         }
         recBtn.addEventListener('click', () => startRec());
         document.querySelectorAll('#tour-takes [data-take-rec]').forEach(b => b.addEventListener('click', () => {
@@ -919,11 +923,12 @@
 
         async function startSnap() {
             if (snap) { await snapFinish(); abort(); return; }
-            if (rec) { alert('Stop the video recording first.'); return; }
+            if (rec || live || captureStarting) { console.warn('Finish the running tour/capture before starting snapshots.'); return; }
             if (!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia)) {
                 alert('PNG export requires the Google Chrome or Microsoft Edge browser (open the HTML file directly in the browser).');
                 return;
             }
+            captureStarting = true;
             let stream;
             try {
                 stream = await navigator.mediaDevices.getDisplayMedia({
@@ -931,11 +936,12 @@
                     audio: false, preferCurrentTab: true, selfBrowserSurface: 'include', surfaceSwitching: 'include'
                 });
             } catch (e) {
+                captureStarting = false;
                 if (e && e.name !== 'NotAllowedError' && e.name !== 'AbortError') alert('Could not start screen capture (' + (e.message || e.name) + '). Open the HTML file directly in a Chrome or Edge tab.');
                 return;
             }
             const track = stream.getVideoTracks()[0];
-            if (!track) { stream.getTracks().forEach(t => t.stop()); return; }
+            if (!track) { stream.getTracks().forEach(t => t.stop()); captureStarting = false; return; }
             await suppressRecordedCursor(track);
 
             document.body.classList.add('rec-clean');
@@ -945,7 +951,6 @@
             document.body.style.setProperty('--rec-w', recW + 'px');
             stage.classList.add('rec');
             recBtn.disabled = true;
-            run(0);
             await sleep(250);
 
             let cropped = false;
@@ -965,8 +970,11 @@
             const surf = (track.getSettings && track.getSettings().displaySurface) || '';
 
             snap = { stream, video, canvas, ctx, cropped, surf, frames: [], pending: [], finishing: false };
+            captureStarting = false;
             track.addEventListener('ended', () => { snapFinish().then(() => abort()); });
             snapBtn.classList.add('on'); snapBtn.textContent = snapLabel();
+            // Capture must be ready before any scene begins (including the first frame).
+            void startTour(0, STEPS.length - 1, 'full', true);
         }
         snapBtn.addEventListener('click', startSnap);
         window.__tourEdge = (i, st, when) => { if (snap) snapTake(pad(i + 1, 2) + '_' + st.key + '_' + when + '.png'); };
