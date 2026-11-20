@@ -389,7 +389,7 @@
         // ---- empréstimo de módulos ----
         let token = 0, active = null, live = false;        // active = { step, sec, ph }
         // A sessao de captura tem um unico dono e impede execucoes simultaneas.
-        let rec = null, snap = null, captureStarting = false;
+        let rec = null, snap = null, captureStarting = false, captureGeneration = 0;
         const clearCols = sec => { const g = sec.querySelector('.sim-card .grid'); if (g && sec.id === 'module-nova') [...g.children].forEach(c => { c.style.opacity = ''; c.style.transform = ''; c.style.transition = ''; }); };
         const clearSec = sec => ['opacity', 'filter', 'transform', 'transition', 'position', 'top', 'left', 'right', 'width', 'zIndex', 'pointerEvents', 'clipPath'].forEach(k => { sec.style[k] = ''; });
         let outgoing = null;                               // módulo que está saindo (some por completo ANTES de o próximo aparecer)
@@ -608,7 +608,9 @@
             // Do not loop or restart the full presentation without the user's click.
         }
         function abort() {
-            if (!live && !active && !outgoing && !rec && !snap) return;
+            if (!live && !active && !outgoing && !rec && !snap && !captureStarting) return;
+            ++captureGeneration;
+            captureStarting = false;
             live = false; token++; destroyBridge(); giveBack(); entryGap = 0; currentTab = 'tour'; frameOn(false);
             if (window.__tourEnded) void window.__tourEnded();
             btn.textContent = '▶ Run full simulation'; btn.dataset.mode = 'run';
@@ -639,6 +641,23 @@
                 try { r.mr.stop(); } catch (e) {}
             }
         }
+        // Descarta permissoes de captura que chegaram depois de abandonar a Aba 8.
+        function discardCapture(captureId, stream, video = null) {
+            if (captureId === captureGeneration && currentTab === 'tour') return false;
+            if (video) { video.srcObject = null; video.remove(); }
+            if (stream) stream.getTracks().forEach(track => track.stop());
+            if (captureId === captureGeneration) {
+                captureStarting = false;
+                document.body.classList.remove('rec-clean');
+                document.body.style.removeProperty('--rec-w');
+                stage.classList.remove('rec');
+                stage.style.removeProperty('--rec-w');
+                stage.style.removeProperty('--rec-h');
+                $('tour-rec').disabled = false;
+                frameOn(false);
+            }
+            return true;
+        }
         async function suppressRecordedCursor(track) {
             // Pede ao navegador para excluir o ponteiro quando a superfície oferecer suporte.
             // Fallback: a classe rec-clean oculta o cursor no conteúdo HTML da guia.
@@ -660,6 +679,7 @@
                 alert('Video export requires the Google Chrome or Microsoft Edge browser (open the HTML file directly in the browser).');
                 return;
             }
+            const captureId = ++captureGeneration;
             captureStarting = true;
             let stream;
             try {
@@ -671,15 +691,17 @@
                     surfaceSwitching: 'include'
                 });
             } catch (e) {
-                captureStarting = false;
+                if (captureId === captureGeneration) captureStarting = false;
                 if (e && e.name !== 'NotAllowedError' && e.name !== 'AbortError') {
                     alert('Could not start screen capture (' + (e.message || e.name) + '). Open the HTML file directly in a Chrome or Edge tab.');
                 }
                 return;
             }
+            if (discardCapture(captureId, stream)) return;
             const track = stream.getVideoTracks()[0];
             if (!track) { stream.getTracks().forEach(t => t.stop()); captureStarting = false; return; }
             await suppressRecordedCursor(track);
+            if (discardCapture(captureId, stream)) return;
 
             // Ativa modo gravação limpo (sem cabeçalho fixo e com altura par garantida)
             document.body.classList.add('rec-clean');
@@ -697,6 +719,7 @@
             // que o vídeo da logo, que é curto, perca os primeiros keyframes.
             frameOn(true);
             await sleep(250);
+            if (discardCapture(captureId, stream)) return;
 
             // Tenta recortar apenas o #tour-stage via Region Capture (funciona ao compartilhar Guia);
             // se estiver em file:// ou capturando Janela/Tela Inteira, continua sem abortar!
@@ -720,6 +743,7 @@
             document.body.appendChild(recVideo);
             try { await recVideo.play(); } catch (e) {}
             for (let w = 0; w < 20 && !recVideo.videoWidth; w++) await sleep(50);
+            if (discardCapture(captureId, stream, recVideo)) return;
 
             const surf = (track.getSettings && track.getSettings().displaySurface) || '';
             const REC_FPS = 30;
@@ -917,6 +941,7 @@
                 alert('PNG export requires the Google Chrome or Microsoft Edge browser (open the HTML file directly in the browser).');
                 return;
             }
+            const captureId = ++captureGeneration;
             captureStarting = true;
             let stream;
             try {
@@ -925,13 +950,15 @@
                     audio: false, preferCurrentTab: true, selfBrowserSurface: 'include', surfaceSwitching: 'include'
                 });
             } catch (e) {
-                captureStarting = false;
+                if (captureId === captureGeneration) captureStarting = false;
                 if (e && e.name !== 'NotAllowedError' && e.name !== 'AbortError') alert('Could not start screen capture (' + (e.message || e.name) + '). Open the HTML file directly in a Chrome or Edge tab.');
                 return;
             }
+            if (discardCapture(captureId, stream)) return;
             const track = stream.getVideoTracks()[0];
             if (!track) { stream.getTracks().forEach(t => t.stop()); captureStarting = false; return; }
             await suppressRecordedCursor(track);
+            if (discardCapture(captureId, stream)) return;
 
             document.body.classList.add('rec-clean');
             const recW = frameWidth(true), recH = recW * 9 / 16;
@@ -941,6 +968,7 @@
             stage.classList.add('rec');
             recBtn.disabled = true;
             await sleep(250);
+            if (discardCapture(captureId, stream)) return;
 
             let cropped = false;
             if (window.CropTarget && typeof track.cropTo === 'function') {
@@ -952,6 +980,7 @@
             document.body.appendChild(video);
             try { await video.play(); } catch (e) {}
             for (let w = 0; w < 20 && !video.videoWidth; w++) await sleep(50);
+            if (discardCapture(captureId, stream, video)) return;
 
             const canvas = document.createElement('canvas'); canvas.width = 1920; canvas.height = 1080;
             const ctx = canvas.getContext('2d', { alpha: false });
@@ -975,7 +1004,7 @@
         };
         window.__stopTourRec = () => { if (rec) stopRec(); abort(); };
 
-        window.tourStart = () => { if (!live) run(0); }; // explicit start only (general presentation button)
+        window.tourStart = () => { if (!live) void startTour(0); }; // explicit start only (general presentation button)
         window.tourAbort = abort;               // chamado ao sair da aba 8
     })();
 
