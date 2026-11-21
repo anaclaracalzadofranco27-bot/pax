@@ -2,7 +2,7 @@
         // MÃE E BEBÊ: sobretudo verde-oliva com lapelas, bolsos e abertura frontal; calça escura com dobras; bebê e manta desenhados
         // ----------------------------------------------------------------------------
         Object.assign(PT, { earB: earPaint('#efc4ad') });
-        const COAT_D = '#495334', SKIN_M = '#e5b299', BLANKET_B = '#c2d5e3', BLANKET_W = '#d8cbb8';
+        const COAT_D = '#495334', SKIN_M = '#e5b299', BLANKET_B = '#c2d5e3';
         Object.assign(PT, {
             coatTorso: { w: 1024, h: 512, fill: COAT_C, fn: (g, W, H, fl) => {
                 g.fillStyle = fl; g.fillRect(0, 0, W, H);

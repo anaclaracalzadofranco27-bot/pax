@@ -114,3 +114,83 @@ test('ABA1: three characters render identically before and after PT/TVT refactor
   expect(after.paintedPixels).toEqual(before.paintedPixels);
   expect(after.states).toEqual(before.states);
 });
+
+
+test('ABA1: idle WebGL skips frames but responds to scrub, Play, zoom and export', async ({ page }) => {
+  await page.goto('/FINALPROJECT_APHA.html', { waitUntil: 'load' });
+  await page.waitForFunction(() => document.querySelector('#pax-frame')?.contentWindow?.PAX,
+    undefined, { timeout: 45000 });
+  await page.evaluate(() => window.switchTab('pax'));
+  await expect(page.locator('#module-pax')).toBeVisible();
+
+  const counts = await page.frameLocator('#pax-frame').locator('#pax-layer').evaluate(async () => {
+    const P = window.PAX;
+    const original = P.renderer.render;
+    let rendered = 0;
+    P.renderer.render = function (...args) { rendered++; return original.apply(this, args); };
+    const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+    const scrub = t => {
+      const range = document.getElementById('scrubber');
+      range.value = String(t);
+      range.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
+    document.getElementById('resetBtn').click();
+    await pause(2100); // maior que os 1,8 s de zoom CSS
+    let count = rendered;
+    await pause(240);
+    const idle = rendered - count;
+
+    scrub(4);
+    count = rendered;
+    await pause(150);
+    const scrubRedraw = rendered - count;
+    count = rendered;
+    await pause(250);
+    const afterScrubIdle = rendered - count;
+
+    const play = document.getElementById('playBtn');
+    play.click();
+    count = rendered;
+    await pause(650); // SwiftShader pode renderizar menos de 10 FPS em CI
+    const resumed = rendered - count;
+    play.click();
+    await pause(100);
+    count = rendered;
+    await pause(230);
+    const afterPauseIdle = rendered - count;
+
+    // Trocar classe do camera-rig inicia transicao de 1,8 s mesmo sem Play.
+    scrub(10);
+    count = rendered;
+    await pause(600); // permitir GPU via software processar ao menos um quadro
+    const zoomTransition = rendered - count;
+
+    await pause(1900); // espera completar a transicao de 1,8 s antes de testar exportacao
+    count = rendered;
+    await pause(220);
+    const afterZoomIdle = rendered - count;
+
+    // A gravacao deterministica deve funcionar mesmo pausada e acordar o RAF
+    // ao restaurar o pixelRatio original.
+    P.beginExport(720);
+    P.renderAt(8, 1.68);
+    P.endExport();
+    count = rendered;
+    await pause(120);
+    const afterExport = rendered - count;
+
+    P.renderer.render = original;
+    return { idle, scrubRedraw, afterScrubIdle, resumed, afterPauseIdle,
+      zoomTransition, afterZoomIdle, afterExport };
+  });
+
+  expect(counts.idle, 'paused scene should not render on every RAF').toBeLessThanOrEqual(1);
+  expect(counts.scrubRedraw, 'scrubber must refresh the frame').toBeGreaterThan(0);
+  expect(counts.afterScrubIdle, 'scrubbed scene should settle').toBeLessThanOrEqual(1);
+  expect(counts.resumed, 'Play must render again after pause').toBeGreaterThan(0);
+  expect(counts.afterPauseIdle, 'Pause must suppress WebGL work').toBeLessThanOrEqual(1);
+  expect(counts.zoomTransition, 'paused CSS zoom must keep WebGL updating').toBeGreaterThan(0);
+  expect(counts.afterZoomIdle, 'stopped zoom must settle').toBeLessThanOrEqual(1);
+  expect(counts.afterExport, 'pixelRatio restoration must redraw').toBeGreaterThan(0);
+});

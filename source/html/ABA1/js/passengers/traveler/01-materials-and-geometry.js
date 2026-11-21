@@ -5,6 +5,28 @@
         // Mesmo esqueleto (juntas, comprimentos) do rig anterior: a animação continua a mesma. Todas as peças são "lofts" de
         // seções super-elípticas (tvLoft), com cor chapada + linhas de tinta pintadas em textura.
         // ============================================================================
+        // Os tres personagens usam a mesma hierarquia de juntas; os lofts,
+        // raios, roupas, poses e malas continuam especificos de cada um.
+        function paxCreateShoulder(thorax, side, S) {
+            const shoulder = new THREE.Group();
+            shoulder.rotation.order = 'YXZ';
+            shoulder.position.set(side * (6.2 * S) * 0.92, 13.0 * S, 0);
+            thorax.add(shoulder);
+            return shoulder;
+        }
+        function paxCreateHip(pelvis, side, S) {
+            const hip = new THREE.Group();
+            hip.position.set(side * (3.6 * S) * 0.94, -1.2 * S, 0);
+            pelvis.add(hip);
+            return hip;
+        }
+        function paxCreateHinge(parent, length) {
+            const joint = new THREE.Group();
+            joint.position.y = -length;
+            parent.add(joint);
+            return joint;
+        }
+
         const TVC = {
             skin: '#e9a47c', skinSh: '#c9835e', skinLine: '#a65f3d',
             shirt: '#5f6c2f', shirtSh: '#47521f', shirtHi: '#78883c', collar: '#434d1f',
