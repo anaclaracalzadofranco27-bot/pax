@@ -1,7 +1,7 @@
 
 // ============================================================================
 // PASSAGEIROS (viajante, senhor e mãe com bebê) caminhando na passarela de embarque.
-// Mesmo código e animação do arquivo do manequim; a câmera 3D foi enquadrada na passarela do SVG.
+// Rig e proporções adaptados do manequim; renderização e trajeto próprios da passarela SVG.
 // ============================================================================
 const PAX_START = 0.5;                        // segundos da linha do tempo em que o primeiro passageiro começa a andar
 let paxLastTick = performance.now();
@@ -36,7 +36,7 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(container.clientWidth, container.clientHeight);
-        renderer.setPixelRatio(Math.min(4, (window.devicePixelRatio || 1) * AV.ZOOM));   // resolução para o zoom inicial (2.35x), limitada a 4x
+        renderer.setPixelRatio(Math.min(4, (window.devicePixelRatio || 1) * AV.ZOOM));   // supersampling 2.35x para nitidez no zoom visual de 1.68x (limite de pixelRatio: 4)
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.BasicShadowMap;   // sombra do chão com borda dura (cel shading)
         container.appendChild(renderer.domElement);
