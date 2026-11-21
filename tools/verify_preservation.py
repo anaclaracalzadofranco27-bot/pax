@@ -678,11 +678,22 @@ def verify_aba1_modular_sources(v: Checker) -> None:
         except (ValueError, FileNotFoundError) as exc:
             v.check(False, f"Nao foi possivel montar {name}: {exc}")
             continue
-        header = b"blob " + str(len(assembled)).encode("ascii") + b"\0"
         if name in original_git_blobs:
-            digest = hashlib.sha1(header + assembled).hexdigest()
+            # A unica diferenca permitida na engine do aviao e a
+            # correcao de um comentario sobre o zoom. Reconstroi o
+            # comentario antigo antes do hash para fiscalizar *todos*
+            # os outros bytes do codigo executado e da renderizacao.
+            normalized = assembled.decode("utf-8")
+            new_note = "// scale(1.68) translate(-4.5%, -24%); transição de 1,8 s"
+            old_note = "// scale(2.35) translate(-4.5%, -24%); transição de 1,5 s"
+            v.check(normalized.count(new_note) == 1,
+                    "Comentario corrigido do zoom nao encontrado")
+            normalized = normalized.replace(new_note, old_note)
+            normalized_bytes = normalized.encode("utf-8")
+            header = b"blob " + str(len(normalized_bytes)).encode("ascii") + b"\0"
+            digest = hashlib.sha1(header + normalized_bytes).hexdigest()
             v.check(digest == original_git_blobs[name],
-                    f"Codigo original do {name} mudou apos modularizacao")
+                    f"Codigo executado do {name} mudou alem do comentario revisado")
         else:
             code = assembled.decode("utf-8")
             v.check("const paintedRecipe =" in code and
