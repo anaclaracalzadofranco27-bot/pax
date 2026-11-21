@@ -675,7 +675,7 @@ def verify_aba1_modular_sources(v: Checker) -> None:
         except (ValueError, FileNotFoundError) as exc:
             v.check(False, f"Nao foi possivel montar {name}: {exc}")
             continue
-        header = b"blob " + str(len(assembled)).encode("ascii") + b"\\0"
+        header = b"blob " + str(len(assembled)).encode("ascii") + b"\0"
         digest = hashlib.sha1(header + assembled).hexdigest()
         v.check(digest == original_git_blobs[name],
                 f"Codigo original do {name} mudou apos modularizacao; revisar cinematica e aparencia")
