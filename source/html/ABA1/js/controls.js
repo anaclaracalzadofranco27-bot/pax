@@ -16,7 +16,6 @@ window.paxEmbed = {
 //      A página principal faz então a dissolvição cruzada para o bin 3D técnico. ----
 let xrayOn = false;
 const xrayEls = () => [...document.querySelectorAll('#camera-rig > svg path, #pax-front path, #pax-front rect, #pax-front polygon')];
-const isBag = el => el.classList.contains('bag-top') || el.classList.contains('bag-front') || el.classList.contains('bag-detail');
 function xrayReset() {
   if (!xrayOn) return; xrayOn = false;
   const all = [document.querySelector('#camera-rig > svg'), document.getElementById('pax-front'), document.getElementById('pax-layer'), document.getElementById('pax-labels'), ...xrayEls()];

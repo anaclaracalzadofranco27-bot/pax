@@ -4,8 +4,10 @@
 O verificador não substitui reprodução visual, WebGL nem gravação real.
 """
 from __future__ import annotations
+import hashlib
 import re
 import sys
+from build import expand
 from collections import Counter
 from pathlib import Path
 
@@ -562,8 +564,10 @@ def verify_aba1_assets(v: Checker) -> None:
 
 
 def verify_aba1_passengers(v: Checker) -> None:
-    code = v.read("source/html/ABA1/js/passengers.js")
-    if code is None:
+    try:
+        code = expand("source/html/ABA1/js/passengers.js").decode("utf-8")
+    except (ValueError, FileNotFoundError, UnicodeDecodeError) as exc:
+        v.check(False, f"Montagem dos passageiros falhou: {exc}")
         return
 
 
@@ -633,6 +637,52 @@ def verify_aba1_passengers(v: Checker) -> None:
     for removed in ("flatMaterial(", "OUTLINE_COLOR", "if (rich)", "updateWalk(0)"):
         require(removed not in code, "obsolete rendering branch reintroduced: " + removed)
 
+
+
+
+def verify_aba1_modular_sources(v: Checker) -> None:
+    """Conserva byte a byte a animacao 3D e a renderizacao do aviao."""
+    sections = {
+        "aircraft": (
+            "01-palette-and-timeline", "02-export-setup-and-labels",
+            "03-export-compositor", "04-mp4-encoder",
+            "05-recording-and-download",
+        ),
+        "passengers": (
+            "01-scene-and-path", "02-painted-textures",
+            "03-shaders-and-materials", "04-traveler", "05-elder",
+            "06-mother-and-baby", "07-walking-and-render",
+        ),
+    }
+    # SHA do blob Git da versao anterior a divisao. O codigo final que
+    # o navegador recebe deve continuar identico ao script original.
+    original_git_blobs = {
+        "aircraft": "774ca7660356ebf6183adf239e95cbee45d0e22a",
+        "passengers": "e717718fa4e4435ddce47b5edfbed4206467987d",
+    }
+    for name, names in sections.items():
+        path = f"source/html/ABA1/js/{name}.js"
+        manifest = v.read(path)
+        if manifest is None:
+            continue
+        expected = "".join(
+            f"@@APHA_INCLUDE:source/html/ABA1/js/{name}/{section}.js@@"
+            for section in names
+        )
+        v.check(manifest == expected, f"Manifesto do {name} alterado ou fora de ordem")
+        try:
+            assembled = expand(path)
+        except (ValueError, FileNotFoundError) as exc:
+            v.check(False, f"Nao foi possivel montar {name}: {exc}")
+            continue
+        header = b"blob " + str(len(assembled)).encode("ascii") + b"\\0"
+        digest = hashlib.sha1(header + assembled).hexdigest()
+        v.check(digest == original_git_blobs[name],
+                f"Codigo original do {name} mudou apos modularizacao; revisar cinematica e aparencia")
+    controls = v.read("source/html/ABA1/js/controls.js")
+    if controls is not None:
+        v.check("const isBag =" not in controls,
+                "Helper sem consumidor voltou ao controle do iframe")
 
 
 def verify_aba3(v: Checker) -> None:
@@ -847,6 +897,7 @@ def main() -> int:
         ("CSS de gravação", verify_recording_css),
         ("Aba 1: recursos", verify_aba1_assets),
         ("Aba 1: passageiros", verify_aba1_passengers),
+        ("Aba 1: codigo modular inalterado", verify_aba1_modular_sources),
         ("Aba 3: comparação", verify_aba3),
         ("Aba 4: SVG", verify_aba4),
         ("Aba 6: controlador", verify_aba6_controller),
