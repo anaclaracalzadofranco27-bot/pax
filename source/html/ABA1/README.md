@@ -72,3 +72,12 @@ As receitas `PT` **não são código morto**: são utilizadas pelo senhor e pela
 No workflow `Browser presentation smoke tests`, `tests/browser/aba1-visual-regression.spec.cjs` compara a versão da base da PR com a versão candidata, nos instantes **1, 4, 8 e 11 segundos**. O teste usa o framebuffer WebGL (não um vídeo gravado) e compara os pixels, a visibilidade das três raízes dos personagens, a quantidade de malhas/geometrias/materiais/texturas ligadas a cada raiz e amostras dos pixels das receitas de textura. Se um modelo perder roupa, rosto, cabelo, bebê ou malas, o teste deve detectar a mudança.
 
 **Limitação:** o grafo Three.js mostra recursos alcançáveis, mas por si só não detecta todos os objetos temporários criados e descartados fora da cena. A verificação de referências no código complementa, mas não substitui, essa inspeção. Se uma mudança realmente intencional alterar a aparência, atualizar o teste exige uma nova revisão visual.
+
+## Refatoração: paleta, juntas e renderização
+
+- A cor do sobretudo, da calça, do acabamento e da pele da mãe é definida uma vez em `COAT_C`, `PANTS_C`, `COAT_D` e `SKIN_M`, respectivamente. `MOM` passa a referenciar esses valores; os materiais e tons do senhor permanecem independentes.
+- `BLANKET_W` foi removida porque nunca era lida. As receitas de manta realmente aplicadas continuam em uso.
+- As juntas comuns dos três modelos são construídas por `paxCreateShoulder`, `paxCreateHip` e `paxCreateHinge`. Todas as peças e formas específicas dos braços, pernas, sapatos, roupas e malas permanecem nos modelos individuais.
+- `drawPaxFrame` é a única rotina que atualiza caminhada, espessura do contorno e WebGL; `animate` e `renderAt` continuam com responsabilidades distintas (tela vs. composição Full HD).
+- Durante pausa, `animate` mantém um callback leve de `requestAnimationFrame`, mas **não invoca WebGL** se o instante e o zoom estiverem inalterados. O render é reativado por Play, scrubber, reset, resize, mudança de zoom CSS e fim da exportação.
+- A duração de 14 s, as três cadências e a interpolação de zoom não foram modificadas. **Não remover a observação de `z = cssZoom()`: a câmera do CSS pode continuar a transitar após o Play ser pausado.**

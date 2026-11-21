@@ -115,17 +115,12 @@
             let suitcaseGroup = null;
             const upperArmLen = 10.2 * S, forearmLen = 9.2 * S;
             function buildArm(side) {
-                const shoulder = new THREE.Group();
-                shoulder.rotation.order = 'YXZ';
-                shoulder.position.set(side * (6.2 * S) * 0.92, 13.0 * S, 0);
-                thorax.add(shoulder);
+                const shoulder = paxCreateShoulder(thorax, side, S);
                 shoulder.add(tvBall(0.040, suitM, 1.1, 0.85, 1.1));
                 shoulder.add(tvLoft([
                     { a: 0, w: 0.040, d: 0.044 }, { a: -0.030, w: 0.054, d: 0.057 }, { a: -0.120, w: 0.056, d: 0.057 }, { a: -0.220, w: 0.051, d: 0.053 }, { a: -upperArmLen, w: 0.047, d: 0.050 }
                 ], paxDoublePaintedMat(ETX.sleeve, 'suit'), { seg: 28, capStart: true }));
-                const elbow = new THREE.Group();
-                elbow.position.y = -upperArmLen;
-                shoulder.add(elbow);
+                const elbow = paxCreateHinge(shoulder, upperArmLen);
                 elbow.add(tvBall(0.047, suitM));
                 elbow.add(tvLoft([
                     { a: 0, w: 0.047, d: 0.050 }, { a: -0.060, w: 0.047, d: 0.049 }, { a: -0.160, w: 0.043, d: 0.045 }, { a: -(forearmLen - 0.012), w: 0.039, d: 0.041 }
@@ -146,25 +141,19 @@
             // ---- pernas (calça reta com vinco + sapato social) -----------------------------------------------------------
             function buildLeg(side) {
                 const femurLen = 15.0 * S, tibiaLen = 14.0 * S;
-                const hip = new THREE.Group();
-                hip.position.set(side * (3.6 * S) * 0.94, -1.2 * S, 0);
-                pelvis.add(hip);
+                const hip = paxCreateHip(pelvis, side, S);
                 hip.add(tvBall(0.080, suitM, 1, 1, 1.05));
                 hip.add(tvLoft([
                     { a: 0, w: 0.088, d: 0.094 }, { a: -0.050, w: 0.089, d: 0.095 }, { a: -0.120, w: 0.087, d: 0.092 }, { a: -0.260, w: 0.076, d: 0.081 },
                     { a: -0.350, w: 0.069, d: 0.073 }, { a: -femurLen, w: 0.066, d: 0.070 }
                 ], paxDoublePaintedMat(ETX.thigh, 'suit'), { seg: 30 }));
-                const knee = new THREE.Group();
-                knee.position.y = -femurLen;
-                hip.add(knee);
+                const knee = paxCreateHinge(hip, femurLen);
                 knee.add(tvBall(0.063, suitM, 1, 1, 1.05));
                 knee.add(tvLoft([
                     { a: 0, w: 0.066, d: 0.070 }, { a: -0.060, w: 0.064, d: 0.070 }, { a: -0.160, w: 0.060, d: 0.066 }, { a: -0.300, w: 0.055, d: 0.060 },
                     { a: -0.360, w: 0.056, d: 0.061 }, { a: -tibiaLen, w: 0.060, d: 0.064 }
                 ], paxDoublePaintedMat(ETX.calf, 'suit'), { seg: 30 }));
-                const ankle = new THREE.Group();
-                ankle.position.y = -tibiaLen;
-                knee.add(ankle);
+                const ankle = paxCreateHinge(knee, tibiaLen);
                 const foot = new THREE.Group();
                 ankle.add(foot);
                 const shoeM = paxMat(ELD.shoe, 'dark'), soleM = paxMat(ELD.sole, 'dark');

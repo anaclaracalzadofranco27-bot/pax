@@ -356,38 +356,54 @@
             }
         }
 
+        let paxFrameDirty = true;
         window.addEventListener('resize', () => {
             renderer.setSize(container.clientWidth, container.clientHeight);
+            paxFrameDirty = true;
         });
 
         // Tempo da animação = tempo da linha do tempo do avião (Play/Restart/scrubber), suavizado entre os passos de 100 ms
         const camRig = document.getElementById('camera-rig');
         function cssZoom() { const t = getComputedStyle(camRig).transform; return t && t !== 'none' ? new DOMMatrix(t).a : 1; }
         let paxExporting = false, paxSavedRatio = 1;
-        function animate() {
-            requestAnimationFrame(animate);
-            if (paxExporting) return;                    // durante a exportação quem desenha é PAX.renderAt
-            const tl = PAX_TIMELINE();
-            elapsed = Math.max(0, Math.min(MAX_ANIMATION_TIME, tl - PAX_START));
-            updateWalk();
-            const z = cssZoom();
-            OUTLINE_W.value = OUTLINE_PX * (FRUSTUM_H / camera.zoom) / Math.max(1, renderer.domElement.clientHeight) / rig1.root.scale.x / z;
-            renderer.render(scene, camera);
-            updateBalloonsLive(tl, z, labelAnchors());
-        }
-        // Exportação de vídeo: desenha os passageiros no instante tl da linha do tempo, com o contorno calculado para o zoom informado
-        function renderAt(tl, zoom) {
+        let lastRenderedTime = null, lastRenderedZoom = null;
+
+        // Renderizacao unica, usada tanto na reproducao como no compositor de video.
+        // O canvas e o estado da caminhada sao calculados na mesma ordem original.
+        function drawPaxFrame(tl, zoom) {
             elapsed = Math.max(0, Math.min(MAX_ANIMATION_TIME, tl - PAX_START));
             updateWalk();
             OUTLINE_W.value = OUTLINE_PX * (FRUSTUM_H / camera.zoom) / Math.max(1, renderer.domElement.clientHeight) / rig1.root.scale.x / zoom;
             renderer.render(scene, camera);
             return renderer.domElement;
         }
-        function beginExport(bufferWidth) {            // resolução do canvas 3D adequada ao vídeo (largura em pixels)
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (paxExporting) return; // o compositor usa PAX.renderAt durante exportacao
+            const tl = PAX_TIMELINE(), z = cssZoom();
+            // Evita WebGL a cada frame se pausado, mas acompanha todo o zoom CSS
+            // e responde imediatamente a scrubber, reset, resize e volta da exportacao.
+            if (!playing && !paxFrameDirty && tl === lastRenderedTime && z === lastRenderedZoom) return;
+            drawPaxFrame(tl, z);
+            updateBalloonsLive(tl, z, labelAnchors());
+            lastRenderedTime = tl;
+            lastRenderedZoom = z;
+            paxFrameDirty = false;
+        }
+
+        // Renderizacao deterministica para videos, mesmo com Play pausado.
+        function renderAt(tl, zoom) { return drawPaxFrame(tl, zoom); }
+        function beginExport(bufferWidth) {            // resolucao do canvas 3D adequada ao video
             paxExporting = true; paxSavedRatio = renderer.getPixelRatio();
             renderer.setPixelRatio(bufferWidth / Math.max(1, container.clientWidth));
+            paxFrameDirty = true;
         }
-        function endExport() { renderer.setPixelRatio(paxSavedRatio); paxExporting = false; }
+        function endExport() {
+            renderer.setPixelRatio(paxSavedRatio);
+            paxExporting = false;
+            paxFrameDirty = true; // pixel ratio e framebuffer foram alterados
+        }
         window.PAX = { rig1, rig2, rig3, camera, renderer, scene, renderAt, labelAnchors, beginExport, endExport, get elapsed() { return elapsed; } };
         requestAnimationFrame(animate);
 
