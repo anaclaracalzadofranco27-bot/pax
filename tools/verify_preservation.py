@@ -691,14 +691,14 @@ def verify_aba1_modular_sources(v: Checker) -> None:
                     "Receitas PT/TVT voltaram a usar fabricas redundantes")
             # As 19 receitas PT atuais e as 11 TVT sao consumidas
             # pelos modelos ativos; definicoes antigas mortas nao devem voltar.
-            used_pt = set(re.findall(r"\\bPT\\.([A-Za-z_]\\w*)", code))
-            used_tvt = set(re.findall(r"\\bTVT\\.([A-Za-z_]\\w*)", code))
+            used_pt = set(re.findall(r"\bPT\.([A-Za-z_]\w*)", code))
+            used_tvt = set(re.findall(r"\bTVT\.([A-Za-z_]\w*)", code))
             v.check(len(used_pt) >= 19 and len(used_tvt) == 11,
                     "Receitas de textura ativas foram removidas")
-            v.check(all(re.search(r"\\b" + re.escape(k) + r":\\s*", code)
+            v.check(all(re.search(r"\b" + re.escape(k) + r":\s*", code)
                         for k in used_pt),
                     "Existe referencia a textura PT nao declarada")
-            v.check(all(re.search(r"\\bTVT\\." + re.escape(k) + r"\\s*=", code)
+            v.check(all(re.search(r"\bTVT\." + re.escape(k) + r"\s*=", code)
                         for k in used_tvt),
                     "Existe referencia a textura TVT nao declarada")
     controls = v.read("source/html/ABA1/js/controls.js")
