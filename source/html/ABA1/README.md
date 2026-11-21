@@ -27,9 +27,9 @@ Esta pasta implementa o primeiro ato de **14 segundos**. O conteúdo visual é c
 ### `js/passengers/`
 
 1. `01-scene-and-path.js` — Three.js, câmera e caminho sobre a passarela.
-2. `02-painted-textures.js` — receitas e elementos de textura desenhada.
+2. `02-painted-textures.js` — manifesto das receitas de cabeça/tinta, senhor, mãe e bebê.
 3. `03-shaders-and-materials.js` — contorno, sombreamento toon e materiais.
-4. `04-traveler.js` — corpo, roupas, mala e juntas do viajante.
+4. `04-traveler.js` — manifesto da geometria, das texturas e do rig do viajante.
 5. `05-elder.js` — personagem idoso e acessórios.
 6. `06-mother-and-baby.js` — mãe, bebê, vestuário e articulações.
 7. `07-walking-and-render.js` — cadência, caminhada, renderização e API `window.PAX`.
@@ -53,3 +53,16 @@ O workflow de navegador (Playwright) também testa a troca das oito abas, a exec
 ## Limpeza segura: transição X-ray
 
 O controlador `js/controls.js` usa `xrayLayers()` para restaurar somente os **quatro nós** cujo estilo inline é alterado no Take 01. Uma versão anterior também percorria todos os caminhos SVG, sem necessidade: manter o reset restrito aos nós que a transição realmente modifica. Os detalhes de vidro e os contornos da aeronave são parte da composição atual e permanecem intactos.
+
+## Texturas: sistema ativo e limpeza Fase B
+
+As receitas `PT` **não são código morto**: são utilizadas pelo senhor e pela mãe/bebê. As receitas `TVT` produzem as texturas do viajante. Os dois grupos agora compartilham a fábrica `paintedRecipe(w, h, fn, fill?)`; o `paintCloth` foi simplificado e não recebe mais o antigo parâmetro `name`, que não era lido.
+
+- `js/passengers/textures/01-shared-drawing.js`: proporções das cabeças, mapas UV, pintura de curvas e fábrica `paintedRecipe`.
+- `js/passengers/textures/02-elder-recipes.js`: receitas `PT` utilizadas pelo senhor e texturas compartilhadas de ouvido/casaco.
+- `js/passengers/textures/03-mother-and-baby-recipes.js`: receitas `PT` utilizadas pela mãe e pelo bebê, além da escala compartilhada.
+- `js/passengers/traveler/01-materials-and-geometry.js`: geometria, paleta e materiais do viajante.
+- `js/passengers/traveler/02-painted-recipes.js`: receitas `TVT` do viajante.
+- `js/passengers/traveler/03-rig-and-suitcase.js`: corpo articulado e mala.
+
+**Não misturar as duas paletas nem apagar receitas apenas por serem antigas.** Os três personagens, suas articulações, os materiais mapeados e as texturas originais continuam sendo necessários. Na revisão, compare imagens da Aba 1 nos mesmos instantes com a versão anterior e verifique a presença de malhas e materiais no grafo Three.js. Só depois de validar a diferença é apropriado atualizar as referências estáticas/visuais de testes.

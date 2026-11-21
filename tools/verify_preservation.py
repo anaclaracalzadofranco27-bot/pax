@@ -656,9 +656,12 @@ def verify_aba1_modular_sources(v: Checker) -> None:
     }
     # SHA do blob Git da versao anterior a divisao. O codigo final que
     # o navegador recebe deve continuar identico ao script original.
+    # A engine do aviao nao sofreu alteracoes funcionais. A engine dos
+    # passageiros usa agora uma fabrica unica de receitas PT/TVT e portanto
+    # nao possui mais o hash original; a comparacao visual em Chromium
+    # compara o modelo novo com a versao base da propria pull request.
     original_git_blobs = {
         "aircraft": "774ca7660356ebf6183adf239e95cbee45d0e22a",
-        "passengers": "e717718fa4e4435ddce47b5edfbed4206467987d",
     }
     for name, names in sections.items():
         path = f"source/html/ABA1/js/{name}.js"
@@ -676,13 +679,35 @@ def verify_aba1_modular_sources(v: Checker) -> None:
             v.check(False, f"Nao foi possivel montar {name}: {exc}")
             continue
         header = b"blob " + str(len(assembled)).encode("ascii") + b"\0"
-        digest = hashlib.sha1(header + assembled).hexdigest()
-        v.check(digest == original_git_blobs[name],
-                f"Codigo original do {name} mudou apos modularizacao; revisar cinematica e aparencia")
+        if name in original_git_blobs:
+            digest = hashlib.sha1(header + assembled).hexdigest()
+            v.check(digest == original_git_blobs[name],
+                    f"Codigo original do {name} mudou apos modularizacao")
+        else:
+            code = assembled.decode("utf-8")
+            v.check("const paintedRecipe =" in code and
+                    "const tvTex =" not in code and "tvTex(" not in code and
+                    "paintCloth = (name," not in code,
+                    "Receitas PT/TVT voltaram a usar fabricas redundantes")
+            # As 19 receitas PT atuais e as 11 TVT sao consumidas
+            # pelos modelos ativos; definicoes antigas mortas nao devem voltar.
+            used_pt = set(re.findall(r"\\bPT\\.([A-Za-z_]\\w*)", code))
+            used_tvt = set(re.findall(r"\\bTVT\\.([A-Za-z_]\\w*)", code))
+            v.check(len(used_pt) >= 19 and len(used_tvt) == 11,
+                    "Receitas de textura ativas foram removidas")
+            v.check(all(re.search(r"\\b" + re.escape(k) + r":\\s*", code)
+                        for k in used_pt),
+                    "Existe referencia a textura PT nao declarada")
+            v.check(all(re.search(r"\\bTVT\\." + re.escape(k) + r"\\s*=", code)
+                        for k in used_tvt),
+                    "Existe referencia a textura TVT nao declarada")
     controls = v.read("source/html/ABA1/js/controls.js")
     if controls is not None:
         v.check("const isBag =" not in controls,
                 "Helper sem consumidor voltou ao controle do iframe")
+        v.check("xrayLayers()" in controls and "xrayEls" not in controls and
+                "#camera-rig > svg path" not in controls,
+                "Reset X-ray voltou a percorrer centenas de paths SVG")
 
 
 def verify_aba3(v: Checker) -> None:
