@@ -13,6 +13,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -26,11 +28,23 @@ jobs:
           node --check source/js/core/navigation.js
           node --check source/js/core/download.js
           node --check source/html/ABA8/director-and-recording.js
+      - name: Build baseline from PR base for Aba 1 pixel comparison
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          PAX_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          mkdir -p /tmp/pax-aba1-baseline
+          git archive "$PAX_BASE_SHA" | tar -x -C /tmp/pax-aba1-baseline
+          python3 /tmp/pax-aba1-baseline/tools/build.py
+          cp /tmp/pax-aba1-baseline/FINALPROJECT_APHA.html PAX_ABA1_BASELINE.html
       - name: Install Playwright Chromium
         run: |
           npm install --no-save @playwright/test@1.56.0
           npx playwright install --with-deps chromium
-      - name: Browser smoke tests
+      - name: Browser smoke tests and baseline model comparison
+        env:
+          PAX_ABA1_BASELINE: ${{ github.event_name == 'pull_request' && '1' || '' }}
         run: npx playwright test
       - name: Attach browser traces and screenshots on failure
         if: failure()
