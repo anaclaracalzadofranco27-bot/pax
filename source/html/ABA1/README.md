@@ -49,3 +49,7 @@ python3 tools/verify_preservation.py
 O verificador confere os scripts montados contra os **hashes exatos da versão anterior à modularização**. Se você fizer uma alteração visual ou funcional intencional, essa verificação irá falhar até que a mudança tenha sido revisada e os contratos correspondentes atualizados. Não altere os hashes apenas para fazer o teste passar.
 
 O workflow de navegador (Playwright) também testa a troca das oito abas, a execução/parada dos cinco takes e o encerramento de capturas pendentes; a verificação visual completa e a gravação real do MP4 continuam necessárias para a entrega.
+
+## Limpeza segura: transição X-ray
+
+O controlador `js/controls.js` usa `xrayLayers()` para restaurar somente os **quatro nós** cujo estilo inline é alterado no Take 01. Uma versão anterior também percorria todos os caminhos SVG, sem necessidade: manter o reset restrito aos nós que a transição realmente modifica. Os detalhes de vidro e os contornos da aeronave são parte da composição atual e permanecem intactos.

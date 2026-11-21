@@ -5,7 +5,7 @@
 // Os valores abaixo repetem o CSS: #camera-rig.zoom-bridge, a transição do #camera-rig e o pulso dos bagageiros.
 // ============================================================================
 const EXPORT_W = 1920, EXPORT_H = 1080, EXPORT_FPS = 30;
-const CAM_ZOOM = { s: 1.68, tx: -0.045, ty: -0.24, dur: 1.8 };   // scale(2.35) translate(-4.5%, -24%); transição de 1,5 s
+const CAM_ZOOM = { s: 1.68, tx: -0.045, ty: -0.24, dur: 1.8 };   // scale(1.68) translate(-4.5%, -24%); transição de 1,8 s
 const CABIN_DIM = { '#91999c': '#808283', '#8d8d8b': '#797979', '#758185': '#6a6d6e' };   // mesmas cores do CSS .bin-active .cabin-pax
 const BIN_ORANGE = { top: [242, 106, 42], front: [207, 83, 28], detail: [247, 140, 85] };     // mesmas cores do CSS .bin-active .bag-* (#f26a2a, #cf531c, #f78c55)
 const exportBtn = document.getElementById('exportBtn');

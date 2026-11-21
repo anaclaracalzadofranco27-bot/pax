@@ -11,14 +11,21 @@ window.paxEmbed = {
   xrayReset: () => xrayReset()
 };
 
-// ---- Transição para a engenharia (Simulação Completa): o avião isométrico fica parado; fuselagem, asas, passageiros e balões
-//      somem suavemente e só a fileira de bagageiros lotados (laranja) continua, flutuando sobre a malha escura.
-//      A página principal faz então a dissolvição cruzada para o bin 3D técnico. ----
+// ---- Transição X-ray para a engenharia no Take 01: esmaece os quatro
+//      containers visuais (avião, camada frontal, passageiros e balões).
+//      O diretor da Simulação Geral faz a transição ao CAD em seguida. ----
 let xrayOn = false;
-const xrayEls = () => [...document.querySelectorAll('#camera-rig > svg path, #pax-front path, #pax-front rect, #pax-front polygon')];
+// A transição X-ray muda somente o estilo desses quatro nós raiz.
+// Não percorra as centenas de <path> dos SVGs: nenhum recebe estilo inline aqui.
+const xrayLayers = () => [
+  document.querySelector('#camera-rig > svg'),
+  document.getElementById('pax-front'),
+  document.getElementById('pax-layer'),
+  document.getElementById('pax-labels')
+].filter(Boolean);
 function xrayReset() {
   if (!xrayOn) return; xrayOn = false;
-  const all = [document.querySelector('#camera-rig > svg'), document.getElementById('pax-front'), document.getElementById('pax-layer'), document.getElementById('pax-labels'), ...xrayEls()];
+  const all = xrayLayers();
   all.forEach(el => { if (el) { el.style.transition = 'none'; el.style.opacity = ''; el.style.willChange = ''; } });
   void rig.offsetWidth;
   all.forEach(el => { if (el) el.style.transition = ''; });
@@ -28,8 +35,8 @@ function xrayRun(ms) {
     if (playing) togglePlay();
     xrayOn = true;
     const fade = Math.max(0.4, ms / 1000 - 0.1);
-    [document.querySelector('#camera-rig > svg'), document.getElementById('pax-front'), document.getElementById('pax-layer'), document.getElementById('pax-labels')].forEach(el => {
-      if (!el) return; el.style.willChange = 'opacity'; el.style.transition = `opacity ${fade.toFixed(2)}s ease-in-out`; el.style.opacity = '0';
+    xrayLayers().forEach(el => {
+      el.style.willChange = 'opacity'; el.style.transition = `opacity ${fade.toFixed(2)}s ease-in-out`; el.style.opacity = '0';
     });
     setTimeout(resolve, ms);
   });

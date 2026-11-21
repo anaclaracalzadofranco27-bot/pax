@@ -102,7 +102,7 @@
             }
         }
         // Current shared textures for the elder, mother and baby.
-        // The traveler's abandoned PT drawing recipes were replaced by TVT below.
+        // Receitas PT ativas do senhor, da mãe e do bebê; o viajante utiliza TVT.
         const PT = {};
 
         // Preserve precise base colors: SUIT_C is distinct from ELD.suit.
