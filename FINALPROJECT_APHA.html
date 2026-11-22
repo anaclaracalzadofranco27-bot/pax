@@ -80,10 +80,9 @@
         }
         /* Fundo único das simulações = plano quadriculado */
         .sim-bg{background-color:var(--apha-bg);background-image:linear-gradient(to right,var(--apha-grid) 1px,transparent 1px),linear-gradient(to bottom,var(--apha-grid) 1px,transparent 1px);background-size:48px 48px}
-        /* Aba 6 individual: herda o fundo quadriculado global (.sim-bg) na área
-           inteira do viewport. O canvas é transparente fora da geometria.
-           No tour, apenas a malha fixa do #tour-stage continua ativa. */
-        #aba6-module-ergo .sim-card > div:first-child span, #aba6-module-ergo .sim-card > div:first-child div{color:var(--apha-muted)}
+        /* A malha da aba individual vem de .sim-bg, e a do roteiro vem
+           de #tour-stage. O canvas é transparente fora do desenho.
+           Não há span/div de texto no viewport que exija sobrescrever cores. */
         /* Aba 5: o cabeçalho interno legado permanece oculto.
            A regra pertence somente a esta aba; não esconde o título da Aba 6. */
         #module-unified > .bg-cad-panel:first-of-type { display:none !important; }
@@ -253,11 +252,13 @@
         /* Aba 6 individual: preserva o cabeçalho global, a navegação e a
            largura/padding do <main>, iguais aos das demais abas.
            Apenas o canvas biomecânico usa dimensões próprias abaixo do título. */
-        /* Cabeçalho exclusivo da Aba 6: mesma linguagem visual das demais abas,
-           ocupando 58 px acima da simulação sem sobrepor o manequim. */
-        #aba6-module-ergo {--aba6-header-height:58px;}
+        /* Cabeçalho individual de 58 px acima do viewport, sem sobreposição. */
+        #aba6-module-ergo {--aba6-header-height:58px;height:auto;}
         #aba6-header{height:var(--aba6-header-height);min-height:var(--aba6-header-height);display:flex;align-items:center;box-sizing:border-box;}
-        #aba6-module-ergo, #aba6-module-ergo .aba6-sim-card {margin:0 !important;padding:0 !important;width:100%;height:100%;min-height:0;box-sizing:border-box;}
+        /* Sem altura forçada de 100% sob o cabeçalho: cartão e contêiner
+           acompanham a altura real do viewport na aba individual. */
+        #aba6-module-ergo, #aba6-module-ergo .aba6-sim-card {margin:0 !important;padding:0 !important;width:100%;min-height:0;box-sizing:border-box;}
+        #aba6-module-ergo .aba6-sim-card {height:auto;}
         /* Aba individual: moldura CAD igual à dos demais canvases,
            separada 14 px do título; o desenho permanece no mesmo canvas. */
         #aba6-module-ergo .aba6-sim-card {
@@ -271,15 +272,23 @@
            Nunca altera a altura no #tour-stage, onde vale o palco 16:9. */
         #aba6-module-ergo .aba6-viewport {position:relative;width:100%;height:clamp(480px, 70vh, 740px);min-height:480px;overflow:hidden;}
         #aba6-manikinCanvas {display:block;width:100%;height:100%;}
+        /* O botão PNG conserva posição, cores e fonte antes definidas inline. */
+        #aba6-figure-export{
+            position:absolute;right:16px;bottom:16px;z-index:5;
+            padding:9px 14px;background:#0a1a3a;color:#d4dce6;
+            border:1px solid #5b7b9e;border-radius:8px;
+            font:600 11px "JetBrains Mono",monospace;cursor:pointer;
+        }
         #tour-stage #aba6-figure-export{display:none !important;}
         #aba6-figure-export:hover,#aba6-figure-export:focus-visible{background:#2f4a6b !important;}
-        /* Na Simulação Geral o cabeçalho interno é ocultado e o canvas
-           preenche o espaço emprestado pela Aba 8, sem mudar a gravação. */
+        /* No Take 03, a altura de 100% permanece explícita para o contêiner
+           e o viewport que a Aba 8 incorpora no palco 16:9. */
+        #tour-stage #aba6-module-ergo {height:100% !important;}
         #tour-stage #aba6-module-ergo .aba6-viewport {height:100% !important;min-height:0 !important;}
         /* Aba 8: remove somente o espaçamento/máscara acrescentados ao cartão
            individual, preservando a posição e os limites originais do take 03. */
         #tour-stage #aba6-module-ergo .sim-card {height:100% !important;margin-top:0 !important;overflow:visible !important;}
-        /* When the full presentation borrows Tab 6, fit its embedded canvas into the 16:9 frame. */
+        /* Ao incorporar a Aba 6, manter seu canvas dentro do palco 16:9. */
         #tour-stage.rec #module-sim { position:absolute !important; inset:2.2% !important; margin:0 !important; padding:0 !important; width:auto !important; height:auto !important; }
         #tour-stage.rec #module-sim > #aba6-module-ergo {display:block !important;width:100% !important;height:100% !important;min-height:0 !important;}
         /* A navegação superior continua acessível; o botão de retorno
@@ -4318,7 +4327,7 @@ function xrayRun(ms) {
                 <div class="aba6-sim-card sim-card bg-cad-panel border border-cad-border rounded-xl overflow-hidden">
                     <div class="aba6-viewport sim-bg">
                         <canvas id="aba6-manikinCanvas" aria-label="Manikin placing luggage in the Alpha overhead bin"></canvas>
-                        <button type="button" id="aba6-figure-export" title="Download a transparent high-resolution figure" style="position:absolute;right:16px;bottom:16px;z-index:5;padding:9px 14px;background:#0a1a3a;color:#d4dce6;border:1px solid #5b7b9e;border-radius:8px;font:600 11px JetBrains Mono,monospace;cursor:pointer">📷 Export figure (PNG)</button>
+                        <button type="button" id="aba6-figure-export" title="Download a transparent high-resolution figure">📷 Export figure (PNG)</button>
                     </div>
                 </div>
             </section>
@@ -6514,7 +6523,7 @@ window.drawUniReferenceBins = drawReferenceBins;
 // entra aqui, antes da cabine sentada, no mesmo script montado.
 // =============================================================================
         // -------------------------------------------------------------------------
-        // MÓDULO 3: MANIKIN ANTROPOMÉTRICO ARTICULADO & TEMPO POR MALA
+        // ABA 6: MANEQUIM ANTROPOMÉTRICO ARTICULADO E TEMPO DE ESTIVA
         // -------------------------------------------------------------------------
         let manikinState = {
             mode: 'alpha2',
@@ -6529,13 +6538,15 @@ window.drawUniReferenceBins = drawReferenceBins;
         };
 
         // =========================================================================
-        // CINEMÁTICA DE ESTIVA — baseada na sequência da Simulação CAD 3D (aba 6)
+        // CINEMÁTICA DE ESTIVA — utiliza a geometria CAD Alpha compartilhada
+        // com a Aba 5 para calcular trajetórias das malas e poses do manequim.
         //   1) Pega: mala segurada à frente do abdômen, joelhos levemente fletidos
         //   2) Elevação: mala sobe verticalmente, livre da quina do bin
         //   3) Alinhamento: atitude de entrada (em pé p/ Mala 1, "pé-na-frente" p/ Mala 2)
         //   4) Inserção: empurra pela abertura até a posição de projeto
         //   5) Soltura: mão larga a mala; braços retornam ao repouso
-        // A fase (0–1) é a mesma do slider "Fase Cinemática".
+        // A fase normalizada (0–1) vem do relógio da Aba 6 e da direção da Aba 8.
+        // Não existe slider de fase na interface atual.
         // =========================================================================
         const ergoClamp01 = aphaClamp01;
         const ergoSmooth = (t) => { t = ergoClamp01(t); return t * t * (3 - 2 * t); };
@@ -7180,8 +7191,8 @@ window.drawUniReferenceBins = drawReferenceBins;
             manikinFrameId = requestAnimationFrame(tick);
         }
 
-        // Estatura original do manequim restaurada: 59,8" (referência P5 feminino).
-        // O rótulo visível "95th Percentile" permanece conforme solicitado anteriormente.
+        // Referência antropométrica: P5 feminino, 59,8" (151,892 cm).
+        // O título renderizado é "5th Percentile Female", não P95.
         const ERGO_PERCENTILES = [
             { h: 59.8 * 2.54, title: 'Female', sub: 'P5' }
         ];
