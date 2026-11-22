@@ -1080,6 +1080,14 @@ def verify_takes(v: Checker) -> None:
             ], f"Agrupamento dos cinco takes alterado: {takes}")
         v.check(re.search(r"const\s+OW\s*=\s*1920\s*,\s*OH\s*=\s*1080", director) is not None,
                 "Resolução de gravação Full HD alterada")
+        controller = v.read("source/html/ABA6/controller.js")
+        v.check("function bridgeStowPhase(b, currentPhase)" in director and
+                "window.__aphaTourAba6ClockReady = initialPhase =>" in director and
+                "const phase=bridgeStowPhase(b,manikinState.phase)" in director and
+                "1-bridgeEase((phase-.96)/.04)" in director and
+                controller is not None and
+                "window.__aphaTourAba6ClockReady(manikinState.phase)" in controller,
+                "Ponte 5→6 voltou a usar fase anterior sem sincronizar o relógio da Aba 6")
         v.check("function cleanupRecording(r)" in director and
                 "function captureGeometryCache(" in director and
                 "function verifyBridgeSeam(b)" in director and
