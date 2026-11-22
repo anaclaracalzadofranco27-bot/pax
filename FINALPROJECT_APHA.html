@@ -1600,7 +1600,7 @@ scrubber.oninput = (e) => {
 // Os valores abaixo repetem o CSS: #camera-rig.zoom-bridge, a transição do #camera-rig e o pulso dos bagageiros.
 // ============================================================================
 const EXPORT_W = 1920, EXPORT_H = 1080, EXPORT_FPS = 30;
-const CAM_ZOOM = { s: 1.68, tx: -0.045, ty: -0.24, dur: 1.8 };   // scale(2.35) translate(-4.5%, -24%); transição de 1,5 s
+const CAM_ZOOM = { s: 1.68, tx: -0.045, ty: -0.24, dur: 1.8 };   // mesmo zoom inicial do CSS; transição de 1,8 s
 const CABIN_DIM = { '#91999c': '#808283', '#8d8d8b': '#797979', '#758185': '#6a6d6e' };   // mesmas cores do CSS .bin-active .cabin-pax
 const BIN_ORANGE = { top: [242, 106, 42], front: [207, 83, 28], detail: [247, 140, 85] };     // mesmas cores do CSS .bin-active .bag-* (#f26a2a, #cf531c, #f78c55)
 const exportBtn = document.getElementById('exportBtn');
@@ -2227,13 +2227,13 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
 
         // Preserve precise base colors: SUIT_C is distinct from ELD.suit.
         const SUIT_C = '#bfa58e', COAT_C = '#5d6943', PANTS_C = '#474f57', WRINKLE_C = '#b87d65';
-        const paintCloth = (name, fill, extra) => ({ fill, w: 512, h: 256, fn: (g, W, H, fl) => { g.fillStyle = fl; g.fillRect(0, 0, W, H); extra(g, W, H); } });
+        const paintCloth = (fill, extra) => ({ fill, w: 512, h: 256, fn: (g, W, H, fl) => { g.fillStyle = fl; g.fillRect(0, 0, W, H); extra(g, W, H); } });
         Object.assign(PT, {
-            coatSleeve: paintCloth('coatSleeve', COAT_C, (g, W, H) => {
+            coatSleeve: paintCloth(COAT_C, (g, W, H) => {
                 inkTaper(g, W, H, [0.93, 0.80], [1.00, 0.83], [0.07, 0.80], 5);
                 inkTaper(g, W, H, [0.94, 0.89], [1.00, 0.915], [0.06, 0.89], 5);
             }),
-            coatForearm: paintCloth('coatForearm', COAT_C, (g, W, H) => {
+            coatForearm: paintCloth(COAT_C, (g, W, H) => {
                 inkTaper(g, W, H, [0.94, 0.07], [1.00, 0.10], [0.06, 0.07], 5);
                 inkTaper(g, W, H, [0.95, 0.14], [1.00, 0.165], [0.05, 0.14], 5);
                 inkTaper(g, W, H, [0, 0.95], [0.5, 0.95], [1, 0.95], 6);
@@ -2416,7 +2416,7 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
         // MÃE E BEBÊ: sobretudo verde-oliva com lapelas, bolsos e abertura frontal; calça escura com dobras; bebê e manta desenhados
         // ----------------------------------------------------------------------------
         Object.assign(PT, { earB: earPaint('#efc4ad') });
-        const COAT_D = '#495334', SKIN_M = '#e5b299', BLANKET_B = '#c2d5e3', BLANKET_W = '#d8cbb8';
+        const COAT_D = '#495334', SKIN_M = '#e5b299', BLANKET_B = '#c2d5e3';
         Object.assign(PT, {
             coatTorso: { w: 1024, h: 512, fill: COAT_C, fn: (g, W, H, fl) => {
                 g.fillStyle = fl; g.fillRect(0, 0, W, H);
@@ -2529,13 +2529,13 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
         const GLTF_S = 0.028275117561022346;
 
         // ============================================================================
-        // ESTILO DESENHO ANIMADO DO 1º BONECO: sombreamento em faixas (toon) + contorno de tinta (casca invertida)
+        // ESTILO DESENHO ANIMADO DOS TRÊS BONECOS: sombreamento em faixas (toon) + contorno de tinta (casca invertida)
         // ============================================================================
         const OUTLINE_PX = 1.0;                          // espessura do contorno na tela, em pixels
         const OUTLINE_W = { value: 0.012 };              // espessura em unidades locais (atualizada a cada quadro)
         // iluminação "de desenho": a cor mostrada é exatamente a cor do material; só uma sombra dura onde a normal se afasta da luz
         const FLAT_U = { uLight: { value: new THREE.Vector3(0.40, 0.80, 0.45).normalize() }, uThr: { value: 0.10 } };
-        // Contorno de tinta: espessura em unidades locais. Na versão "rica" (viajante) o traço engrossa no lado da sombra e afina no lado da luz,
+        // Contorno de tinta: espessura em unidades locais. No shader ativo, o traço engrossa no lado da sombra e afina no lado da luz,
         // e a cor é um quase-preto tingido pela cor da peça (pele, tecido, jeans, cabelo...), em vez de preto puro.
         // Aparição dos bonecos: dissolve em pontilhado ordenado (Bayer 4x4). uFade = 0 invisível, 1 inteiro. Sem transparência,
         // então o contorno de tinta não aparece através do corpo durante a aparição.
@@ -4174,23 +4174,37 @@ window.paxEmbed = {
 //      somem suavemente e só a fileira de bagageiros lotados (laranja) continua, flutuando sobre a malha escura.
 //      A página principal faz então a dissolvição cruzada para o bin 3D técnico. ----
 let xrayOn = false;
-const xrayEls = () => [...document.querySelectorAll('#camera-rig > svg path, #pax-front path, #pax-front rect, #pax-front polygon')];
-const isBag = el => el.classList.contains('bag-top') || el.classList.contains('bag-front') || el.classList.contains('bag-detail');
+// Estas são as únicas camadas que o efeito X-ray modifica por estilo inline.
+// Não é necessário percorrer centenas de paths SVG para restaurá-las.
+const xrayLayers = () => [
+  document.querySelector('#camera-rig > svg'),
+  document.getElementById('pax-front'),
+  document.getElementById('pax-layer'),
+  document.getElementById('pax-labels')
+].filter(Boolean);
 function xrayReset() {
-  if (!xrayOn) return; xrayOn = false;
-  const ov = document.getElementById('xray-bags'); if (ov) ov.style.display = 'none';
-  const all = [document.querySelector('#camera-rig > svg'), document.getElementById('pax-front'), document.getElementById('pax-layer'), document.getElementById('pax-labels'), ...xrayEls()];
-  all.forEach(el => { if (el) { el.style.transition = 'none'; el.style.opacity = ''; el.style.willChange = ''; } });
+  if (!xrayOn) return;
+  xrayOn = false;
+  const ov = document.getElementById('xray-bags');
+  if (ov) ov.style.display = 'none';
+  const layers = xrayLayers();
+  layers.forEach(el => {
+    el.style.transition = 'none';
+    el.style.opacity = '';
+    el.style.willChange = '';
+  });
   void rig.offsetWidth;
-  all.forEach(el => { if (el) el.style.transition = ''; });
+  layers.forEach(el => { el.style.transition = ''; });
 }
 function xrayRun(ms) {
   return new Promise(resolve => {
     if (playing) togglePlay();
     xrayOn = true;
     const fade = Math.max(0.4, ms / 1000 - 0.1);
-    [document.querySelector('#camera-rig > svg'), document.getElementById('pax-front'), document.getElementById('pax-layer'), document.getElementById('pax-labels')].forEach(el => {
-      if (!el) return; el.style.willChange = 'opacity'; el.style.transition = `opacity ${fade.toFixed(2)}s ease-in-out`; el.style.opacity = '0';
+    xrayLayers().forEach(el => {
+      el.style.willChange = 'opacity';
+      el.style.transition = `opacity ${fade.toFixed(2)}s ease-in-out`;
+      el.style.opacity = '0';
     });
     setTimeout(resolve, ms);
   });
