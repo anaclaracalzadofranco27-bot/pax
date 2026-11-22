@@ -13,7 +13,6 @@
         const STEPS = [
             { key: 'pax', sec: 'module-pax', title: '1. Boarding Bridge – Passengers Walking', hold: 200, timeout: 45000, noFit: true,   // alerta OVERHEAD BINS FULL parado só ~2 s
               overlapMs: APHA_INTRO_CFG.crossfadeMs,             // sobreposição entre avião e bin, sem frame escuro
-              morphOut: null,                                    // avião e CAD trocam opacidade simultaneamente
               keepAlive: true,                                   // move o módulo sem recarregar o iframe (moveBefore), quando o navegador permite
               enter: () => { call(window.paxEnter); call(window.paxTourReset); },
               start: () => call(window.paxTourStart),
@@ -29,12 +28,11 @@
               enter: () => call(window.cad3dTourPrep),
               start: () => call(window.startCAD3DSim),
               done: () => /Replay|Repetir/.test($('cad3d-startSim').textContent) },
-            { key: 'nova', sec: 'module-nova', title: '3. Bin Top View', hold: 2000, timeout: 8000, startSnapMs: 1700,
+            { key: 'nova', sec: 'module-nova', title: '3. Bin Top View', hold: 2000, timeout: 8000,
               morphIn: my => fxNovaIn(my),                       // bin Alpha fixo no lugar → bin convencional ao lado → cotas junto com os nomes
               after: () => fxNovaClean(),
               overlapMs: 1400,                                   // a comparação some devagar enquanto a planta da aeronave surge
               enter: () => call(window.novaEnter),
-              start: () => call(window.novaEnter),
               done: () => true },
             { key: 'topview', sec: 'module-topview', title: '4. Top View – Volumetric Advantage', hold: 300, timeout: 60000,
               morphIn: (my, prev) => fxTopIn(my, 1400),          // planta surge no mesmo ritmo; depois abrem as cotas e a cabine se enche de bins
@@ -78,21 +76,28 @@
 
         // ---- transições cinematográficas (Simulação Completa e vídeo) ----
         // Câmera sempre parada: as trocas são feitas com luz e opacidade. A malha do fundo (#tour-stage) nunca se move nem muda de tamanho.
-        const fx = {};
         const tween = (ms, my, fn) => new Promise(res => {                               // fn(u) a cada quadro; u de 0 a 1
             const t0 = performance.now();
             const f = now => { if (my !== token) { res(false); return; } const u = Math.min(1, (now - t0) / ms); fn(u); if (u < 1) requestAnimationFrame(f); else res(true); };
             requestAnimationFrame(f);
         });
         const ezo = x => 1 - Math.pow(1 - x, 2);
-        // Verificação subpixel da matriz de câmera na junção dos dois atos.
-        function verifyBridgeSeam(b){
-            const m=b.lastRendered || b.end;
-            for(const [x,y] of [[0,0],[b.baseW/2,b.baseH/2],[b.baseW*.63,b.baseH*.22]]){
-                const a=[m.k*x+m.tx,m.k*y+m.ty];
-                const c=[b.end.k*x+b.end.tx,b.end.k*y+b.end.ty];
-                console.assert(Math.hypot(a[0]-c[0],a[1]-c[1])<.01,'Discontinuity at cabin seam');
+        // Verificação numérica subpixel da câmera no último/primeiro quadro.
+        function verifyBridgeSeam(b) {
+            const cameras = [b.start, b.end, b.lastRendered];
+            if (cameras.some(m => !m || !Number.isFinite(m.k) || m.k <= 0 ||
+                !Number.isFinite(m.tx) || !Number.isFinite(m.ty)) ||
+                !(b.baseW > 0 && b.baseH > 0)) {
+                throw new Error('Aba 5 → 6: matriz ou dimensões inválidas');
             }
+            for (const [x,y] of [[0,0],[b.baseW/2,b.baseH/2],[b.baseW*.63,b.baseH*.22]]) {
+                const a = [b.lastRendered.k*x+b.lastRendered.tx,b.lastRendered.k*y+b.lastRendered.ty];
+                const c = [b.end.k*x+b.end.tx,b.end.k*y+b.end.ty];
+                if (Math.hypot(a[0]-c[0],a[1]-c[1]) > .01) {
+                    throw new Error('Aba 5 → 6: descontinuidade da câmera');
+                }
+            }
+            return true;
         }
 
         // UMA cena m4, UMA matriz de escala+translação e UM canvas contínuo.
@@ -136,7 +141,6 @@
             }
             g.setTransform(dpr,0,0,dpr,0,0);
             // O #tour-stage mantém a malha e a cor por trás do canvas móvel.
-            drawUnifiedCabinBackground(g, W, H, { tour: true });
             // O CAD da Aba 5 e o renderizador do manikin não têm os mesmos
             // paths. Usar o frame real final do CAD, movendo-o pela MESMA
             // matriz, evita o corte visual ao trocar de renderizador.
@@ -188,7 +192,6 @@
                     if (typeof g.reset === 'function') g.reset();
                     else b.canvas.width = b.canvas.width;
                     g.setTransform(dpr,0,0,dpr,0,0);
-                    drawUnifiedCabinBackground(g,W,H,{tour:true});
                     g.save();
                     try {
                         g.transform(m.k,0,0,m.k,m.tx,m.ty);
@@ -251,6 +254,8 @@
                 console.warn('Aba 5 source frame capture unavailable:',err);
                 snapshot=null;
             }
+            if (![start.k,start.tx,start.ty,end.k,end.tx,end.ty].every(Number.isFinite) ||
+                start.k<=0 || end.k<=0) throw new Error('Aba 5 → 6: câmera inválida');
             const canvas=document.createElement('canvas');
             canvas.id='apha-continuous-cabin';
             canvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:12;pointer-events:none;opacity:1';
@@ -271,8 +276,12 @@
                 paintBridge(now);bridge.raf=requestAnimationFrame(tick);
             }
             bridge.raf=requestAnimationFrame(tick);
-            const ok=await tween(C.zoomOutMs,my,()=>{});
-            if(!ok){destroyBridge();return false;}
+            // O RAF da ponte já desenha os quadros: aguardar sem agendar RAF vazio.
+            await sleep(C.zoomOutMs);
+            if(my!==token || !bridge || bridge.canvas!==canvas){
+                if(bridge && bridge.canvas===canvas) destroyBridge();
+                return false;
+            }
             // Mantém o mesmo canvas e a mesma projeção m4 no frame de junção.
             // Renderiza explicitamente o frame terminal da câmera antes de
             // mudar somente a camada de personagem (sem mudar a matriz).
@@ -283,7 +292,6 @@
             return true;
         }
 
-        function fxClear() {}
         // Enquadra cada módulo no palco 16:9 sem cortar conteúdo horizontal ou vertical.
         // O tempo de cada etapa e a geometria interna permanecem inalterados.
         function fitRec(sec, step) {
@@ -305,23 +313,46 @@
         // Converter pixels visuais de getBoundingClientRect em pixels CSS locais
         // evita diferenças de enquadramento sob escala/zoom na prévia ou na gravação.
         function measureNovaCol() {
-            const sec = $('module-nova'), ph = document.createComment('m'), cs = getComputedStyle(stage);
-            call(window.novaShowHeader, false, true);            // zera eventual título de take anterior, sem piscar
-            sec.parentNode.insertBefore(ph, sec); stage.appendChild(sec); sec.classList.remove('hidden');
-            Object.assign(sec.style, { position: 'absolute', top: cs.paddingTop, left: cs.paddingLeft, right: cs.paddingRight, visibility: 'hidden' });
-            fitRec(sec, { key: 'nova' });
-            // Inicializa o WebGL e prepara o primeiro frame ainda com a aba invisível.
-            call(window.novaEnter);
-            const r = $('nova-container').getBoundingClientRect(), c = $('cad3d-container').getBoundingClientRect();
-            const vw=$('cad3d-container').clientWidth, vh=$('cad3d-container').clientHeight;
-            const sx=c.width/Math.max(1,vw), sy=c.height/Math.max(1,vh);
-            const target={
-                w:r.width/sx, h:r.height/sy,
-                cx:(r.left+r.width/2-c.left)/sx,
-                cy:(r.top+r.height/2-c.top)/sy
-            };
-            clearSec(sec); sec.style.visibility = ''; sec.classList.add('hidden'); ph.parentNode.insertBefore(sec, ph); ph.remove();
-            return target;
+            const sec = $('module-nova');
+            if (!sec || !sec.parentNode) throw new Error('Aba 3: módulo ausente para medição');
+            const ph = document.createComment('m');
+            const originalStyle = sec.getAttribute('style');
+            const wasHidden = sec.classList.contains('hidden');
+            const cs = getComputedStyle(stage);
+            sec.parentNode.insertBefore(ph, sec);
+            try {
+                stage.appendChild(sec);
+                sec.classList.remove('hidden');
+                Object.assign(sec.style, {
+                    position: 'absolute', top: cs.paddingTop, left: cs.paddingLeft,
+                    right: cs.paddingRight, visibility: 'hidden'
+                });
+                fitRec(sec, { key: 'nova' });
+                call(window.novaShowHeader, false, true);
+                call(window.novaEnter);
+                const alpha = $('nova-container'), cad = $('cad3d-container');
+                if (!alpha || !cad) throw new Error('Aba 3: contêiner de medida ausente');
+                const r = alpha.getBoundingClientRect(), c = cad.getBoundingClientRect();
+                const vw = cad.clientWidth, vh = cad.clientHeight;
+                if (vw <= 0 || vh <= 0 || c.width <= 0 || c.height <= 0 || r.width <= 0 || r.height <= 0) {
+                    throw new Error('Aba 3: viewport inválido na medição');
+                }
+                const sx = c.width / vw, sy = c.height / vh;
+                return {
+                    w: r.width / sx, h: r.height / sy,
+                    cx: (r.left + r.width / 2 - c.left) / sx,
+                    cy: (r.top + r.height / 2 - c.top) / sy
+                };
+            } finally {
+                // Falha no WebGL ou na medição nunca deixa a Aba 3 emprestada.
+                if (originalStyle === null) sec.removeAttribute('style');
+                else sec.setAttribute('style', originalStyle);
+                sec.classList.toggle('hidden', wasHidden);
+                if (ph.parentNode) {
+                    place(ph.parentNode, sec, ph, false);
+                    ph.remove();
+                }
+            }
         }
         // 3: o bin Alpha aparece sozinho, no ponto exato em que a transição do CAD 3D terminou; depois o convencional ao lado; por fim cotas + nomes
         async function fxNovaIn(my) {
@@ -330,7 +361,6 @@
             const dim = $('novaDimCanvas'), cvc = $('convDimCanvas');
             call(window.novaShowHeader,false,true);
             fitRec(sec, active.step);
-            call(window.novaEnter);
             // As duas cotas permanecem nos canvases originais: não criar cópias
             // temporárias que possam deixar o Conventional sem sua cota.
             window.__convNoDim = false; call(window.__convDraw);
@@ -340,9 +370,9 @@
             hide([dim, lab0, lab1, c1], '0'); hide([c0], '0'); sec.style.opacity = '1'; void sec.offsetHeight;
             const show = (els, ms) => els.forEach(el => { el.style.transition = `opacity ${ms / 1000}s ease-in-out`; el.style.opacity = '1'; });
             show([c0], 1100);                                    // o Alpha entra exatamente sobre o último frame 3D, sem pulo visual
-            if (!(await tween(1100 + 200, my, () => {}))) return true;
+            if (!(await tween(1100 + 200, my, () => {}))) return false;
             show([c1], 650);                                     // bin convencional ao lado
-            if (!(await tween(650 + 200, my, () => {}))) return true;
+            if (!(await tween(650 + 200, my, () => {}))) return false;
             show([dim, cvc, lab0, lab1], 550);                    // cotas 44" / 56" junto com os nomes ALPHA / CONVENTIONAL
             await tween(550, my, () => {});
             call(window.novaShowHeader,true);
@@ -364,11 +394,11 @@
             fitRec(sec, active.step);
             sec.style.transition = 'none'; sec.style.opacity = '0'; void sec.offsetHeight;
             sec.style.transition = `opacity ${ms / 1000}s ease-in-out`; sec.style.opacity = '1';
-            if (!(await tween(ms, my, () => {}))) return true;
+            if (!(await tween(ms, my, () => {}))) return false;
             sec.style.transition = '';
             const ov = { dims: 0, bins: 0, names: 0 };
-            if (!(await tween(750, my, u => { ov.dims = ov.names = ezo(u); call(window.topSetOv, ov); }))) return true;   // cotas + nomes
-            if (!(await tween(1300, my, u => { ov.bins = u; call(window.topSetOv, ov); }))) return true;                // fileira de bins, do nariz para a cauda
+            if (!(await tween(750, my, u => { ov.dims = ov.names = ezo(u); call(window.topSetOv, ov); }))) return false;   // cotas + nomes
+            if (!(await tween(1300, my, u => { ov.bins = u; call(window.topSetOv, ov); }))) return false;                // fileira de bins, do nariz para a cauda
             call(window.topSetOv, null);
             call(window.topTourStartAt, 2.3);                   // mesmo estado (todos os bins e cotas): segue para o corte S e o detalhe
             return true;
@@ -377,7 +407,7 @@
         async function fxUniIn(my, waitMs) {
             const sec = active.sec;
             sec.style.transition = 'none'; sec.style.opacity = '0'; void sec.offsetHeight;
-            if (!(await tween(waitMs, my, () => {}))) return true;
+            if (!(await tween(waitMs, my, () => {}))) return false;
             sec.style.transition = 'opacity .6s ease-in-out'; sec.style.opacity = '1';
             call(window.uniTourStart);
             return true;
@@ -406,13 +436,12 @@
         function release(e) {
             const { sec, ph } = e;
             clearSec(sec); clearCols(sec);
-            if (e.step.key === 'cad3d') call(window.cad3dMorphReset);   // devolve materiais/câmera ao estado normal da aba 1
+            if (e.step.key === 'cad3d') call(window.cad3dMorphReset);   // devolve materiais/câmera ao estado normal da Aba 2
             sec.classList.add('hidden');
             if (ph.parentNode) { place(ph.parentNode, sec, ph, e.step.keepAlive); ph.remove(); }
             call(e.step.after);
         }
         function giveBack() {
-            fxClear();
             if (outgoing) { const o = outgoing; outgoing = null; release(o); }
             if (!active) return;
             const e = active; active = null;
@@ -540,6 +569,7 @@
             btn.textContent = '■ Stop'; btn.dataset.mode = 'stop';
             stage.style.transition = 'none'; stage.style.opacity = '1';
             frameOn(true);
+            try {
             let h0 = 0;                                        // altura do quadro no passo anterior (0 = primeiro passo)
             for (let i = from; i <= Math.min(through, STEPS.length - 1); i++) {
                 if (my !== token) return;
@@ -566,8 +596,9 @@
                 if (!started) call(st.start);                  // inicia a animação imediatamente junto com o fade-in (sem travar no 1º frame)
                 call(st.afterIn);
                 if (window.__tourEdge) { const si = i; setTimeout(() => { if (my === token) window.__tourEdge(si, st, 'inicio'); }, st.startSnapMs || 750); }   // foto do COMEÇO (após o fade-in)
-                await waitFor(st, my);
+                const completed = await waitFor(st, my);
                 if (my !== token) return;
+                if (!completed) throw new Error('Timeout na etapa ' + (i+1) + ': ' + st.title);
                 await sleep(st.hold);
                 if (my !== token) return;
                 if (window.__tourEdge) window.__tourEdge(i, st, 'fim');   // foto do FINAL (antes de dissolver para a próxima aba)
@@ -594,18 +625,28 @@
             frameOn(false);
             btn.textContent = '↻ Run full simulation again'; btn.dataset.mode = 'run'; live = false;
             // Do not loop or restart the full presentation without the user's click.
+            } catch (err) {
+                if (my !== token) return;
+                console.error('Aba 8: falha na sequência:', err);
+                abort(err);
+                alert('A simulação foi interrompida: ' + (err && err.message || err));
+            }
         }
-        function abort() {
-            if (!live && !active) return;                       // nada rodando: não mexe em nada
+        function abort(error = null) {
+            if (!live && !active && !outgoing && !bridge) return;
+            if (error && rec) rec.discard = true;
             live = false; token++; destroyBridge(); giveBack(); currentTab = 'tour'; frameOn(false);
-            if (window.__tourEnded) window.__tourEnded();
+            if (window.__tourEnded) {
+                Promise.resolve().then(() => window.__tourEnded())
+                    .catch(e => console.warn('Erro ao encerrar captura:', e));
+            }
             btn.textContent = '▶ Run full simulation'; btn.dataset.mode = 'run';
             stage.style.transition = 'none'; stage.style.opacity = '1';
         }
 
         btn.addEventListener('click', () => { if (btn.dataset.mode === 'stop') abort(); else run(0); });
         document.querySelectorAll('#tour-takes [data-take-play]').forEach(b => b.addEventListener('click', () => {
-            if (rec) return;
+            if (rec || capturePending) return;
             const take=TOUR_TAKES[Number(b.dataset.takePlay)];
             if(take) run(take.start,take.end,take.mode);
         }));
