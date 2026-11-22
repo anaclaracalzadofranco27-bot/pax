@@ -507,6 +507,8 @@ def verify_bin_kinematics(v: Checker) -> None:
 def verify_aba6_layout(v: Checker) -> None:
     html6 = v.read("source/html/ABA6/ABA6.html")
     standalone = v.read("source/html/ABA6/fullscreen.css")
+    theme = v.read("source/html/ABA6/viewport-theme.css")
+    manikin = v.read("source/html/ABA6/manikin.js")
     tour = v.read("source/html/ABA6/tour-layout.css")
     css = v.css()
     if html6 is not None:
@@ -516,6 +518,18 @@ def verify_aba6_layout(v: Checker) -> None:
                 "Título biomecânico alterado")
         v.check('class="aba6-sim-card sim-card bg-cad-panel border border-cad-border rounded-xl overflow-hidden"' in html6,
                 "Moldura do canvas biomecânico removida")
+        v.check('id="aba6-figure-export"' in html6 and
+                not re.search(r'<button[^>]*id="aba6-figure-export"[^>]*\bstyle=', html6),
+                "O botão PNG da Aba 6 perdeu seu ID ou voltou a ter CSS inline")
+    if theme is not None:
+        v.check("#aba6-module-ergo .sim-card > div:first-child span" not in theme and
+                "#aba6-module-ergo .sim-card > div:first-child div" not in theme,
+                "Seletores órfãos para div/span retornaram ao viewport da Aba 6")
+    if manikin is not None:
+        for required in ("CAD Alpha compartilhada",
+                         "Não existe slider de fase na interface atual.",
+                         'O título renderizado é "5th Percentile Female", não P95.'):
+            v.check(required in manikin, "Comentário da Aba 6 voltou a ficar desatualizado: " + required)
     if standalone is not None:
         for rule, name in (
             ("--aba6-header-height:58px", "Altura do título"),
@@ -526,6 +540,18 @@ def verify_aba6_layout(v: Checker) -> None:
             ("#tour-stage #aba6-module-ergo .sim-card {height:100% !important;margin-top:0 !important;overflow:visible !important;}", "Enquadramento do tour"),
         ):
             v.check(v.has_css(standalone, rule), f"Aba 6: {name} alterado")
+        for css_rule in (
+            "#aba6-module-ergo {--aba6-header-height:58px;height:auto;}",
+            "#aba6-module-ergo .aba6-sim-card {height:auto;}",
+            "#tour-stage #aba6-module-ergo {height:100% !important;}",
+            "#aba6-figure-export{",
+            "position:absolute;right:16px;bottom:16px;z-index:5;",
+            'font:600 11px "JetBrains Mono",monospace;cursor:pointer;',
+        ):
+            v.check(v.has_css(standalone, css_rule),
+                    "CSS de altura ou do botão PNG ausente na Aba 6: " + css_rule)
+        v.check("width:100%;height:100%;min-height:0;box-sizing:border-box;" not in standalone,
+                "Card da Aba 6 voltou a somar 100% de altura abaixo do cabeçalho")
         for obsolete in ("body.apha-simulation-view > header",
                          "body.apha-simulation-view > main",
                          "body.apha-simulation-view #apha-return-tabs"):

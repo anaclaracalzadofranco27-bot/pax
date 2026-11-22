@@ -393,3 +393,28 @@ tamanhos de viewport e confere o desenho completo do perfil e o piso.
 O GitHub Actions também executa os testes de porta, PNGs e preservação
 das oito abas e cinco takes. A validação visual real do Take 03 e da
 transição Aba 5 → Aba 6 deve ser feita no navegador.
+
+
+## Aba 6 — revisão de CSS e comentários (22/11/2026)
+
+A aba individual mantém o título de 58 px, a separação de 14 px, a
+moldura CAD e o viewport com `clamp(480px, 70vh, 740px)`. O
+contêiner e o card deixaram de forçar ambos `height:100%` abaixo do
+cabeçalho e passaram a utilizar altura natural. Já no roteiro da
+Aba 8, a altura de 100% permanece explícita e o Take 03 conserva
+o palco 16:9.
+
+O botão `aba6-figure-export` foi mantido com ID, texto, posição e
+cores, mas suas declarações inline migraram para
+`source/html/ABA6/fullscreen.css`. Os seletores de `span` e
+`div` sem elementos correspondentes foram removidos de
+`viewport-theme.css`. A revisão de `manikin.js` corrigiu somente
+comentários: a geometria vem do CAD Alpha compartilhado com a Aba 5,
+a fase de animação não dispõe de slider no HTML atual, e a
+referência antropométrica é **P5 feminino, 59,8" (151,892 cm)**,
+com rótulo `5th Percentile Female` — não P95.
+
+Os testes estáticos em `tools/verify_preservation.py` conferem
+essas garantias, além da montagem do HTML final. Não foram alteradas
+a cinemática, as peças vetoriais, as exportações ou as transições.
+A equivalência visual real do Take 03 deve ser verificada em navegador.
