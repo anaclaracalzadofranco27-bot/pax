@@ -45,8 +45,16 @@ jobs:
           PY
           node --check /tmp/apha-assembled-config.js
           node --check /tmp/apha-assembled-engine.js
-      - name: Check passenger JavaScript syntax
-        run: node --check source/html/ABA1/js/passengers.js
+      - name: Check assembled passenger JavaScript syntax
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from tools.build import expand
+          Path("/tmp/apha-assembled-passengers.js").write_bytes(
+              expand("source/html/ABA1/js/passengers.js"))
+          PY
+          node --check /tmp/apha-assembled-passengers.js
       - name: Verify eight tabs, CSS, passengers, assets, transitions and Full HD takes
         run: python3 tools/verify_preservation.py
       - name: Commit the generated HTML only if it changed
@@ -96,7 +104,15 @@ jobs:
           PY
           node --check /tmp/apha-assembled-config.js
           node --check /tmp/apha-assembled-engine.js
-      - name: Check passenger JavaScript syntax
-        run: node --check source/html/ABA1/js/passengers.js
+      - name: Check assembled passenger JavaScript syntax
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from tools.build import expand
+          Path("/tmp/apha-assembled-passengers.js").write_bytes(
+              expand("source/html/ABA1/js/passengers.js"))
+          PY
+          node --check /tmp/apha-assembled-passengers.js
       - name: Verify eight tabs, CSS, passengers, assets, transitions and Full HD takes
         run: python3 tools/verify_preservation.py

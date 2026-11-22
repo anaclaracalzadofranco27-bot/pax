@@ -135,11 +135,21 @@ Esses testes não substituem a reprodução visual das oito abas nem a gravaçã
 
 ## Passageiros: limpeza conservadora e testes
 
-A Aba 1 desenha os três passageiros em `source/html/ABA1/js/passengers.js`. As receitas
-obsoletas de textura `PT` e as definições sobrescritas foram removidas.
-O primeiro passageiro mantém as texturas ativas `TVT`; `PT` guarda somente
-receitas ainda usadas pelo senhor, pela mãe e pelo bebê. Geometria de malas,
-fábricas de materiais e elementos repetidos de rostos foram consolidados.
+A Aba 1 compõe os três passageiros pelo manifesto `source/html/ABA1/js/passengers.js`.
+Ele é expandido pelo `tools/build.py` como **um único script e escopo**, na ordem:
+`01-scene-and-path.js` (câmera e percurso), `02-textures-and-faces.js` (rostos e
+pinturas), `03-toon-rendering.js` (shaders), `04-model-tools.js` (fábricas de
+malhas e mala), `05-traveler.js` (viajante), `06-elder.js` (senhor),
+`07-mother-and-baby.js` (mãe e bebê), `08-animation.js` (rigs, marcha e render).
+Os oito fragmentos ficam em `source/html/ABA1/js/passengers/` e **não devem ser
+executados isoladamente**.
+
+A organização preserva as texturas ativas `TVT` do viajante e as receitas `PT`
+ainda usadas pelo senhor, pela mãe e pelo bebê. A constante morta `BLANKET_W`
+foi removida; `paintCloth` perdeu o parâmetro `name` sem uso. Os desenhos,
+cores, perfis, poses, tempos e shaders ativos permaneceram inalterados.
+A transição X-ray agora restaura apenas as quatro camadas que efetivamente
+modifica, sem percorrer paths do SVG.
 
 **Invariantes preservadas:** cada boneco é criado uma única vez, o senhor e
 a mãe mantêm seus tamanhos próprios de nariz, as cores de base `SUIT_C` e
@@ -150,7 +160,8 @@ foram alterados, e as chamadas públicas de reprodução/exportação permanecem
 Além de reconstruir o HTML, o GitHub Actions executa:
 
 ```bash
-node --check source/html/ABA1/js/passengers.js
+python3 -c "from pathlib import Path; from tools.build import expand; Path('/tmp/apha-passengers.js').write_bytes(expand('source/html/ABA1/js/passengers.js'))"
+node --check /tmp/apha-passengers.js
 python3 tools/verify_preservation.py
 ```
 

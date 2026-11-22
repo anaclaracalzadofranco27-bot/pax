@@ -15,23 +15,37 @@ window.paxEmbed = {
 //      somem suavemente e só a fileira de bagageiros lotados (laranja) continua, flutuando sobre a malha escura.
 //      A página principal faz então a dissolvição cruzada para o bin 3D técnico. ----
 let xrayOn = false;
-const xrayEls = () => [...document.querySelectorAll('#camera-rig > svg path, #pax-front path, #pax-front rect, #pax-front polygon')];
-const isBag = el => el.classList.contains('bag-top') || el.classList.contains('bag-front') || el.classList.contains('bag-detail');
+// Estas são as únicas camadas que o efeito X-ray modifica por estilo inline.
+// Não é necessário percorrer centenas de paths SVG para restaurá-las.
+const xrayLayers = () => [
+  document.querySelector('#camera-rig > svg'),
+  document.getElementById('pax-front'),
+  document.getElementById('pax-layer'),
+  document.getElementById('pax-labels')
+].filter(Boolean);
 function xrayReset() {
-  if (!xrayOn) return; xrayOn = false;
-  const ov = document.getElementById('xray-bags'); if (ov) ov.style.display = 'none';
-  const all = [document.querySelector('#camera-rig > svg'), document.getElementById('pax-front'), document.getElementById('pax-layer'), document.getElementById('pax-labels'), ...xrayEls()];
-  all.forEach(el => { if (el) { el.style.transition = 'none'; el.style.opacity = ''; el.style.willChange = ''; } });
+  if (!xrayOn) return;
+  xrayOn = false;
+  const ov = document.getElementById('xray-bags');
+  if (ov) ov.style.display = 'none';
+  const layers = xrayLayers();
+  layers.forEach(el => {
+    el.style.transition = 'none';
+    el.style.opacity = '';
+    el.style.willChange = '';
+  });
   void rig.offsetWidth;
-  all.forEach(el => { if (el) el.style.transition = ''; });
+  layers.forEach(el => { el.style.transition = ''; });
 }
 function xrayRun(ms) {
   return new Promise(resolve => {
     if (playing) togglePlay();
     xrayOn = true;
     const fade = Math.max(0.4, ms / 1000 - 0.1);
-    [document.querySelector('#camera-rig > svg'), document.getElementById('pax-front'), document.getElementById('pax-layer'), document.getElementById('pax-labels')].forEach(el => {
-      if (!el) return; el.style.willChange = 'opacity'; el.style.transition = `opacity ${fade.toFixed(2)}s ease-in-out`; el.style.opacity = '0';
+    xrayLayers().forEach(el => {
+      el.style.willChange = 'opacity';
+      el.style.transition = `opacity ${fade.toFixed(2)}s ease-in-out`;
+      el.style.opacity = '0';
     });
     setTimeout(resolve, ms);
   });

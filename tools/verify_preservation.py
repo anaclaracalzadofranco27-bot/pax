@@ -557,12 +557,27 @@ def verify_aba1_assets(v: Checker) -> None:
     if template is not None:
         v.check("@@APHA_PAX:source/html/ABA1/index.template.html@@" in template,
                 "Inclusão do iframe PAX ausente")
+    controls = v.read("source/html/ABA1/js/controls.js")
+    if controls is not None:
+        v.check("const xrayLayers =" in controls and "xrayEls" not in controls and "const isBag =" not in controls,
+                "Transição X-ray voltou a percorrer paths ou contém auxiliares mortos")
 
 
 def verify_aba1_passengers(v: Checker) -> None:
-    code = v.read("source/html/ABA1/js/passengers.js")
-    if code is None:
+    manifest = v.read("source/html/ABA1/js/passengers.js")
+    if manifest is None:
         return
+    # Os fragmentos compartilham um único escopo e são reunidos pelo build.py.
+    # Validamos o código efetivamente montado, não apenas o manifesto.
+    parts = ("01-scene-and-path.js", "02-textures-and-faces.js", "03-toon-rendering.js", "04-model-tools.js", "05-traveler.js", "06-elder.js", "07-mother-and-baby.js", "08-animation.js")
+    prefix = "source/html/ABA1/js/passengers/"
+    expected = [f"@@APHA_INCLUDE:{prefix}{name}@@" for name in parts]
+    v.check(manifest.splitlines() == expected,
+            "Manifesto de passageiros alterado: ordem ou includes ausentes")
+    fragments = [v.read(prefix + name) for name in parts]
+    if any(part is None for part in fragments):
+        return
+    code = "\\n".join(fragments)
 
 
     def require(test: bool, message: str) -> None:
@@ -628,7 +643,7 @@ def verify_aba1_passengers(v: Checker) -> None:
         require(re.search(r"\b" + re.escape(key) + r":\s*", code) is not None,
                 "undefined PT texture recipe: " + key)
 
-    for removed in ("flatMaterial(", "OUTLINE_COLOR", "if (rich)", "updateWalk(0)"):
+    for removed in ("flatMaterial(", "OUTLINE_COLOR", "if (rich)", "updateWalk(0)", "BLANKET_W"):
         require(removed not in code, "obsolete rendering branch reintroduced: " + removed)
 
 
