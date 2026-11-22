@@ -288,6 +288,11 @@ def verify_bin_kinematics(v: Checker) -> None:
         v.check("fuselageRadiusCm: 137.16" in config and
                 "fuselageCenterYCm: 62.84" in config,
                 "Dimensões físicas de referência da cabine foram alteradas")
+        for helper in ("function mapAphaCabinSection(", "function aphaCabinShellPoint(",
+                       "function aphaCabinShellEndAngle("):
+            v.check(helper in config, "Primitiva geométrica compartilhada ausente: " + helper)
+        v.check(config.count("shellThicknessCm: 5.5") == 1,
+                "Espessura física da fuselagem duplicada ou alterada")
 
     aba5 = v.read("source/html/ABA5/unified-simulation.js")
     door = v.read("source/html/ABA5/door-addon.js")
@@ -377,6 +382,10 @@ def verify_bin_kinematics(v: Checker) -> None:
                 "Interpolacao duplicada da paleta escura reapareceu")
         # O arco varia durante a abertura; apenas o estagio completo
         # reutiliza Path2D e invalida o cache quando viewport/mapa muda.
+        v.check("outerR = R + APHA_CABIN_GEOMETRY.shellThicknessCm, N = 90;" in kinetics and
+                "R_ext = g.R + APHA_CABIN_GEOMETRY.shellThicknessCm, N = 90" in kinetics and
+                "pt(g.R + APHA_CABIN_GEOMETRY.shellThicknessCm / 2, th1)" in kinetics,
+                "Arco superior voltou a duplicar espessura numérica do casco")
         v.check("let cachedCompletedFuselageArc = null;" in kinetics and
                 "function getCompletedFuselageArc(g, toX, toY, W, H)" in kinetics and
                 "if (p >= 1) {" in kinetics and
@@ -424,6 +433,13 @@ def verify_bin_kinematics(v: Checker) -> None:
                      "__aphaTambourOrange", "cabinSectionReference"):
             v.check(flag in kinetics, f"Dependência de runtime ausente: {flag}")
     if aba5 is not None:
+        v.check("const m4 = mapAphaCabinSection;" in aba5 and
+                "const aEnd = aphaCabinShellEndAngle(), N = 180;" in aba5 and
+                "const aEnd = aphaCabinShellEndAngle();" in aba5 and
+                "const N = 40;" in aba5 and
+                "aphaCabinShellPoint(a, false, side)" in aba5 and
+                "aphaCabinShellPoint(a, true, side)" in aba5,
+                "Casco da Aba 5 não usa a mesma geometria da Aba 6")
         v.check("TL.total" not in aba5 and "U.t >= TOTAL - 0.05" in aba5,
                 "Reinício da Aba 5 voltou a consultar TL.total inexistente")
         v.check("U.started" not in aba5 and "const act = phaseIdx();" not in aba5,
@@ -463,6 +479,9 @@ def verify_bin_kinematics(v: Checker) -> None:
             v.check("window." + name + " =" in door,
                     "Contrato do controlador único das portas ausente: " + name)
     if aba6 is not None:
+        v.check(aba6.count("mapAphaCabinSection(W, H)") == 2 and
+                "(H - 50) / 244" not in aba6,
+                "Aba 6 voltou a duplicar a projeção geométrica")
         for name in ("getUniAlphaGeometry", "drawUniReferenceBins",
                      "cabinSectionReference"):
             v.check(name in aba6,

@@ -93,6 +93,13 @@ const sandbox = {
 };
 window.drawSeatedScene = (c, W, H, o) => seenStatures.push(o.hAisle);
 
+// O teste isolado recebe as funções geométricas REAIS do config.js.
+const configSource = fs.readFileSync(path.join(__dirname, '..', 'source', 'js', 'core', 'config.js'), 'utf8');
+const geometryStart = configSource.indexOf('function mapAphaCabinSection(');
+const geometryEnd = configSource.indexOf('// Primitiva unica do piso fisico', geometryStart);
+assert(geometryStart > 0 && geometryEnd > geometryStart, 'Helpers geométricos ausentes');
+vm.runInNewContext(configSource.slice(geometryStart, geometryEnd) +
+    '\nthis.mapAphaCabinSection=mapAphaCabinSection;this.aphaCabinShellEndAngle=aphaCabinShellEndAngle;this.aphaCabinShellPoint=aphaCabinShellPoint;', sandbox);
 vm.runInNewContext(read('unified-simulation.js'), sandbox, { filename: 'unified-simulation.js' });
 vm.runInNewContext(read('door-addon.js'), sandbox, { filename: 'door-addon.js' });
 

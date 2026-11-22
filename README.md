@@ -368,3 +368,28 @@ reprodução, sincronização, conteúdo/nomes dos PNGs e recuperação após fa
 simuladas. `python3 tools/verify_preservation.py` cobre invariantes estáticos.
 Esses testes não substituem conferir os quatro passageiros, portas, zoom e
 a continuidade para a Aba 6 no Take 03 em navegador.
+
+
+## Abas 5/6/8 — revisão da geometria compartilhada (22/11/2026)
+
+A projeção `m4` foi centralizada em `source/js/core/config.js` como
+`mapAphaCabinSection(W,H)`, preservando as margens de 60/50 px,
+a origem do piso em -14 cm e as escalas anteriores. A Aba 5 e os dois
+fallbacks de `ABA6/manikin.js` usam essa mesma função; a ponte da Aba 8
+continua utilizando `window.cabinSectionReference.map`.
+
+A parede dupla utiliza `aphaCabinShellPoint()` e
+`aphaCabinShellEndAngle()` tanto no perfil completo da Aba 6 (180 amostras)
+quanto na revelação lateral da Aba 5 (40 amostras por lado).
+O exterior inferior avança apenas em X, como antes. O arco superior CAD
+de 90 amostras continua separado por ser uma animação diferente, mas
+lê agora a espessura de 5,5 cm da constante compartilhada, inclusive
+para o ponto médio da borda. Piso, bins CAD Alpha/convencional, porta
+de 82°, cinemática e pontos físicos não foram alterados.
+
+O teste `node tools/test_shared_cabin_geometry.js` compara a projeção
+e centenas de pontos da curva original com as novas primitivas em três
+tamanhos de viewport e confere o desenho completo do perfil e o piso.
+O GitHub Actions também executa os testes de porta, PNGs e preservação
+das oito abas e cinco takes. A validação visual real do Take 03 e da
+transição Aba 5 → Aba 6 deve ser feita no navegador.

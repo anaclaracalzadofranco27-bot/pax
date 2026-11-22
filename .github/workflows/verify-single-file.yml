@@ -79,6 +79,8 @@ jobs:
         run: node tools/test_cad3d_exports.js
       - name: Test Aba 5 door ownership, replay and 4K export recovery
         run: node tools/test_aba5_controls.js
+      - name: Compare shared cabin coordinates across tabs 5, 6 and 8
+        run: node tools/test_shared_cabin_geometry.js
       - name: Verify eight tabs, CSS, passengers, assets, transitions and Full HD takes
         run: python3 tools/verify_preservation.py
       - name: Commit the generated HTML only if it changed
@@ -162,5 +164,7 @@ jobs:
         run: node tools/test_cad3d_exports.js
       - name: Test Aba 5 door ownership, replay and 4K export recovery
         run: node tools/test_aba5_controls.js
+      - name: Compare shared cabin coordinates across tabs 5, 6 and 8
+        run: node tools/test_shared_cabin_geometry.js
       - name: Verify eight tabs, CSS, passengers, assets, transitions and Full HD takes
         run: python3 tools/verify_preservation.py
