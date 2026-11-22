@@ -1080,12 +1080,26 @@ def verify_takes(v: Checker) -> None:
             ], f"Agrupamento dos cinco takes alterado: {takes}")
         v.check(re.search(r"const\s+OW\s*=\s*1920\s*,\s*OH\s*=\s*1080", director) is not None,
                 "Resolução de gravação Full HD alterada")
+        v.check("function cleanupRecording(r)" in director and
+                "function captureGeometryCache(" in director and
+                "function verifyBridgeSeam(b)" in director and
+                "if (!completed) throw new Error" in director,
+                "Aba 8: restauração, recorte, continuidade ou timeout sem proteção")
+        v.check(all(dead not in director for dead in ("function snapFinish(",
+                "function buildZip(", "console.assert(", "function fxClear() {}",
+                "drawUnifiedCabinBackground(g, W, H, { tour: true })")),
+                "Aba 8: código morto ou verificações insuficientes retornaram")
     if css is not None:
         v.check(v.has_css(css, "#scene-1 #s1-stage{width:1920px;height:1080px"),
                 "Enquadramento do encerramento 1 alterado")
         v.check(v.has_css(css,
                 "#scene-2 #s2-stage{position:absolute;left:0;top:0;width:1920px;height:1080px"),
                 "Enquadramento do encerramento 2 alterado")
+    fragment = v.read("source/html/ABA8/ABA8.html")
+    if fragment is not None:
+        v.check('id="tour-snap"' not in fragment and
+                len(re.findall(r"data-take-rec=", fragment)) == 5,
+                "Aba 8: exportador ZIP oculto retornou ou cinco takes perdidos")
     if html is not None:
         for marker in ("window.cad3dTourMorph", "fitBagDimensionLabels",
                        "async function fxNovaIn", "async function fxCabinToStow",
