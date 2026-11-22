@@ -1,16 +1,16 @@
 
-    // -------------------------------------------------------------------------
-    // ABA 4 · VISTA SUPERIOR DA CABINE (bins Alpha × Convencional)
-    // -------------------------------------------------------------------------
-    // A Aba 4 usa Canvas 2D para a cabine, os bins, as cotas e o detalhe S.
-    // A comparação CAD 3D independente pertence às Abas 2 e 3.
+    // ABA 4 — Vista superior da cabine, bins Alpha/convencional e detalhe S.
+    // Desenhada em Canvas 2D, independentemente do motor CAD 3D.
     (function () {
         'use strict';
         const cv = document.getElementById('topCanvas');
         const stage = document.getElementById('top-stage');
         if (!cv || !stage) return;
+        // A mesma instância do contexto 2D serve a todos os quadros, inclusive após o resize.
+        const ctx = cv.getContext('2d');
+        if (!ctx) return;
 
-        // Seis etapas cronometradas; seus nomes antigos não eram exibidos nem consultados.
+        // Seis posições da linha do tempo; manter os intervalos de animação e permanência.
         const N_ST = 6, STAGE_SEC = 1.2;
         const A = { t: 0, playing: false, last: 0, raf: 0, started: false, stopAt: N_ST };
         const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -19,13 +19,13 @@
         const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
         const ease = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
         const mono = (w, px) => `${w} ${px}px "JetBrains Mono", monospace`;
-        // Geometria/CAD e paleta fixos: reutilizar os mesmos valores em todos os quadros.
+        // Medidas dos módulos e cores fixas do desenho, reutilizadas entre quadros.
         const GEO_A = { mod: 127.6, lat: [53.8, 123.9] };
         const GEO_C = { mod: 180.47, lat: [51.7, 125.5] };
         const RGB_A = '91,123,158', RGB_C = '79,79,79', RGB_S = '255,90,54';
         const PDFR = 0.87033, XC0 = 4.2;
 
-        // Cabine em vista superior vinda do PDF (vetorial, embutida como SVG)
+        // Recorte vetorial da cabine, incorporado ao HTML como SVG.
         const CAB_VB = [18.0, 144.5, 814.5, 167.0];   // viewBox do recorte, em pt do PDF
         function prepareVectorImage(img, label) {
             img.onload = () => {
@@ -46,13 +46,13 @@
         prepareVectorImage(CAB, 'cabine');
         CAB.src = 'data:image/svg+xml;base64,@@APHA_INCLUDE:source/html/ABA4/aircraft.svg.base64@@';
 
-        // Detalhe da seção S: arte vetorial do 9.svg, preservada em Base64.
+        // Detalhe vetorial da seção S, incorporado em Base64.
         const DET_VB = [1422, 467];   // largura × altura do recorte, em unidades do SVG
         const DET = new Image();
         prepareVectorImage(DET, 'seção S');
         DET.src = 'data:image/svg+xml;base64,@@APHA_INCLUDE:source/html/ABA4/detail-s.svg.base64@@';
 
-        // Rasterizar cada SVG apenas na resolução necessária; uma falha não deve parar o vídeo.
+        // Cache dos SVGs por resolução; falhas de rasterização não interrompem a animação.
         function rasterOf(img, w, h) {
             const dpr = window.devicePixelRatio || 1, cw = Math.max(1, Math.round(w * dpr)), ch = Math.max(1, Math.round(h * dpr));
             const c = img.__rc;
@@ -76,10 +76,11 @@
             if (!W) return;
             const T = A.t, S = (i, d = 1) => ease(clamp((T - i) / d));
 
-            // ---- layout ----
+            // ENQUADRAMENTO — dimensões derivadas da largura disponível.
             const padX = 26;
             const CUT = 16.3;   // aeronave cortada onde termina a cabine do PDF (≈ 16,26 m do nariz; sangra até a borda direita)
             const s = Math.min((W - padX) / CUT, 80), X0 = padX;
+            const kk = s / 50; // escala do PDF compartilhada por todas as partes deste quadro
             const R = 1.6 * s;
             const stripW = Math.min(W - 2 * padX - 10, 1180);
             const detGap = 34, detImgH = stripW * DET_VB[1] / DET_VB[0];
@@ -90,7 +91,6 @@
             const dpr = window.devicePixelRatio || 1;
             const pw = Math.round(W * dpr), ph = Math.round(H * dpr);
             if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
-            const ctx = cv.getContext('2d');
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx.clearRect(0, 0, W, H);
 
@@ -98,34 +98,31 @@
             const cy = 34 + 36 + R;
             const shift = ((H - acH) / 2) * (1 - S(3, 0.9));
 
-            // =========================== AERONAVE ===========================
+            // AERONAVE — revelação e transformação do recorte do PDF.
             ctx.save();
             ctx.translate(0, shift);
 
 
-            // revelação da nariz → cauda
+            // Revelação do nariz até a cauda.
             ctx.save();
             ctx.beginPath(); ctx.rect(0, -80, S(0, 0.95) * (W + 10), acH + 160); ctx.clip();
 
-            // cabine do PDF (aveao_1.pdf): fuselagem, para-brisa, parede, janelas e poltronas
-            // escala: 0,5 pt do PDF = 1 cm  →  s/50 px por pt;  ponta do nariz (x = 19,0 pt) em mx(0);  eixo (y = 227,85 pt) em cy
+            // Fuselagem, para-brisa, divisória, janelas e assentos.
+            // Referência do PDF: 0,5 pt = 1 cm; nariz x=19 pt e eixo central y=227,85 pt.
             if (CAB.ok) {
-                const kk = s / 50;
                 const image = rasterOf(CAB, CAB_VB[2] * kk, CAB_VB[3] * kk);
                 if (image) ctx.drawImage(image, mx(0) + (CAB_VB[0] - 19.0) * kk, cy + (CAB_VB[1] - 227.85) * kk, CAB_VB[2] * kk, CAB_VB[3] * kk);
             }
             ctx.restore(); // fim do clip
 
-            // ---- bins, cotas do 1º módulo e janelas S (geometria e cores medidas no PDF aveao_1_1.pdf) ----
-            // O PDF novo é o desenho antigo na escala 0,87033; tudo abaixo já está convertido para cm (0,5 pt do desenho antigo = 1 cm).
-            const kk = s / 50;
+            // BINS E COTAS — medidas da referência vetorial convertidas para centímetros.
+            // PDFR compensa a escala 0,87033 do arquivo usado como referência.
             const lwS = 1.4173 / PDFR * kk, lwT = 0.5669 / PDFR * kk;          // traço forte / fino do PDF
             // GEO_A/GEO_C mantêm as faixas laterais medidas do PDF (Alpha 2×2; convencional 4×1).
             const xEnd = mx(16.19);                                            // fim da cabine: os bins terminam aqui
             const appear = m => m === 0 ? S(1, 0.8) : ease(clamp((T - 2) / 0.3));   // 1º módulo; depois todos juntos
             const qLight = A.ov ? ease(clamp(A.ov.bins)) : S(2, 0.3);          // Alpha: traço forte/fill .5 (1º módulo) → fino/fill .25 (todos)
-            // Esta vista desenha diretamente no Canvas 2D usando RGB_A/RGB_C.
-            // Não alterar flags globais de paleta das Abas 5/6: elas não afetam esses retângulos.
+            // Cores locais RGB_A/RGB_C, sem interferir na paleta das outras abas.
             ctx.save(); ctx.globalAlpha = 1;
             try {
                 const binRow = (side, g, rgb, cols, rows, lightens) => {
@@ -151,8 +148,9 @@
                 binRow(-1, GEO_A, RGB_A, 2, 2, true);
                 binRow(+1, GEO_C, RGB_C, 4, 1, false);
 
-                // cotas de largura do 1º módulo (sem texto, como no PDF): Alpha acima, Conventional abaixo; somem quando todos os bins surgem
-                const grow = A.ov ? ease(clamp(A.ov.dims)) : S(1.35, 0.8);  // cotas permanecem até o fim
+                // Cotas com rótulos 44" (Alpha, acima) e 56" (convencional, abaixo).
+                // Os rótulos entram progressivamente e as cotas permanecem até o fim.
+                const grow = A.ov ? ease(clamp(A.ov.dims)) : S(1.35, 0.8);
                 if (grow > 0) {
                     const gap = 1.7 / PDFR * kk, aL = 4.5 / PDFR * kk, aH = 1.7 / PDFR * kk;
                     const dimPDF = (xa, xb, yDim, yEdge, rgb, label, txtCol) => {
@@ -179,7 +177,7 @@
                     dimPDF(xa, xa + cm(GEO_C.mod), cy + cm(191.2), cy + cm(GEO_C.lat[1]) + gap, RGB_C, '56"', '#c4c4c4');
                 }
 
-                // janelas de corte S: faixa vermelha tracejada (sem etiqueta), mesma faixa lateral dos bins
+                // Janelas S: faixas vermelhas tracejadas, cada uma com etiqueta "S".
                 const p3 = S(3, 0.8);
                 if (p3 > 0) {
                     ctx.save(); ctx.globalAlpha = p3;
@@ -187,8 +185,8 @@
                         const yA = cy + side * cm(g.lat[0]), yB = cy + side * cm(g.lat[1]);
                         const y0 = Math.min(yA, yB), h = Math.abs(yB - yA);
                         ctx.fillStyle = `rgba(${RGB_S},.25)`; ctx.fillRect(x0, y0, len, h);
-                        // Open-ended section S: no right-hand closing edge.
-                        // The faint dashed continuation stops at the final bin, inside the fuselage.
+                        // Seção aberta à direita, sem aresta de fechamento vertical.
+                        // O prolongamento tracejado termina no último bin, dentro da fuselagem.
                         const sEnd = Math.min(x0 + len, xEnd);
                         ctx.setLineDash([lwS, lwS]); ctx.strokeStyle = `rgb(${RGB_S})`;
                         ctx.lineWidth = lwS; ctx.lineJoin = 'miter';
@@ -221,7 +219,7 @@
             } finally { ctx.restore(); }  // protege exclusivamente o estado Canvas da Aba 4
             ctx.restore(); // fim translate aeronave
 
-            // =========================== DETALHE ===========================
+            // DETALHE S — imagem vetorial e cotas da comparação.
             const pDet = ease(clamp((T - 3.3) / 0.7));
             if (pDet > 0) {
                 ctx.save();
@@ -234,18 +232,18 @@
                     const image = rasterOf(DET, stripW, detImgH);
                     if (image) ctx.drawImage(image, sx0, yD + detGap, stripW, detImgH);
 
-                    // Section S comparison, in the original SVG coordinates (viewBox 16 200 1422 467).
+                    // Comparação nas coordenadas originais do SVG (viewBox 16 200 1422 467).
                     const kDet = stripW / DET_VB[0];
                     ctx.save();
                     ctx.translate(sx0 - 16 * kDet, yD + detGap - 200 * kDet);
                     ctx.scale(kDet, kDet);
 
-                    // Clear only the obsolete left-hand dimension label. Keep the SVG's
-                    // original +4 bags outline, translucent orange area and dashed divider
-                    // at x = 1128 (the boundary between bags 16 and 17) untouched.
+                    // Limpa apenas a faixa da cota antiga à esquerda. Preserva o contorno
+                    // das quatro malas adicionais, o preenchimento laranja translúcido e
+                    // o divisor tracejado em x=1128 (entre as malas 16 e 17).
                     ctx.clearRect(16, 380, 1110, 56);
 
-                    // Dimension ends at the vertical dashed boundary preceding bags 17-20.
+                    // A cota termina no divisor tracejado que antecede as malas 17–20.
                     const xFirst = 25.5, xSixteen = 1128, yDim = 398;
                     ctx.strokeStyle = '#ff5a36'; ctx.lineWidth = 2;
                     ctx.beginPath();
@@ -263,9 +261,8 @@
                     ctx.strokeRect(mid - labelW / 2, yDim - 12, labelW, 24);
                     ctx.fillStyle = '#ff916e'; ctx.fillText(dimensionLabel, mid, yDim + .5);
 
-                    // 4" shorter ALPHA bin: bracket aligned with the original SVG's
-                    // ALPHA 220" endpoint and the CONVENTIONAL 224" endpoint.
-                    // Keep its label to the RIGHT of the bracket, clear of the line.
+                    // Diferença de 4": extremidades de 220" (Alpha) e 224" (convencional).
+                    // O rótulo permanece à direita da linha, sem sobreposição.
                     const xAlphaEnd = 1407.3, xConvEnd = 1430, yShort = 268;
                     ctx.strokeStyle = '#ff5a36'; ctx.lineWidth = 2;
                     ctx.beginPath();
@@ -278,7 +275,8 @@
                 }
                 ctx.restore();
             }
-            // roteiro: ALPHA acima e CONVENTIONAL abaixo da aeronave (mesma fonte da vista anterior); quando o detalhe S entra, os nomes vão para a frente das fileiras dele
+            // Na transição, ALPHA e CONVENTIONAL saem da aeronave e aparecem
+            // diante das fileiras correspondentes no detalhe S.
             if (A.names) {
                 const na = A.ov ? clamp(A.ov.names) : 1, k = ease(clamp((T - 3.3) / 0.7));
                 if (na > 0) {
@@ -300,12 +298,12 @@
             }
         }
 
-        // ------------------------- controles -------------------------
+        // CONTROLES — Replay e sincronização com a Simulação Geral.
         const btn = document.getElementById('top-play');
+        btn.textContent = '↻ Replay'; // texto fixo, configurado só na inicialização
 
         function refresh() {
             draw();
-            btn.textContent = '↻ Replay';
         }
         function tick(now) {
             if (!A.playing) return;
@@ -339,15 +337,15 @@
                 if (reduced) { A.t = N_ST; refresh(); } else play(0, N_ST);
             }
         }, { threshold: 0.3 }).observe(stage);
-        // roteiro (aba 8): zera sem autoplay do IntersectionObserver e inicia uma única vez (evita começar, parar e reiniciar)
+        // Aba 8: bloqueia o autoplay do observador e sincroniza a linha do tempo
+        // diretamente pelas APIs abaixo, sem controle deslizante oculto.
         window.topTourReset = () => { A.started = true; A.playing = false; cancelAnimationFrame(A.raf); A.t = 0; refresh(); };
         window.topTourStart = () => { A.started = true; if (!A.playing) play(0, N_ST); };
-        // APIs usadas pela direção da Aba 8: sincronização direta, sem slider oculto.
         window.topTourSet = (t, ov) => { A.started = true; A.playing = false; cancelAnimationFrame(A.raf); A.t = t; A.ov = ov ? Object.assign({}, ov) : null; A.names = true; refresh(); };
         window.topSetOv = ov => { A.ov = ov ? Object.assign({}, ov) : null; draw(); };
         window.topTourEnd = () => { A.ov = null; A.names = false; };
         window.topTourStartAt = t => { A.started = true; play(t, N_ST); };
-        window.topTourDone = () => A.t >= 5.8;   // selo "+25% CAPACITY" e propagação já visíveis
+        window.topTourDone = () => A.t >= 5.8;   // marco temporal de conclusão; este módulo não desenha o selo de capacidade
         refresh();
     })();
     

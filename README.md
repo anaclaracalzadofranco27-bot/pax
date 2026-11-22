@@ -319,3 +319,19 @@ Teste estático: `python3 tools/verify_preservation.py`. O HTML final
 é montado via `python3 tools/build.py` e validado pelo GitHub Actions.
 A conferência visual do Take 02 e dos desenhos Canvas deve ser feita em
 navegador antes de considerar equivalência quadro a quadro.
+
+
+### Aba 4 — revisão fina de comentários e operações repetidas (22/11/2026)
+
+`animation.js` mantém geometrias, cores, cotas de 44"/56" e durações originais.
+A documentação foi padronizada em português: as cotas permanecem, as
+janelas S incluem etiquetas e `topTourDone()` informa apenas o marco
+temporal final (não desenha o selo de capacidade).
+
+O fator `kk=s/50` agora é calculado uma vez por quadro, a instância de
+`CanvasRenderingContext2D` é obtida somente na inicialização e o
+texto fixo de Replay deixa de ser reatribuído durante a animação.
+Foram mantidos os dois SVGs Base64, todas as APIs de sincronização da
+Aba 8, os cinco takes e as coordenadas da seção S. As verificações
+estáticas cobrem as três otimizações; a reprodução visual ainda requer
+teste em navegador.

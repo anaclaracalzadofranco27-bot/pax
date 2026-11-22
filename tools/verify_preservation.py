@@ -868,8 +868,24 @@ def verify_aba4(v: Checker) -> None:
                 "const xAlphaEnd = 1407.3, xConvEnd = 1430, yShort = 268;",
                 "function prepareVectorImage(", "img.onerror = err =>",
                 "img.__failedRasterSize === sizeKey", "if (image) ctx.drawImage(",
-                "lastDrawnWidth = stage.offsetWidth"):
+                "lastDrawnWidth = stage.offsetWidth",
+                "const ctx = cv.getContext('2d');",
+                "const kk = s / 50;",
+                "btn.textContent = '↻ Replay';"):
         v.check(key in animation, "Contrato de desenho/otimização da Aba 4 ausente: " + key)
+    v.check(animation.count("const kk = s / 50;") == 1,
+            "Escala do PDF voltou a ser calculada duas vezes por quadro na Aba 4")
+    v.check(animation.count("cv.getContext('2d')") == 1 and
+            animation.index("const ctx = cv.getContext('2d');") < animation.index("function draw()"),
+            "Contexto Canvas 2D voltou a ser solicitado dentro do desenho")
+    v.check(animation.count("btn.textContent = '↻ Replay';") == 1 and
+            animation.index("btn.textContent = '↻ Replay';") < animation.index("function refresh()"),
+            "Botão Replay voltou a ser atualizado a cada quadro")
+    for obsolete_comment in ('somem quando todos os bins surgem',
+                             'selo "+25% CAPACITY" e propagação',
+                             'Renderer 2D convencional substituído'):
+        v.check(obsolete_comment not in animation,
+                "Comentário obsoleto retornou à Aba 4: " + obsolete_comment)
     for unused in ("capIdx:", "const STAGES =", "fadeD = 1", "A.detOut",
                    "A.binA", "A.lay =", "window.topSetDetOut", "window.topSetBinA",
                    "window.topModules", "window.ERGO_DARK", "window.BIN_SOLID",
