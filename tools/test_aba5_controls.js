@@ -71,6 +71,7 @@ const sandbox = {
     APHA_CABIN_PALETTE: { rgba: () => '#445566', shellOutline: '#445566' },
     APHA_BRIDGE_CFG: { startZoom: 1.72, binFocusYcm: 173 },
     CM_PER_IN: 2.54,
+    DIMENSION_COLOR: '#f6d35f', // presente no motor CAD real
     aphaClamp01: x => Math.max(0, Math.min(1, x)),
     aphaEaseCubic: value => {
         const x = Math.max(0, Math.min(1, value));
