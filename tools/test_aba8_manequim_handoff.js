@@ -9,6 +9,9 @@ const vm = require('node:vm');
 const base = path.join(__dirname, '..');
 const director = fs.readFileSync(path.join(base, 'source/html/ABA8/director-and-recording.js'), 'utf8');
 const controller = fs.readFileSync(path.join(base, 'source/html/ABA6/controller.js'), 'utf8');
+const manikin = fs.readFileSync(path.join(base, 'source/html/ABA6/manikin.js'), 'utf8');
+assert(!/\bsetAnimLabel\s*\(/.test(controller),
+    'Aba 6 voltou a chamar setAnimLabel(), função removida que bloqueia o clock');
 const begin = director.indexOf('        let bridge=null;');
 const end = director.indexOf('        async function fxCabinToStow(my)', begin);
 assert(begin > 0 && end > begin, 'Ponte da Aba 8 não encontrada');
@@ -53,7 +56,6 @@ const env = {
     stopManikinLoop(){phaseState.animating=false;},
     showManikin(){phaseState.phase=initial;phaseState.animating=false;},
     startManikinLoop(){engineStarted++;},
-    setAnimLabel(){},
     updateErgonomics(){refresh++;},
     manikinFrameTime:0,
     Math,Number
@@ -116,3 +118,64 @@ for(const fn of rafQueue.splice(0))fn(1600);
 assert.equal(fresh.phaseClockReady,false,'Abort não deve liberar relógio atrasado');
 frame(1600,initial,'Cancelamento antes de inicializar');
 console.log('Aba 8: transição 5→6 sem estalo, fase/porta/câmera contínuas e cancelamento validados.');
+
+// Teste de ponta a ponta com o relógio REAL do manequim (sem stub
+// de startManikinLoop nem setAnimLabel): confirma avanço, não só ready.
+const first = manikin.indexOf('function aphaInitialManikinPhase()');
+const last = manikin.indexOf('// Referência antropométrica:', first);
+assert(first > 0 && last > first, 'Relógio real da Aba 6 não encontrado');
+const pending = new Map();
+let nextId = 1, now = 2000, updates = 0, ready = [];
+const liveState = {
+    phase: .95, animating: false, cycleT: 20,
+    last: { times: [{tA1:8,tA2:12}] }
+};
+const liveHost = {
+    style: {}, closest(sel){return sel === '#tour-stage' ? stage : null;}
+};
+const liveCanvas = {parentElement:{getBoundingClientRect(){return {width:960,height:540};}}};
+const liveWindow = {};
+const liveEnv = {
+    window:liveWindow, manikinState:liveState,
+    APHA_BRIDGE_CFG:{startOffsetSeconds:.56},
+    ERGO_PERCENTILES:[{h:151.892}],
+    ergoTimes:()=>({tA1:8,tA2:12}),
+    document:{getElementById(id){
+        return id === 'aba6-module-ergo' ? liveHost :
+            id === 'aba6-manikinCanvas' ? liveCanvas : null;
+    }},
+    performance:{now:()=>now},
+    requestAnimationFrame(fn){const id=nextId++;pending.set(id,fn);return id;},
+    cancelAnimationFrame(id){pending.delete(id);},
+    updateErgonomics(){updates++;},
+    currentTab:'sim',
+    console
+};
+liveWindow.__aphaTourAba6ClockReady = phase => ready.push(phase);
+vm.runInNewContext(manikin.slice(first,last) + '\n' +
+    controller + '\nthis.engine={scheduleAba6Engine,pauseAba6Engine};',liveEnv);
+const advanceFrame = t => {
+    now=t;
+    const current=[...pending.values()];
+    pending.clear();
+    for(const fn of current)fn(now);
+};
+liveEnv.engine.scheduleAba6Engine({tour:true,reset:true,initialPhase:initial});
+advanceFrame(2016);
+assert.equal(ready.length,0,'O relógio não deve confirmar no primeiro RAF');
+advanceFrame(2032);
+assert.equal(ready.length,1,'Aba 6 não liberou a ponte após dois RAFs');
+assert.equal(liveState.animating,true,'O motor real não está animando');
+assert.equal(liveState.phase,initial,'Fase inicial real e ponte divergiram');
+const before = liveState.phase;
+advanceFrame(2096);
+assert(liveState.phase > before,
+    'Aba 6 confirmou o ready, mas o relógio REAL não avançou (travamento)');
+assert(updates >= 2,'Atualização biomecânica não foi executada durante o loop');
+const running = liveState.phase;
+advanceFrame(2160);
+assert(liveState.phase > running,'Segundo frame não avançou');
+liveEnv.engine.pauseAba6Engine();
+assert.equal(liveState.animating,false);
+assert.equal(pending.size,0,'RAF de Aba 6 permaneceu ativo após pausa');
+console.log('Aba 6: inicialização real avança sem setAnimLabel, com handoff e pausa validados.');
