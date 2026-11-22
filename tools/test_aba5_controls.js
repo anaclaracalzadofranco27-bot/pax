@@ -19,7 +19,8 @@ const node = id => {
         const n = { id, value: '', textContent: '', innerHTML: '', style: {},
             offsetWidth: 960, offsetHeight: 540,
             getBoundingClientRect() { return { width: 960, height: 540, left: 0, top: 0 }; },
-            classList: { toggle() {} }, querySelector() { return null; } };
+            classList: { toggle() {} }, querySelector() { return null; },
+            closest() { return null; } };
         if (id === 'uniCanvas') {
             n.width = 1920; n.height = 1080; n.parentElement = {
                 offsetWidth: 960, offsetHeight: 540,
