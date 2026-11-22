@@ -1,19 +1,28 @@
-
-        // Aba 3 (Top View): exporta o quadro atual do canvas como PNG, sobre o fundo escuro #000223
+        // Aba 4: exportação PNG manual opcional (não há botão ativo na interface).
+        // Esta API pública foi preservada para uso direto, sem interferir nos takes da Aba 8.
         window.topExportPNG = function () {
-            const cv = document.getElementById('topCanvas');
-            if (!cv || !cv.width || !cv.height) return;
-            const out = document.createElement('canvas');
-            out.width = cv.width; out.height = cv.height;
-            const ctx = out.getContext('2d');
-            ctx.fillStyle = '#000223'; ctx.fillRect(0, 0, out.width, out.height);
-            ctx.drawImage(cv, 0, 0);
-            out.toBlob(b => {
-                if (!b) return;
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(b); a.download = 'top-view.png';
-                document.body.appendChild(a); a.click(); a.remove();
-                setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+            const canvas = document.getElementById('topCanvas');
+            if (!canvas || !canvas.width || !canvas.height) return;
+
+            const output = document.createElement('canvas');
+            output.width = canvas.width;
+            output.height = canvas.height;
+            const ctx = output.getContext('2d');
+            if (!ctx) return;
+
+            // Mantém o fundo e o nome do arquivo originais.
+            ctx.fillStyle = '#000223';
+            ctx.fillRect(0, 0, output.width, output.height);
+            ctx.drawImage(canvas, 0, 0);
+            output.toBlob(blob => {
+                if (!blob) return;
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'top-view.png';
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 2000);
             }, 'image/png');
         };
-        

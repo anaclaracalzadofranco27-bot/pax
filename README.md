@@ -285,3 +285,37 @@ Verificações: `python3 tools/verify_preservation.py` e
 de download e confirma restauração de estado e dos cinco nomes de PNG,
 sem precisar de GPU. A comparação visual do CAD, do Take 02 e dos PNGs
 reais deve ser conferida em navegador WebGL.
+
+
+## Aba 4 — limpeza conservadora do Canvas 2D (22/11/2026)
+
+- A Aba 4 **não usa o renderizador Three.js da Aba 3**. Desenha a cabine,
+  os módulos Alpha/convencional, as cotas e o detalhe S em `topCanvas`.
+  Os dois SVGs originais de `aircraft.svg.base64` e
+  `detail-s.svg.base64` continuam embutidos, sem alteração dos vetores.
+- `animation.js`: remove `capIdx`, os nomes não usados das seis etapas,
+  `fadeD=1`, `A.lay` e as três APIs públicas sem chamadas
+  (`topSetDetOut`, `topSetBinA`, `topModules`), junto com os seus estados.
+  As APIs de reprodução usadas pela Aba 8 continuam intactas.
+- `ABA4.html`: não possui mais `top-scrub`; a Simulação Geral continua
+  sincronizada por `topTourSet`, `topSetOv` e `topTourStartAt`.
+  O botão Replay permanece igual.
+- A Aba 4 não altera mais `ERGO_DARK`, `BIN_SOLID` e `BIN_DARK`,
+  flags de paleta de outras abas, pois seus próprios bins são Canvas RGB.
+  As dimensões 44/56", as posições do detalhe S e os tempos permanecem.
+- O tratamento de `onload`/`onerror` dos SVGs agora registra falhas
+  e permite que os demais elementos sejam desenhados. `rasterOf()`
+  mantém o cache por resolução, evita repetir erros por quadro e permite
+  retry após mudança de tamanho.
+- O `ResizeObserver` ignora mudanças de altura provocadas pelo próprio
+  `draw()`. Valores geométricos e fontes constantes saíram do ciclo de
+  desenho. `tour-layout.css` teve apenas comentários e formatação
+  reorganizados.
+- `export.js` foi formatado e documentado. `topExportPNG()` foi
+  **mantido deliberadamente** como exportação manual opcional de
+  `top-view.png`, apesar de não existir botão na interface.
+
+Teste estático: `python3 tools/verify_preservation.py`. O HTML final
+é montado via `python3 tools/build.py` e validado pelo GitHub Actions.
+A conferência visual do Take 02 e dos desenhos Canvas deve ser feita em
+navegador antes de considerar equivalência quadro a quadro.

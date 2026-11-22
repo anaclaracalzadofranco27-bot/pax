@@ -2,43 +2,74 @@
     // -------------------------------------------------------------------------
     // ABA 4 · VISTA SUPERIOR DA CABINE (bins Alpha × Convencional)
     // -------------------------------------------------------------------------
-    // Renderer 2D convencional substituído pela cena Three.js compartilhada acima.
-    // __convDraw() é registrado em conventional3DTopView(), dentro de initCAD3DModule().
+    // A Aba 4 usa Canvas 2D para a cabine, os bins, as cotas e o detalhe S.
+    // A comparação CAD 3D independente pertence às Abas 2 e 3.
     (function () {
         'use strict';
         const cv = document.getElementById('topCanvas');
         const stage = document.getElementById('top-stage');
         if (!cv || !stage) return;
 
-        const STAGES = ['Aircraft', '1st module + dimensions', 'Bins in cabin', 'Cut section', 'Numbered bags', 'Advantage'];
-        const N_ST = STAGES.length, STAGE_SEC = 1.2;
-        const A = { t: 0, playing: false, last: 0, raf: 0, started: false, stopAt: N_ST, capIdx: -1 };
+        // Seis etapas cronometradas; seus nomes antigos não eram exibidos nem consultados.
+        const N_ST = 6, STAGE_SEC = 1.2;
+        const A = { t: 0, playing: false, last: 0, raf: 0, started: false, stopAt: N_ST };
         const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
         const INK = '#aebfd3';
         const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
         const ease = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+        const mono = (w, px) => `${w} ${px}px "JetBrains Mono", monospace`;
+        // Geometria/CAD e paleta fixos: reutilizar os mesmos valores em todos os quadros.
+        const GEO_A = { mod: 127.6, lat: [53.8, 123.9] };
+        const GEO_C = { mod: 180.47, lat: [51.7, 125.5] };
+        const RGB_A = '91,123,158', RGB_C = '79,79,79', RGB_S = '255,90,54';
+        const PDFR = 0.87033, XC0 = 4.2;
 
         // Cabine em vista superior vinda do PDF (vetorial, embutida como SVG)
         const CAB_VB = [18.0, 144.5, 814.5, 167.0];   // viewBox do recorte, em pt do PDF
+        function prepareVectorImage(img, label) {
+            img.onload = () => {
+                img.ok = true;
+                img.__failedRasterSize = null;
+                try { refresh(); }
+                catch (err) { console.warn('Aba 4: erro ao atualizar ' + label + ':', err); }
+            };
+            img.onerror = err => {
+                img.ok = false;
+                console.warn('Aba 4: falha ao carregar o SVG ' + label + ':', err);
+                // Os outros elementos permanecem desenháveis mesmo se uma imagem falhar.
+                try { refresh(); }
+                catch (drawErr) { console.warn('Aba 4: erro ao atualizar após falha de SVG:', drawErr); }
+            };
+        }
         const CAB = new Image();
-        CAB.onload = () => { CAB.ok = true; try { refresh(); } catch (e) { } };
+        prepareVectorImage(CAB, 'cabine');
         CAB.src = 'data:image/svg+xml;base64,@@APHA_INCLUDE:source/html/ABA4/aircraft.svg.base64@@';
 
-        // Detalhe da seção S: arte vetorial do 9.svg (embutida; fundo branco removido)
+        // Detalhe da seção S: arte vetorial do 9.svg, preservada em Base64.
         const DET_VB = [1422, 467];   // largura × altura do recorte, em unidades do SVG
         const DET = new Image();
-        DET.onload = () => { DET.ok = true; try { refresh(); } catch (e) { } };
+        prepareVectorImage(DET, 'seção S');
         DET.src = 'data:image/svg+xml;base64,@@APHA_INCLUDE:source/html/ABA4/detail-s.svg.base64@@';
 
-        // desenhos vetoriais grandes (cabine e detalhe S): rasterizados uma vez por tamanho, em vez de a cada quadro (evita travar o vídeo)
+        // Rasterizar cada SVG apenas na resolução necessária; uma falha não deve parar o vídeo.
         function rasterOf(img, w, h) {
             const dpr = window.devicePixelRatio || 1, cw = Math.max(1, Math.round(w * dpr)), ch = Math.max(1, Math.round(h * dpr));
             const c = img.__rc;
             if (c && c.width === cw && c.height === ch) return c;
-            const r = document.createElement('canvas'); r.width = cw; r.height = ch;
-            r.getContext('2d').drawImage(img, 0, 0, cw, ch);
-            return (img.__rc = r);
+            const sizeKey = cw + 'x' + ch;
+            if (img.__failedRasterSize === sizeKey) return null; // não repetir a mesma exceção a cada quadro
+            try {
+                const r = document.createElement('canvas');
+                r.width = cw; r.height = ch;
+                r.getContext('2d').drawImage(img, 0, 0, cw, ch);
+                img.__failedRasterSize = null;
+                return (img.__rc = r);
+            } catch (err) {
+                img.__failedRasterSize = sizeKey;
+                console.warn('Aba 4: falha ao rasterizar SVG:', err);
+                return null;
+            }
         }
         function draw() {
             const W = stage.offsetWidth || stage.getBoundingClientRect().width;   // largura de layout (sem as transformações de zoom/giro das transições)
@@ -63,11 +94,9 @@
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx.clearRect(0, 0, W, H);
 
-            const mono = (w, px) => `${w} ${px}px "JetBrains Mono", monospace`;
-            const cm = c => c * s / 100, mx = m => X0 + m * s, XC0 = 4.2;   // XC0: início dos bins no PDF novo (4,2 m do nariz, logo após a parede da cabine)
+            const cm = c => c * s / 100, mx = m => X0 + m * s;  // XC0: primeiro bin, 4,2 m após o nariz
             const cy = 34 + 36 + R;
             const shift = ((H - acH) / 2) * (1 - S(3, 0.9));
-            A.lay = { s, cy, shift, X0, W, H };                               // usado pelas transições da Simulação Completa
 
             // =========================== AERONAVE ===========================
             ctx.save();
@@ -82,24 +111,22 @@
             // escala: 0,5 pt do PDF = 1 cm  →  s/50 px por pt;  ponta do nariz (x = 19,0 pt) em mx(0);  eixo (y = 227,85 pt) em cy
             if (CAB.ok) {
                 const kk = s / 50;
-                ctx.drawImage(rasterOf(CAB, CAB_VB[2] * kk, CAB_VB[3] * kk), mx(0) + (CAB_VB[0] - 19.0) * kk, cy + (CAB_VB[1] - 227.85) * kk, CAB_VB[2] * kk, CAB_VB[3] * kk);
+                const image = rasterOf(CAB, CAB_VB[2] * kk, CAB_VB[3] * kk);
+                if (image) ctx.drawImage(image, mx(0) + (CAB_VB[0] - 19.0) * kk, cy + (CAB_VB[1] - 227.85) * kk, CAB_VB[2] * kk, CAB_VB[3] * kk);
             }
             ctx.restore(); // fim do clip
 
             // ---- bins, cotas do 1º módulo e janelas S (geometria e cores medidas no PDF aveao_1_1.pdf) ----
             // O PDF novo é o desenho antigo na escala 0,87033; tudo abaixo já está convertido para cm (0,5 pt do desenho antigo = 1 cm).
-            const kk = s / 50, PDFR = 0.87033;
+            const kk = s / 50;
             const lwS = 1.4173 / PDFR * kk, lwT = 0.5669 / PDFR * kk;          // traço forte / fino do PDF
-            const GEO_A = { mod: 127.6, lat: [53.8, 123.9] };                  // Alpha: módulo 2×2, faixa lateral (cm a partir do eixo)
-            const GEO_C = { mod: 180.47, lat: [51.7, 125.5] };                 // Conventional: módulo de 4 colunas
+            // GEO_A/GEO_C mantêm as faixas laterais medidas do PDF (Alpha 2×2; convencional 4×1).
             const xEnd = mx(16.19);                                            // fim da cabine: os bins terminam aqui
-            const RGB_A = '91,123,158', RGB_C = '79,79,79', RGB_S = '255,90,54';
             const appear = m => m === 0 ? S(1, 0.8) : ease(clamp((T - 2) / 0.3));   // 1º módulo; depois todos juntos
             const qLight = A.ov ? ease(clamp(A.ov.bins)) : S(2, 0.3);          // Alpha: traço forte/fill .5 (1º módulo) → fino/fill .25 (todos)
-            const pBin = [window.ERGO_DARK, window.BIN_SOLID, window.BIN_DARK];   // cores do PDF exatas: sem remapeamento (nem escuro, nem lilás)
-            const binA = A.binA == null ? 1 : A.binA;                          // Simulação Completa: os bins "acendem" (0 → 1)
-            ctx.save(); ctx.globalAlpha = binA;
-            window.ERGO_DARK = false; window.BIN_SOLID = false; window.BIN_DARK = false;
+            // Esta vista desenha diretamente no Canvas 2D usando RGB_A/RGB_C.
+            // Não alterar flags globais de paleta das Abas 5/6: elas não afetam esses retângulos.
+            ctx.save(); ctx.globalAlpha = 1;
             try {
                 const binRow = (side, g, rgb, cols, rows, lightens) => {
                     const yIn = cy + side * cm(g.lat[0]), yOut = cy + side * cm(g.lat[1]);
@@ -114,10 +141,10 @@
                         ctx.strokeStyle = `rgb(${rgb})`; ctx.lineWidth = lw; ctx.lineJoin = 'miter';
                         ctx.strokeRect(x, y0, w, hh);
                         if (p > 0.6) {
-                            ctx.globalAlpha = binA * (p - 0.6) / 0.4; ctx.beginPath();
+                            ctx.globalAlpha = (p - 0.6) / 0.4; ctx.beginPath();
                             for (let i = 1; i < cols; i++) { const xx = x + modW * i / cols; if (xx < x + w - 0.5) { ctx.moveTo(xx, y0); ctx.lineTo(xx, y0 + hh); } }
                             for (let i = 1; i < rows; i++) { ctx.moveTo(x, y0 + hh * i / rows); ctx.lineTo(x + w, y0 + hh * i / rows); }
-                            ctx.stroke(); ctx.globalAlpha = binA;
+                            ctx.stroke(); ctx.globalAlpha = 1;
                         }
                     }
                 };
@@ -125,12 +152,12 @@
                 binRow(+1, GEO_C, RGB_C, 4, 1, false);
 
                 // cotas de largura do 1º módulo (sem texto, como no PDF): Alpha acima, Conventional abaixo; somem quando todos os bins surgem
-                const grow = A.ov ? ease(clamp(A.ov.dims)) : S(1.35, 0.8), fadeD = 1;   // as cotas ficam até o fim
-                if (grow > 0 && fadeD > 0) {
+                const grow = A.ov ? ease(clamp(A.ov.dims)) : S(1.35, 0.8);  // cotas permanecem até o fim
+                if (grow > 0) {
                     const gap = 1.7 / PDFR * kk, aL = 4.5 / PDFR * kk, aH = 1.7 / PDFR * kk;
                     const dimPDF = (xa, xb, yDim, yEdge, rgb, label, txtCol) => {
                         const xe = xa + (xb - xa) * grow;
-                        ctx.save(); ctx.globalAlpha = binA * Math.min(1, grow * 1.5) * fadeD;
+                        ctx.save(); ctx.globalAlpha = Math.min(1, grow * 1.5);
                         ctx.strokeStyle = `rgb(${rgb})`; ctx.fillStyle = `rgb(${rgb})`; ctx.lineWidth = lwT;
                         ctx.setLineDash([1.13 / PDFR * kk, 1.7 / PDFR * kk]); ctx.beginPath();
                         ctx.moveTo(xa, yEdge); ctx.lineTo(xa, yDim); ctx.moveTo(xe, yEdge); ctx.lineTo(xe, yDim); ctx.stroke();
@@ -138,7 +165,7 @@
                         ctx.beginPath(); ctx.moveTo(xa, yDim); ctx.lineTo(xa + aL, yDim - aH); ctx.lineTo(xa + aL, yDim + aH); ctx.closePath(); ctx.fill();
                         ctx.beginPath(); ctx.moveTo(xe, yDim); ctx.lineTo(xe - aL, yDim - aH); ctx.lineTo(xe - aL, yDim + aH); ctx.closePath(); ctx.fill();
                         if (grow > 0.7) {   // rótulo da cota, centrado sobre a linha (surge quando a cota está quase completa)
-                            ctx.globalAlpha = binA * clamp((grow - 0.7) / 0.25);
+                            ctx.globalAlpha = clamp((grow - 0.7) / 0.25);
                             ctx.font = mono(700, 13); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                             const tw = ctx.measureText(label).width + 14, cxm = (xa + xe) / 2;
                             ctx.fillStyle = 'rgba(0,2,35,.95)'; ctx.fillRect(cxm - tw / 2, yDim - 10, tw, 20);
@@ -191,11 +218,11 @@
                     ctx.restore();
                 }
 
-            } finally { [window.ERGO_DARK, window.BIN_SOLID, window.BIN_DARK] = pBin; ctx.restore(); }
+            } finally { ctx.restore(); }  // protege exclusivamente o estado Canvas da Aba 4
             ctx.restore(); // fim translate aeronave
 
             // =========================== DETALHE ===========================
-            const pDet = ease(clamp((T - 3.3) / 0.7)) * (1 - (A.detOut || 0));
+            const pDet = ease(clamp((T - 3.3) / 0.7));
             if (pDet > 0) {
                 ctx.save();
                 ctx.globalAlpha = pDet; ctx.translate(0, (1 - pDet) * 14);
@@ -204,8 +231,8 @@
                 ctx.fillStyle = INK; ctx.font = mono(700, 12); ctx.fillText('SECTION S DETAIL', sx0, yD + 12);
                 ctx.strokeStyle = 'rgba(106,86,160,.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sx0, yD + 22); ctx.lineTo(sx0 + stripW, yD + 22); ctx.stroke();
                 if (DET.ok) {
-                    ctx.drawImage(rasterOf(DET, stripW, detImgH), sx0, yD + detGap, stripW, detImgH);
-
+                    const image = rasterOf(DET, stripW, detImgH);
+                    if (image) ctx.drawImage(image, sx0, yD + detGap, stripW, detImgH);
 
                     // Section S comparison, in the original SVG coordinates (viewBox 16 200 1422 467).
                     const kDet = stripW / DET_VB[0];
@@ -274,13 +301,10 @@
         }
 
         // ------------------------- controles -------------------------
-        const btn = document.getElementById('top-play'), scrub = document.getElementById('top-scrub');
-        // Keep the hidden timeline input for full-tour synchronization.
+        const btn = document.getElementById('top-play');
 
         function refresh() {
             draw();
-            const T = A.t;
-            scrub.value = T;
             btn.textContent = '↻ Replay';
         }
         function tick(now) {
@@ -298,9 +322,17 @@
             cancelAnimationFrame(A.raf); A.raf = requestAnimationFrame(tick);
         }
         btn.addEventListener('click', () => { play(0, N_ST); refresh(); });
-        scrub.addEventListener('input', () => { A.playing = false; A.t = parseFloat(scrub.value); refresh(); });
 
-        new ResizeObserver(() => refresh()).observe(stage);
+        // A altura do stage depende apenas da largura. Não redesenhar uma segunda vez
+        // quando o próprio draw() ajusta stage.style.height.
+        let lastDrawnWidth = stage.offsetWidth || stage.getBoundingClientRect().width;
+        new ResizeObserver(() => {
+            const width = stage.offsetWidth || stage.getBoundingClientRect().width;
+            if (width && width !== lastDrawnWidth) {
+                lastDrawnWidth = width;
+                refresh();
+            }
+        }).observe(stage);
         new IntersectionObserver(es => {
             if (es[0].isIntersecting && !A.started && stage.getBoundingClientRect().width > 0) {
                 A.started = true;
@@ -310,20 +342,11 @@
         // roteiro (aba 8): zera sem autoplay do IntersectionObserver e inicia uma única vez (evita começar, parar e reiniciar)
         window.topTourReset = () => { A.started = true; A.playing = false; cancelAnimationFrame(A.raf); A.t = 0; refresh(); };
         window.topTourStart = () => { A.started = true; if (!A.playing) play(0, N_ST); };
-        // Simulação Completa: posiciona a linha do tempo (sem tocar), toca a partir de um instante e informa onde fica o 1º módulo de bins
-        window.topTourSet = (t, ov) => { A.started = true; A.playing = false; cancelAnimationFrame(A.raf); A.t = t; A.detOut = 0; A.ov = ov ? Object.assign({}, ov) : null; A.names = true; refresh(); };
+        // APIs usadas pela direção da Aba 8: sincronização direta, sem slider oculto.
+        window.topTourSet = (t, ov) => { A.started = true; A.playing = false; cancelAnimationFrame(A.raf); A.t = t; A.ov = ov ? Object.assign({}, ov) : null; A.names = true; refresh(); };
         window.topSetOv = ov => { A.ov = ov ? Object.assign({}, ov) : null; draw(); };
-        window.topTourEnd = () => { A.ov = null; A.names = false; A.detOut = 0; A.binA = 1; };
+        window.topTourEnd = () => { A.ov = null; A.names = false; };
         window.topTourStartAt = t => { A.started = true; play(t, N_ST); };
-        window.topSetDetOut = v => { A.detOut = v; draw(); };
-        window.topSetBinA = v => { A.binA = v; draw(); };
-        window.topModules = () => {   // retângulos do 1º módulo Alpha (acima do eixo) e Conventional (abaixo), em px do canvas
-            const L = A.lay; if (!L) return null;
-            const cm = c => c * L.s / 100, x0 = L.X0 + 4.2 * L.s, y = L.cy + L.shift;
-            return { alpha: { x: x0, y: y - cm(123.9), w: cm(127.6), h: cm(123.9 - 53.8) },
-                     conv: { x: x0, y: y + cm(51.7), w: cm(180.47), h: cm(125.5 - 51.7) },
-                     axisY: y, noseX: L.X0, canvas: cv };
-        };
         window.topTourDone = () => A.t >= 5.8;   // selo "+25% CAPACITY" e propagação já visíveis
         refresh();
     })();

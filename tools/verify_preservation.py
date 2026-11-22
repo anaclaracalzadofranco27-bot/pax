@@ -859,6 +859,34 @@ def verify_aba4(v: Checker) -> None:
                 f"SVG da Aba 4 ausente/duplicado: {name}")
     v.check("source/assets/topview/" not in animation,
             "Caminho antigo dos SVG da Aba 4 reapareceu")
+    for key in ("const N_ST = 6, STAGE_SEC = 1.2;",
+                "const GEO_A = { mod: 127.6, lat: [53.8, 123.9] };",
+                "const GEO_C = { mod: 180.47, lat: [51.7, 125.5] };",
+                "const PDFR = 0.87033, XC0 = 4.2;",
+                "dimPDF(xa, xa + cm(GEO_A.mod)", "dimPDF(xa, xa + cm(GEO_C.mod)",
+                "const xFirst = 25.5, xSixteen = 1128, yDim = 398;",
+                "const xAlphaEnd = 1407.3, xConvEnd = 1430, yShort = 268;",
+                "function prepareVectorImage(", "img.onerror = err =>",
+                "img.__failedRasterSize === sizeKey", "if (image) ctx.drawImage(",
+                "lastDrawnWidth = stage.offsetWidth"):
+        v.check(key in animation, "Contrato de desenho/otimização da Aba 4 ausente: " + key)
+    for unused in ("capIdx:", "const STAGES =", "fadeD = 1", "A.detOut",
+                   "A.binA", "A.lay =", "window.topSetDetOut", "window.topSetBinA",
+                   "window.topModules", "window.ERGO_DARK", "window.BIN_SOLID",
+                   "window.BIN_DARK", "top-scrub"):
+        v.check(unused not in animation,
+                "Código antigo da Aba 4 retornou: " + unused)
+    director = v.read("source/html/ABA8/director-and-recording.js")
+    if director is not None:
+        for api in ("topTourReset", "topTourStart", "topTourSet",
+                    "topTourStartAt", "topSetOv", "topTourEnd", "topTourDone"):
+            v.check("window." + api in animation and "window." + api in director,
+                    "Integração da Aba 4 com a Aba 8 alterada: " + api)
+    export = v.read("source/html/ABA4/export.js")
+    if export is not None:
+        v.check("window.topExportPNG" in export and
+                "top-view.png" in export and "output.toBlob(" in export,
+                "Exportação manual opcional da Aba 4 alterada")
 
 
 def verify_aba6_controller(v: Checker) -> None:
@@ -947,9 +975,11 @@ def verify_html_cleanup(v: Checker) -> None:
                 "CSS ou enquadramento da Aba 1 foi duplicado/alterado")
     if top is not None and top_js is not None:
         v.check("top-chips" not in top and "top-chips" not in top_js and
-                'id="top-scrub"' in top and
-                "document.getElementById('top-scrub')" in top_js,
-                "Chips fantasmas ou perda da linha de tempo da Aba 4")
+                'id="top-scrub"' not in top and
+                "document.getElementById('top-scrub')" not in top_js and
+                'id="top-play"' in top and
+                "window.topTourSet =" in top_js,
+                "Controle oculto obsoleto ou perda da reprodução/sincronização da Aba 4")
     if manikin is not None:
         v.check("ergo-overlay" not in manikin and
                 "aba6-lbl-anim-btn" not in manikin and
