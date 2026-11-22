@@ -540,6 +540,21 @@ def verify_recording_css(v: Checker) -> None:
     v.check("@keyframes cbIn{" in shared and
             (hud is None or "@keyframes cbIn{" not in hud),
             "Keyframe cbIn deixou de ser compartilhado")
+    if hud is not None:
+        v.check(
+            "#tour-stage .cad3d-balloons.tour-sequenced.hud-off .hud-callout{animation-delay:0s}" in hud,
+            "Saída do HUD pode herdar os atrasos de entrada do tour")
+        for delay in ("--apha-title-delay", "--apha-legend-delay",
+                      "--apha-measures-delay", "--apha-desc-delay"):
+            v.check(delay in hud, "Atraso do HUD de entrada ausente: " + delay)
+        v.check(
+            ".alpha-hero-title-box,.alpha-hero-desc-box{" in hud
+            and hud.count("box-shadow:0 8px 24px rgba(0,0,0,0.45)") == 1,
+            "Acabamento compartilhado dos painéis HUD foi alterado")
+        v.check(
+            "width:min(48%,580px)" in hud and "max-width:580px" not in hud
+            and "position:absolute;display:block;visibility:hidden" not in hud,
+            "Regressão na limpeza das regras redundantes do HUD")
 
 
 def verify_aba1_assets(v: Checker) -> None:
