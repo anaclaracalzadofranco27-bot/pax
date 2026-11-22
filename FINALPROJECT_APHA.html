@@ -9386,7 +9386,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                 ctx.restore();
             }
 
-            // ---- Aba 2 (Vista Frontal): cópia da cena vista de frente; as 2 malas do fundo aparecem só em contorno tracejado ----
+
+            // ---- Aba 3 (Alpha, vista superior): clona o CAD da Aba 2; malas posteriores com contornos tracejados ----
             (function novaFront() {
                 const nvCanvas = document.getElementById('novaCanvas'), nvBox = document.getElementById('nova-container');
                 if (!nvCanvas || !nvBox) return;
@@ -9502,7 +9503,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                             build();
                         }
                         if (size()) frame();
-                    } catch (err) { console.warn('Front view:', err); }
+                    } catch (err) { console.warn('Alpha top view:', err); }
                 };
                 window.__novaRender = () => { if (!nvRen || !size()) return null; frame(); return nvCanvas; };   // usado por exportBinsPNG()
                 window.addEventListener('resize', () => { if ((currentTab === 'nova' || nvBox.closest('#tour-stage')) && nvRen && size()) frame(); });
@@ -9510,7 +9511,8 @@ window.drawUniReferenceBins = drawReferenceBins;
 
 
 
-            // SVG binsup.svg: contorno REAL, cantos, inclinações e duas travas.
+
+            // Aba 3 (convencional): contorno vetorial de referência, cantos, inclinações e travas.
             // As quatro malas continuam renderizadas em Three.js sob as mesmas luzes do bin Alpha.
             (function conventionalSVGTopView(){
                 const cv=document.getElementById('convTopCanvas');
@@ -9533,8 +9535,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const compressedY=y=>SHELL_Y_CENTER+(y-SHELL_Y_CENTER)*SHELL_HEIGHT_FACTOR;
                 const s3=new THREE.Scene();
                 scene.children.filter(o=>o.isLight).forEach(l=>s3.add(l.clone()));
-                // Câmera ortográfica: sem distorção de perspectiva, para que os
-                // 14" × 22" sejam tamanhos reais projetados no mesmo plano SVG.
+                // Câmera ortográfica: sem distorção de perspectiva; as malas são
+                // ajustadas ao vão interno pela fórmula de bagWidthFitted em draw().
                 const camera=new THREE.OrthographicCamera(-1,1,1,-1,10,25000);
                 const center=new THREE.Vector3(0,300,0);
                 let renderer=null;
@@ -9617,8 +9619,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                     const dpr=Math.min(window.devicePixelRatio||1,2),geo=structure(W,H,dpr);
                     renderer.setPixelRatio(dpr);renderer.setSize(W,H,false);
                     // Escala da LARGURA EXTERNA ATUAL (inalterada) do SVG de 56":
-                    // 56 in = B.x1-B.x0. Cada mala ocupa exatamente 14 in × 22 in,
-                    // medidos no invólucro completo do modelo (rodinhas inclusas).
+                    // 56 in = B.x1-B.x0. As malas partem da referência IATA 14 × 22 in,
+                    // mas sua largura visual é reduzida para caber no vão interno.
                     const svgWidth=B.x1-B.x0, inchSvg=svgWidth/56;
                     const bagWidthSvg=14*inchSvg,bagHeightSvg=22*inchSvg;
                     const worldPerPixel=560/(8300*geo.sc);
@@ -9647,8 +9649,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                     const lineupWidth=4*bagWidthFitted+3*gapBetweenBags;
                     const xStart=(innerLeftBase+innerRightBase-lineupWidth)/2;
                     const bagWidthWorld=bagWidthFitted*geo.sc*worldPerPixel;
-                    // Depois da compressão do SVG, pequenas folgas no teto
-                    // e abaixo das malas, preservando 22" inclusive rodinhas.
+                    // A altura visual parte da referência de 22 in; o casco SVG é
+                    // comprimido separadamente em Y, sem alterar esta pose.
                     const bagTopVisual=9435,bagCenterVisual=bagTopVisual+bagHeightSvg/2;
                     const bagHeightWorld=bagHeightSvg*geo.sc*worldPerPixel;
                     caseModels.forEach((b,i)=>{
@@ -9656,8 +9658,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                         const px=geo.pVisual(xSvg,bagCenterVisual);
                         b.position.set(xs*(px[0]-W/2)*worldPerPixel,
                             center.y,zs*(H/2-px[1])*worldPerPixel);
-                        // Invólucro 356 × 559: malas e alças sem intersecção
-                        // com as chapas; materiais/iluminação inalterados.
+                        // O modelo original 356 × 559 é escalado para a composição visual;
+                        // materiais e iluminação permanecem os mesmos.
                         b.scale.set(bagWidthWorld/356,bagHeightWorld/559,1);
                     });
                     renderer.render(s3,camera);
@@ -9693,6 +9695,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(draw);
                 draw();
             })();
+
 
 
 
@@ -9979,13 +9982,20 @@ window.drawUniReferenceBins = drawReferenceBins;
     
 </script>
     <script>
-    // Exporta os dois bins da aba 2 (Alpha + Convencional, com as malas) num único PNG de fundo transparente, sem as cotas.
+    // Aba 3: exporta Alpha, convencional ou ambos num PNG de fundo transparente, sem as cotas.
     window.exportBinsPNG = function (K, which) {   // which: 'alpha' | 'conv' | undefined (os dois)
         K = K || 2.5;   // fator de ampliação em relação ao tamanho na tela
         const boxA = document.getElementById('nova-container'), boxC = document.getElementById('conv-top-container');
         if (!boxC || !window.__convDraw) return;
         if (which === 'alpha' && !window.__novaRender) { alert('Alpha bin is not loaded yet (open this tab with internet so three.js loads).'); return; }
         const saved = [boxA, boxC].map(b => b ? [b, b.style.width, b.style.height] : null).filter(Boolean);
+        // Preserva também a ausência original da propriedade, além de seu valor.
+        const stateKeys = ['__novaNoDim', '__convNoDim', '__novaK'];
+        const previousState = stateKeys.map(key => ({
+            key,
+            present: Object.prototype.hasOwnProperty.call(window, key),
+            value: window[key]
+        }));
         const grab = c => { const t = document.createElement('canvas'); t.width = c.width; t.height = c.height; t.getContext('2d').drawImage(c, 0, 0); return t; };
         let cA = null, cC = null;
         try {
@@ -9995,8 +10005,13 @@ window.drawUniReferenceBins = drawReferenceBins;
             if (which !== 'alpha') { window.__convDraw(); cC = grab(window.__convCapture ? window.__convCapture() : document.getElementById('convTopCanvas')); }
         } finally {
             saved.forEach(([b, w, h]) => { b.style.width = w; b.style.height = h; });
-            window.__novaNoDim = false; window.__convNoDim = false; window.__novaK = 1;
-            try { if (window.__novaRender) window.__novaRender(); window.__convDraw(); } catch (e) { }
+            previousState.forEach(({ key, present, value }) => {
+                if (present) window[key] = value;
+                else delete window[key];
+            });
+            // Um renderer com erro não pode impedir a restauração visual do outro.
+            try { if (window.__novaRender) window.__novaRender(); } catch (err) { console.warn('Alpha export restore:', err); }
+            try { window.__convDraw(); } catch (err) { console.warn('Conventional export restore:', err); }
         }
         const bbox = c => {
             const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
