@@ -1,5 +1,5 @@
         // -------------------------------------------------------------------------
-        // MÓDULO 8: SIMULAÇÃO INTEGRADA (aba 1 → cabine/piso → bancos/passageiros → estatura)
+        // ABA 5: SIMULAÇÃO INTEGRADA (cabine CAD 2D → assentos → passageiros → estatura)
         // -------------------------------------------------------------------------
         (function () {
             const FC = APHA_CABIN_GEOMETRY.fuselageCenterYCm; // centro da fuselagem acima do piso (cm)
@@ -12,7 +12,7 @@
             const TOTAL=TL.open+TL.openDur;
             document.getElementById('uni-scrub').max = TOTAL;
             const PH = [['CAD 2D Outline', 0], ['Fuselage + floor', TL.ring], ['Seats + passengers', TL.seats], ['Stature variation', TL.stat], ['Door envelopes', TL.zoom]];
-            const U = { t: 0, playing: false, last: 0, raf: 0, started: false, g: null };
+            const U = { t: 0, playing: false, last: 0, raf: 0, g: null };
             const ph=(t0,d)=>aphaEaseCubic((U.t-t0)/d);
             const cameraAmount=()=>U.exportCabinWideFrame ? 0 : aphaEaseCubic((U.t-TL.zoom)/TL.zoomDur);
             const doorAmount=()=>aphaEaseCubic((U.t-TL.open)/TL.openDur);
@@ -193,7 +193,7 @@
                     {x1:toX(backWallX), y1:toY(backDimY), x2:toX(backDimX), y2:toY(backDimY)});
                 ctx.restore();
             }
-                        function after(ctx, m) {
+            function after(ctx, m) {
                 const seats = ph(TL.seats, 0.6), pax = ph(TL.pax, 0.6), st = stature();
                 window.drawSeatedScene(ctx, m.W, m.H, {
                     hAisle: st, hWin: st, backAng: window.SEATED_STAT.backAng, map: m4,
@@ -211,11 +211,14 @@
                 const uniSection = document.getElementById('module-unified');
                 if (uniSection) uniSection.classList.toggle('uni-bin-zoom', U.t >= TL.zoom);
                 const T1=Math.min(4,U.t/UNI_CAD_SEC);
-                if(U.playing && U.t<TL.open)window.__uniRefDoorProgress=0;
-                if(U.t>=TL.open)window.__uniRefDoorProgress=doorAmount();
-                const slider=document.getElementById('uni-bin-door-slider'),pct=document.getElementById('uni-bin-door-pct');
-                if(U.t>=TL.open){if(slider)slider.value=Math.round(100*window.__uniRefDoorProgress);if(pct)pct.textContent=Math.round(100*window.__uniRefDoorProgress)+'%'}
-                window.BIN_SOLID = true; window.BIN_DARK = true;   // paleta escura (#5b7b9e · #9ba9b5 · #bababa, poltronas #2f4a6b) também na tela
+                // Sincronizar pela linha do tempo somente em modo automático.
+                // O controle manual conserva a prioridade até novo Play, scrub ou reset.
+                if (window.uniRefTimelineDoors)
+                    window.uniRefTimelineDoors(U.t >= TL.open ? doorAmount() : 0);
+                else
+                    window.__uniRefDoorProgress = U.t >= TL.open ? doorAmount() : 0;
+                const previousPalette = [window.BIN_SOLID, window.BIN_DARK];
+                window.BIN_SOLID = true; window.BIN_DARK = true;
                 try {
                     drawCADCanvas(U.g, { canvasId: 'uniCanvas',
                         unifiedCabinBackground: true, tourBackdrop: inTourView(),
@@ -249,9 +252,11 @@
                             ctx.restore();
                         }
                     }
-                } finally { window.BIN_SOLID = false; window.BIN_DARK = false; }
+                } finally { [window.BIN_SOLID, window.BIN_DARK] = previousPalette; }
                 const ico = U.playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : (U.t >= TOTAL - 0.01 ? '<path d="M12 5V2L7 6l5 4V7a5 5 0 11-5 5H5a7 7 0 107-7z"/>' : '<path d="M7 4l13 8-13 8z"/>');
-                document.getElementById('uni-play').innerHTML = `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">${ico}</svg>${U.playing ? 'Pause' : (U.t >= TOTAL - 0.01 ? 'Replay' : 'Play')}`;
+                const playButton = document.getElementById('uni-play');
+                const playHTML = `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">${ico}</svg>${U.playing ? 'Pause' : (U.t >= TOTAL - 0.01 ? 'Replay' : 'Play')}`;
+                if (playButton.innerHTML !== playHTML) playButton.innerHTML = playHTML;
                 document.getElementById('uni-scrub').value = U.t;
                 gaugeUpdate();
                 {   // roteiro/vídeo: a escala de estatura é ampliada junto com o quadro (referência: 1920 px de largura)
@@ -271,7 +276,6 @@
                         } else { note.style.right = ''; note.style.top = ''; note.style.marginTop = ''; }
                     }
                 }
-                const act = phaseIdx();
             }
 
             // ---- Barra vertical de estatura + marcos (percentil feminino → média mundial → percentil masculino) ----
@@ -314,28 +318,46 @@
             }
             function play(from) {
                 if (from != null) U.t = from;
-                if(U.t<TL.open)window.__uniRefDoorProgress=0;
+                if (window.uniRefUseTimelineDoors) window.uniRefUseTimelineDoors();
                 U.playing = true; U.last = performance.now();
                 cancelAnimationFrame(U.raf); U.raf = requestAnimationFrame(tick); refresh();
             }
-            // Keep the phase timeline and uniGo() API, but do not render phase buttons.
+            // Compatibilidade da API uniGo(), sem reintroduzir botões de fases.
             // Tempo exato na fase 4 em que a curva de estatura passa por WORLD_MEAN_CM (165,0 cm)
             const T_WORLD_MEAN = TL.stat + TL.dur * Math.acos(1 - 2 * (WORLD_MEAN_CM - window.SEATED_STAT.min) / (window.SEATED_STAT.max - window.SEATED_STAT.min)) / Math.PI;
 
-            window.uniGo = i => { U.customStature = null; if(i===0)window.__uniRefDoorProgress=0; play(PH[i][1]); };
+            window.uniGo = i => { U.customStature = null; play(PH[i][1]); };
             window.uniTogglePlay = () => { U.customStature = null; if (U.playing) { U.playing = false; refresh(); } else play(U.t >= TOTAL - 0.01 ? 0 : U.t); };
-            window.uniScrub = v => { U.customStature = null; U.playing = false; U.t = parseFloat(v); if(U.t<TL.open)window.__uniRefDoorProgress=0; refresh(); };
-            window.uniPause = () => { if (U.playing) { U.playing = false; cancelAnimationFrame(U.raf); } };
+            window.uniScrub = v => {
+                U.customStature = null; U.playing = false; cancelAnimationFrame(U.raf);
+                U.t = parseFloat(v);
+                if (window.uniRefUseTimelineDoors) window.uniRefUseTimelineDoors();
+                refresh();
+            };
+            window.uniPause = () => {
+                if (U.playing) { U.playing = false; cancelAnimationFrame(U.raf); }
+                if (window.uniRefStopDoorMotion) window.uniRefStopDoorMotion();
+            };
             window.uniRefresh = refresh;
-            window.uniEnter = () => { U.started = true; if (!U.playing) play(U.t >= TL.total - 0.05 ? 0 : U.t); else refresh(); };
+            window.uniEnter = () => { if (!U.playing) play(U.t >= TOTAL - 0.05 ? 0 : U.t); else refresh(); };
             // roteiro (aba 8): zera sem autoplay e inicia uma única vez (evita começar, parar e reiniciar)
-            window.uniTourReset = () => { U.started = true; U.customStature = null; U.playing = false; cancelAnimationFrame(U.raf); U.t = 0; U.fx = null; U.focus = 0; window.__uniRefDoorProgress=0; refresh(); };
-            window.uniTourStart = () => { U.started = true; if (!U.playing) play(0); };
+            window.uniTourReset = () => {
+                U.customStature = null; U.playing = false; cancelAnimationFrame(U.raf);
+                U.t = 0; U.fx = null; U.focus = 0;
+                if (window.uniRefUseTimelineDoors) window.uniRefUseTimelineDoors();
+                refresh();
+            };
+            window.uniTourStart = () => { if (!U.playing) play(0); };
             // Entregar ao plano único após zoom, antes da abertura das portas.
             window.uniTourBridgeReady = () => U.t >= TOTAL - .0001;
-            window.uniTourSet = t => { U.started = true; U.customStature = null; U.playing = false; cancelAnimationFrame(U.raf); U.t = t; U.fx = null; U.focus = 0; refresh(); };
+            window.uniTourSet = t => {
+                U.customStature = null; U.playing = false; cancelAnimationFrame(U.raf);
+                U.t = t; U.fx = null; U.focus = 0;
+                if (window.uniRefUseTimelineDoors) window.uniRefUseTimelineDoors();
+                refresh();
+            };
             window.uniSetFx = (f, focus) => { U.fx = f ? Object.assign({}, f) : null; U.focus = focus || 0; refresh(); };
-            window.uniTourStartAt = t => { U.started = true; U.customStature = null; play(t); };
+            window.uniTourStartAt = t => { U.customStature = null; play(t); };
             // Simulação Completa: geometria em px do .sim-bg (canvas) — passageiro da ponta esquerda (janela, convencional) e eixo da fuselagem
             window.uniGeom = () => {
                 const cvs = document.getElementById('uniCanvas'), box = cvs && cvs.parentElement; if (!box) return null;

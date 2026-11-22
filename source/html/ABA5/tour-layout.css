@@ -1,9 +1,8 @@
         #tour-stage #module-unified .sim-card > div:first-child{display:none}
 
-        /* Aba 5 (Simulação Integrada) no roteiro/vídeo: SÓ a cena (bin + personagens), a escala de estatura e os títulos CONVENTIONAL / ALPHA */
+        /* Take 03: somente cabine, passageiros, escala e títulos; viewport-theme.css já oculta o cabeçalho. */
         #tour-stage #module-unified{position:relative;width:100%;aspect-ratio:16/9;container-type:inline-size;margin:0 !important}
         #tour-stage.rec #module-unified{position:absolute !important;inset:0 !important;width:auto;aspect-ratio:auto}
-        #tour-stage #module-unified > div:first-of-type{display:none !important}
         #tour-stage #module-unified .sim-card{position:absolute;inset:0;margin:0 !important;border:0;border-radius:0;box-shadow:none;background:transparent;overflow:visible}
         #tour-stage #module-unified .sim-card > div:nth-child(2){display:block;position:static}
         #tour-stage #module-unified .sim-card > div:last-child{display:none !important}
