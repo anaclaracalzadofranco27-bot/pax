@@ -394,7 +394,7 @@ def verify_bin_kinematics(v: Checker) -> None:
                 "ctx.stroke(paths.inner);" in kinetics and
                 "ctx.stroke(paths.outer);" in kinetics and
                 "const key = [W, H, R, toX(0), toY(0), toX(R), toY(R), toX(-R), toY(-R)].join('|');" in kinetics and
-                "const [x, y] = pt(g.R + 2.75, th1);" in kinetics,
+                "const [x, y] = pt(g.R + APHA_CABIN_GEOMETRY.shellThicknessCm / 2, th1);" in kinetics,
                 "Cache do arco estatico ou revelacao animada da fuselagem ausente")
         v.check("function paintPath(ctx, path, fill, stroke, lw)" in kinetics and
                 "evenodd ? 'evenodd'" not in kinetics,
