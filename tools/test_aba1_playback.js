@@ -68,7 +68,10 @@ const read = p => fs.readFileSync(path.join(root, 'source/html/ABA1', p), 'utf8'
   assert(from>0 && to>from);
   const pending = new Map(), events = {};
   let id = 0, frames = 0, ratio = 1.75, t = 0, walkUpdates = 0;
-  const passengerWindow = { frameElement: { getClientRects: () => [] } };
+  const passengerWindow = {
+    frameElement: { getClientRects: () => [] },
+    addEventListener(name, fn) { events[name] = fn; }
+  };
   const passengerDoc = {
     hidden:false,
     getElementById:()=>({}),
