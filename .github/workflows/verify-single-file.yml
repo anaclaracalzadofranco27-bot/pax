@@ -75,6 +75,8 @@ jobs:
               expand("source/html/ABA2/cad3d.js"))
           PY
           node --check /tmp/apha-assembled-cad3d.js
+      - name: Simulate CAD 3D export failures and state restoration
+        run: node tools/test_cad3d_exports.js
       - name: Verify eight tabs, CSS, passengers, assets, transitions and Full HD takes
         run: python3 tools/verify_preservation.py
       - name: Commit the generated HTML only if it changed
@@ -154,5 +156,7 @@ jobs:
               expand("source/html/ABA2/cad3d.js"))
           PY
           node --check /tmp/apha-assembled-cad3d.js
+      - name: Simulate CAD 3D export failures and state restoration
+        run: node tools/test_cad3d_exports.js
       - name: Verify eight tabs, CSS, passengers, assets, transitions and Full HD takes
         run: python3 tools/verify_preservation.py

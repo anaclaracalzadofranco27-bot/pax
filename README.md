@@ -241,3 +241,29 @@ python3 tools/verify_preservation.py
 
 Essas verificações detectam regressões estáticas, mas **não substituem**
 conferir os três passageiros na Aba 1 e no Take 01 com um navegador WebGL.
+
+
+## Aba 2 — limpeza de arestas, WebGL e exportação 4K
+
+A malha do piso do `cad3d/01-bin-geometry.js` agora desenha as duas
+extremidades transversais somente uma vez; as demais faces, linhas CAD,
+malas, porta e perfis não foram modificados.
+
+Em `cad3d/09-export-common.js` ficam o snapshot e a restauração
+compartilhados de materiais, cores, malas, porta, câmera (`fov`, `aspect`,
+`up` e `viewOffset`) e resolução. Os dois exportadores continuam com
+opacidades próprias e conservam as cinco imagens com os nomes originais.
+
+Os arquivos `10-export-images.js` e `11-export-side.js` restauram o
+estado com `try/finally`, inclusive quando o PNG falha. Mantêm os
+intervalos de 700 ms entre três imagens e de 400 ms entre as duas vistas
+laterais, respectivamente. A câmera retorna sem executar novamente
+`rs()`. Em `05-camera-and-renderer.js`, o pré-aquecimento só é marcado
+como concluído após êxito e retorna à imagem original mesmo em erro;
+redimensionamentos sem alterações deixam de recriar o buffer WebGL.
+
+Verificações: `python3 tools/verify_preservation.py` e
+`node tools/test_cad3d_exports.js`. O segundo teste simula falhas
+de download e confirma restauração de estado e dos cinco nomes de PNG,
+sem precisar de GPU. A comparação visual do CAD, do Take 02 e dos PNGs
+reais deve ser conferida em navegador WebGL.

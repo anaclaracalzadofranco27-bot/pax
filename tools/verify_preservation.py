@@ -751,6 +751,32 @@ def verify_aba2(v: Checker) -> None:
             "Exportação PNG voltou a ser duplicada")
     v.check(code.count("cad3dConfigureExport4K();") == 2,
             "Exportadores não usam o mesmo viewport 4K")
+    geo, camera, shared_export, images, side = (fragments[i] for i in (0, 4, 8, 9, 10))
+    v.check("const cp=[];" not in geo and
+            "const a0=pl[0],a1=pl[pl.length-1];e.push(" in geo,
+            "Arestas idênticas do piso do CAD voltaram a ser duplicadas")
+    v.check("function cad3dSetExportSurfaces(" in shared_export and
+            "function cad3dSnapshotExportSurfaces(" in shared_export and
+            "function cad3dRestoreExportState(" in shared_export,
+            "Material/snapshot dos exportadores CAD deixou de ser compartilhado")
+    for property_name in ("fov: cam.fov", "aspect: cam.aspect", "up: cam.up.clone()",
+                          "view: cam.view ?", "cam.clearViewOffset()", "cam.setViewOffset("):
+        v.check(property_name in shared_export, "Câmera CAD não restaurada: " + property_name)
+    v.check("rs();" not in shared_export, "Exportação redimensiona a cena duas vezes")
+    v.check("cad3dSetExportSurfaces(0.27, 0.39)" in images and
+            "cad3dSetExportSurfaces(0.23, 0.37)" in side,
+            "Transparências específicas das imagens CAD mudaram")
+    v.check(images.count("await cad3dExportDelay(700)") == 2 and
+            "cad3dRestoreExportState(state)" in images,
+            "Falha na sequência/restauração das três imagens CAD 4K")
+    v.check("await cad3dExportDelay(400)" in side and
+            "resetIsometricAppearance();" in side and
+            "cad3dRestoreExportState(state)" in side,
+            "Falha na sequência/restauração dos dois PNGs laterais")
+    v.check("if (ren.getPixelRatio() !== ratio)" in camera and
+            "try { upd(); } catch(err)" in camera and
+            "warmed = true;" in camera,
+            "Pré-aquecimento ou otimização do WebGL CAD ausentes")
 
 
 def verify_aba3(v: Checker) -> None:
