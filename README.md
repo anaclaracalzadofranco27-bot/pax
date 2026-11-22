@@ -418,3 +418,30 @@ Os testes estáticos em `tools/verify_preservation.py` conferem
 essas garantias, além da montagem do HTML final. Não foram alteradas
 a cinemática, as peças vetoriais, as exportações ou as transições.
 A equivalência visual real do Take 03 deve ser verificada em navegador.
+
+
+## Aba 6 — limpeza de modelo, PNGs e validação das trajetórias (22/11/2026)
+
+Foram removidos os vetores `PDFN_SIL_D`/`PDFN_SIL`, sem chamadas no
+desenho atual, o fluxo antigo de cartões e seus estados, a API obsoleta
+`ergoManikinRect` e a curva de torque nunca consultada. Mantêm-se os
+modelos vetoriais articulados, o fallback e os dois exportadores PNG.
+Ambos exportadores reutilizam recorte transparente com tratamento de
+quadro vazio, erro de serialização e download. O fallback do viewport
+redefine câmera, clip e matriz após falha de desenho detalhado.
+
+Cargas, ângulo e tempos fixos são calculados uma vez; a inicialização
+não agenda um desenho extra além da atualização do controlador.
+
+A interpolação do teto agora verifica todos os segmentos incidentes na
+abscissa, inclusive o lábio com X invertido. O teste
+`node tools/test_aba6_clearance.js` percorre 1001 posições de cada mala.
+**Pendência física identificada:** a primeira mala ainda atravessa até
+aproximadamente 2,93 cm do piso da cavidade de referência em parte do
+trajeto. Não foi alterada sua postura/deslocamento sem validação CAD e
+visual. O teto `ERGO_BIN_CEIL` continua sendo uma referência separada
+do contorno CAD exibido, cuja correspondência ainda precisa ser checada.
+
+Os testes estáticos cobrem a remoção dos resíduos e a existência das
+rotinas de exportação/fallback. A equivalência visual do Take 03 deve
+ser conferida no navegador.

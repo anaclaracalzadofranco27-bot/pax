@@ -479,6 +479,16 @@ def verify_bin_kinematics(v: Checker) -> None:
             v.check("window." + name + " =" in door,
                     "Contrato do controlador único das portas ausente: " + name)
     if aba6 is not None:
+        for required in ("function cropManikinTransparentCanvas(", "function saveManikinPNG(",
+                         "function exportAphaFigure(", "function exportManikinSteps(",
+                         "const ERGO_FIXED = (() => {", "function ergoInterpCurveY(",
+                         "const placePanelCamera = index =>", "ctx.reset()"):
+            v.check(required in aba6, "Aba 6: função protegida ausente: " + required)
+        for dead in ("PDFN_SIL_D", "function toggleManikinAnimation(",
+                     "function cancelResultsSequence(", "function hideCards(",
+                     "function writeCards(", "window.ergoManikinRect =",
+                     "window.ergoTorqueSummary ="):
+            v.check(dead not in aba6, "Aba 6: código morto retornou: " + dead)
         v.check(aba6.count("mapAphaCabinSection(W, H)") == 2 and
                 "(H - 50) / 244" not in aba6,
                 "Aba 6 voltou a duplicar a projeção geométrica")
@@ -1066,8 +1076,11 @@ def verify_html_cleanup(v: Checker) -> None:
         v.check("ergo-overlay" not in manikin and
                 "aba6-lbl-anim-btn" not in manikin and
                 "setAnimLabel(" not in manikin and
-                "dismissCards();" in manikin,
-                "Referencia DOM ausente ou controle Escape perdido na Aba 6")
+                "dismissCards();" not in manikin and
+                "cardsShown" not in manikin and
+                "PDFN_SIL_D" not in manikin and
+                "function drawManikinPanel(" in manikin,
+                "Codigo obsoleto de cartões/silhueta ou perda do manequim ativo na Aba 6")
     if cad is not None and cad_export is not None:
         v.check("[data-cad3d-v]" not in cad and
                 "[data-cad3d-v]" not in cad_export and
