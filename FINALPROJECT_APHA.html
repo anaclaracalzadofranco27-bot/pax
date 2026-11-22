@@ -130,14 +130,11 @@
         #tour-stage #cad3d-container{container-type:inline-size}
         .cad3d-balloons{display:none;position:absolute;inset:0;pointer-events:none;z-index:3;font-family:'Open Sans','Inter',sans-serif}
         #tour-stage .cad3d-balloons{display:block}
-        /* Callouts HUD (estilo CAD): fundo, borda, linha de chamada e texto ficam DENTRO de um único .hud-callout, e só esse pai
-           anima a opacidade (entrada e saída), então caixa, linha e texto aparecem e somem juntos */
+        /* Callouts HUD (estilo CAD): anima a opacidade (entrada e saída) */
         .cad3d-balloons .hud-callout{position:absolute;inset:0;animation:hudIn .7s ease .5s both}
         .cad3d-balloons.hud-off .hud-callout{animation:hudOut .35s ease-in both}
-        /* Título "OVERHEAD BIN ALPHA" e descrição: caixas HUD sobre a malha, na entrada da cena 3D (logo depois do alerta da cena 1).
-           Ficam dentro de .hud-callout como os callouts, então entram e saem (hudIn / hudOut no pai) junto com eles.
-           Tamanhos em cqw: relativos à largura do quadro 16:9 (#cad3d-container é container-type:inline-size no roteiro). */
-        /* No tour, nenhum título aparece enquanto o CAD ainda inicializa. */
+      
+        /* Título "OVERHEAD BIN ALPHA" e descrição*/
         #tour-stage .cad3d-balloons:not(.tour-sequenced):not(.hud-off) .hud-callout{
             animation:none !important;opacity:0 !important;
         }
@@ -157,12 +154,14 @@
             font-family:'Montserrat','Segoe UI',Arial,sans-serif;font-weight:800;text-transform:uppercase;font-size:clamp(26px,3cqw,48px);line-height:1.15;letter-spacing:0.14em}
         .alpha-hero-title-box .word-overhead{color:#FFFFFF}
         .alpha-hero-title-box .word-binalpha{color:#00B4D8}
-        /* Texto técnico numa faixa inferior DIREITA: não cobre mais a área inteira das cotas. */
+
+        /* Texto técnico numa faixa inferior direita:*/
         .alpha-hero-desc-box{position:absolute;bottom:4%;right:3%;z-index:25;width:min(48%,580px);max-width:580px;text-align:right;pointer-events:none;
             background:rgba(5,12,36,0.92);border:1px solid rgba(0,180,216,0.55);border-right:3px solid #00B4D8;border-radius:6px;padding:10px 14px;
             box-shadow:0 8px 24px rgba(0,0,0,0.45);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
             font-family:'Montserrat','Segoe UI',Arial,sans-serif;font-weight:500;font-size:clamp(11px,1cqw,18px);line-height:1.28;letter-spacing:0.01em;color:#d4dce6}
-        /* Os valores acompanham a linha projetada, mas são colocados ABAIXO dela, na área segura 16:9. */
+       
+        /* Os valores acompanham a linha projetada, mas são colocados abaixo dela */
         #cad3d-container .cad3d-dimension-labels{position:absolute;inset:0;z-index:6;pointer-events:none;overflow:hidden}
         #cad3d-container .cad3d-dimension-value{position:absolute;display:block;visibility:hidden;white-space:nowrap;transform:translateX(-50%);
             background:rgba(5,12,36,.93);border:1px solid rgba(224,168,0,.65);border-radius:4px;
