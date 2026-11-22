@@ -1304,31 +1304,51 @@
             const Tmax = Math.max(...times.map(t => t.tA1 + t.tA2));
             const panelW = W / ERGO_PERCENTILES.length;
             const camera = cinematicFrame(phase);
-            ERGO_PERCENTILES.forEach((p, i) => {
-                const t = times[i];
-                const localPhase = Math.min(1, phase * Tmax / (t.tA1 + t.tA2));
+            // Reaplicar exatamente o mesmo recorte e a mesma câmera após uma
+            // falha; a recuperação do Canvas pode apagar a pilha de save/restore.
+            const placePanelCamera = index => {
                 ctx.save();
-                ctx.beginPath(); ctx.rect(i * panelW, 0, panelW, H); ctx.clip();
-                ctx.translate(i * panelW, 0);
-                // Matriz afim: dolly-in + pan + segundo enquadramento baixo, sem corte.
+                ctx.beginPath(); ctx.rect(index * panelW, 0, panelW, H); ctx.clip();
+                ctx.translate(index * panelW, 0);
                 ctx.translate(panelW * (.5+camera.panX), H * (.5+camera.panY));
                 ctx.transform(1, camera.shearY, camera.shearX, 1, 0, 0);
                 ctx.scale(camera.zoom, camera.zoom);
                 ctx.translate(-panelW*.5, -H*.5);
+            };
+            ERGO_PERCENTILES.forEach((p, i) => {
+                const t = times[i];
+                const localPhase = Math.min(1, phase * Tmax / (t.tA1 + t.tA2));
                 let st;
                 try {
-                    st = drawManikinPanel(ctx, panelW, H, p.h, mass, angleDeg, Fg, Fn, Ft, localPhase, t.tA2, t.tA1, '5th Percentile Female');
+                    placePanelCamera(i);
+                    st = drawManikinPanel(ctx, panelW, H, p.h, mass, angleDeg,
+                        Fg, Fn, Ft, localPhase, t.tA2, t.tA1, '5th Percentile Female');
+                    window.__aphaErgoRenderWarning = false;
                 } catch (err) {
-                    // Preserve a visible passenger and moving carry-on even if a CAD
-                    // geometry/path fails. Do not allow one failed frame to freeze the tour.
                     if (!window.__aphaErgoRenderWarning) {
                         console.error('Biomechanical passenger render:', err);
                         window.__aphaErgoRenderWarning = true;
                     }
-                    drawManikinFallback(ctx, panelW, H, localPhase, t.tA2, t.tA1, true);
-                    st = {tTotal: t.tA2 + t.tA1};
+                    try {
+                        // reset() restaura também clip, transformações e estados
+                        // que o modelo detalhado pode ter deixado sem ctx.restore().
+                        // Para navegadores antigos, redimensionar limpa a pilha.
+                        if (typeof ctx.reset === 'function') ctx.reset();
+                        else canvas.width = canvas.width;
+                        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                        placePanelCamera(i);
+                        st = drawManikinFallback(ctx, panelW, H,
+                            localPhase, t.tA2, t.tA1, true);
+                    } catch (fallbackErr) {
+                        if (!window.__aphaErgoFallbackWarning) {
+                            console.error('Biomechanical fallback render:', fallbackErr);
+                            window.__aphaErgoFallbackWarning = true;
+                        }
+                        st = {tTotal:t.tA2+t.tA1};
+                    }
+                } finally {
+                    ctx.restore();
                 }
-                ctx.restore();
                 return st;
             });
             // divisórias entre painéis
@@ -1340,7 +1360,7 @@
             ctx.restore();
 
 
-            // Timer cards intentionally omitted; physics and animation timing stay active.
+            // Sem cartões de cronômetro: só a cinemática permanece no viewport.
         }
 
 
