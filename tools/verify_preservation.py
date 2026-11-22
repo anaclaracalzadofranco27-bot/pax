@@ -696,21 +696,44 @@ def verify_aba2(v: Checker) -> None:
 
 
 def verify_aba3(v: Checker) -> None:
+    """Três fragmentos da comparação no mesmo escopo CAD e isolamento da exportação."""
     cad = v.read("source/html/ABA2/cad3d.js")
-    render = v.read("source/html/ABA3/bin-comparison-renderers.js")
+    manifest = v.read("source/html/ABA3/bin-comparison-renderers.js")
+    prefix = "source/html/ABA3/renderers/"
+    names = ("01-dimensions.js", "02-alpha-top-view.js", "03-conventional-top-view.js")
+    expected = [f"@@APHA_INCLUDE:{prefix}{name}@@" for name in names]
     include = "@@APHA_INCLUDE:source/html/ABA3/bin-comparison-renderers.js@@"
     if cad is not None:
         v.check(cad.count(include) == 1, "Inclusão dos renderers da Aba 3 ausente/duplicada")
         v.order(cad, (include, "@@APHA_INCLUDE:source/html/ABA2/cad3d/10-export-images.js@@"),
                 "Ordem do renderer/exportador da Aba 3 alterada")
-    if render is not None:
+    if manifest is not None:
+        v.check(manifest.splitlines() == expected,
+                "Manifesto dos renderers da Aba 3 ausente ou fora de ordem")
+    chunks = [v.read(prefix + name) for name in names]
+    if all(chunk is not None for chunk in chunks):
+        code = "\n".join(chunks)
         for required in (
             "function drawTopDimension(", "(function novaFront() {",
             "(function conventionalSVGTopView(){", "window.novaEnter =",
             "window.__novaRender =", "window.__convDraw=draw;",
             "window.__convCapture=", "window.novaShowHeader=",
+            "const SHELL_HEIGHT_FACTOR=0.89;", "const bagWidthFitted=Math.min(",
+            "const bagHeightSvg=22*inchSvg;", "drawTopDimension(dx, xa, xb",
+            "drawTopDimension(c,a[0],b[0]",
         ):
-            v.check(required in render, f"Função da comparação ausente: {required}")
+            v.check(required in code, f"Função ou geometria da comparação ausente: {required}")
+        v.check(code.count("new THREE.WebGLRenderer(") == 2,
+                "Quantidade de renderizadores Alpha/convencional alterada")
+    exp = v.read("source/html/ABA3/export.js")
+    if exp is not None:
+        for required in (
+            "previousState = stateKeys.map(", "Object.prototype.hasOwnProperty.call(window, key)",
+            "if (present) window[key] = value;", "else delete window[key];",
+            "window.__novaNoDim = true; window.__convNoDim = true; window.__novaK = K;",
+            "out.toBlob(", "window.exportBinsPNG",
+        ):
+            v.check(required in exp, "Isolamento da exportação Aba 3 alterado: " + required)
 
 
 def verify_aba4(v: Checker) -> None:

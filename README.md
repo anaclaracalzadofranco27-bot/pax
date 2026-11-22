@@ -24,7 +24,7 @@ HTML e recursos exclusivos ficam juntos:
 | --- | --- |
 | `source/html/ABA1/` | `ABA1.html`, `index.template.html`, `styles.css`, `bridge.js`, scripts de avião/passageiros/controles em `js/` e duas ilustrações em `svg/` |
 | `source/html/ABA2/` | `ABA2.html`, CSS de HUD e gravação e manifesto `cad3d.js` com 11 arquivos em `cad3d/` |
-| `source/html/ABA3/` | `ABA3.html`, `bin-comparison-renderers.js` (desenho Alpha/convencional e cotas) e `export.js` (PNG) |
+| `source/html/ABA3/` | `ABA3.html`, manifesto `bin-comparison-renderers.js` (3 fragmentos em `renderers/`), `export.js`, CSS e `GEOMETRY_AUDIT.md` |
 | `source/html/ABA4/` | `ABA4.html`, `animation.js`, `export.js` e desenhos `*.svg.base64` da vista superior |
 | `source/html/ABA5/` | `ABA5.html`, `unified-simulation.js` e `door-addon.js` |
 | `source/html/ABA6/` | `ABA6.html`, `manikin.js` e `controller.js` (início, pausa e sincronização da animação) |
@@ -129,6 +129,20 @@ base64 permanecem embutidos no `FINALPROJECT_APHA.html`, independente de `source
 **Etapa B:** exportadores mantêm ângulos, visibilidade e materiais próprios, mas agora compartilham a criação dos PNGs, a configuração 3840 × 2160 e os snapshots/restaurações de câmera e malas. Permanecem os 72 segmentos da porta de 5 mm, as quatro malas IATA, a sequência de 5,9 s, as cotas e os cinco PNGs possíveis.
 
 **Testes:** o GitHub Actions reconstrói o HTML, executa `node --check` no CAD já expandido junto ao renderer da Aba 3 e verifica contratos em `tools/verify_preservation.py`. Também é necessária conferência visual WebGL da Aba 2, do Take 02 e dos PNGs 4K.
+
+## Aba 3 — comparação Alpha × convencional
+
+`source/html/ABA3/bin-comparison-renderers.js` é um **manifesto**, incorporado dentro da mesma função `initCAD3DModule()` da Aba 2, **sem criar scripts ou escopos adicionais**. Ordem dos fragmentos em `source/html/ABA3/renderers/`:
+
+1. `01-dimensions.js`: cotas compartilhadas (44″ Alpha; 56″ convencional).
+2. `02-alpha-top-view.js`: cópia da cena Three.js Alpha, stencil, câmera e contornos tracejados.
+3. `03-conventional-top-view.js`: sete caminhos SVG do convencional, malas, câmera ortográfica, captura de canvas e cabeçalho.
+
+**Integração:** `ABA2/cad3d.js` mantém a inclusão única de `ABA3/bin-comparison-renderers.js` após `08-controls.js` e antes dos exportadores. Os três fragmentos devem ser concatenados nessa ordem. O `export.js` continua no bloco `<script>` original e agora restaura exatamente os estados prévios de `__novaNoDim`, `__convNoDim` e `__novaK`, inclusive quando antes não existiam; também tenta redesenhar os dois renderizadores separadamente após erros.
+
+**Verificação geométrica:** consulte [`GEOMETRY_AUDIT.md`](source/html/ABA3/GEOMETRY_AUDIT.md). O cálculo visual atual reduz a largura nominal de cada mala convencional em aproximadamente **9.396%** e comprime verticalmente o casco por 11%. A escala e as posições **não foram alteradas** nesta refatoração; a comparação requer revisão de engenharia antes de ser apresentada como demonstração física exata de quatro malas IATA em 56 polegadas.
+
+**Validação de preservação:** a CI verifica a estrutura dos três fragmentos, a sintaxe JS montada e a restauração de estados de exportação. Recomenda-se ainda conferir a Aba 3, o Take 02 e o PNG exportado em navegador com WebGL.
 
 ## Regras importantes
 

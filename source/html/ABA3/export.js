@@ -1,11 +1,18 @@
 
-    // Exporta os dois bins da aba 2 (Alpha + Convencional, com as malas) num único PNG de fundo transparente, sem as cotas.
+    // Aba 3: exporta Alpha, convencional ou ambos num PNG de fundo transparente, sem as cotas.
     window.exportBinsPNG = function (K, which) {   // which: 'alpha' | 'conv' | undefined (os dois)
         K = K || 2.5;   // fator de ampliação em relação ao tamanho na tela
         const boxA = document.getElementById('nova-container'), boxC = document.getElementById('conv-top-container');
         if (!boxC || !window.__convDraw) return;
         if (which === 'alpha' && !window.__novaRender) { alert('Alpha bin is not loaded yet (open this tab with internet so three.js loads).'); return; }
         const saved = [boxA, boxC].map(b => b ? [b, b.style.width, b.style.height] : null).filter(Boolean);
+        // Preserva também a ausência original da propriedade, além de seu valor.
+        const stateKeys = ['__novaNoDim', '__convNoDim', '__novaK'];
+        const previousState = stateKeys.map(key => ({
+            key,
+            present: Object.prototype.hasOwnProperty.call(window, key),
+            value: window[key]
+        }));
         const grab = c => { const t = document.createElement('canvas'); t.width = c.width; t.height = c.height; t.getContext('2d').drawImage(c, 0, 0); return t; };
         let cA = null, cC = null;
         try {
@@ -15,8 +22,13 @@
             if (which !== 'alpha') { window.__convDraw(); cC = grab(window.__convCapture ? window.__convCapture() : document.getElementById('convTopCanvas')); }
         } finally {
             saved.forEach(([b, w, h]) => { b.style.width = w; b.style.height = h; });
-            window.__novaNoDim = false; window.__convNoDim = false; window.__novaK = 1;
-            try { if (window.__novaRender) window.__novaRender(); window.__convDraw(); } catch (e) { }
+            previousState.forEach(({ key, present, value }) => {
+                if (present) window[key] = value;
+                else delete window[key];
+            });
+            // Um renderer com erro não pode impedir a restauração visual do outro.
+            try { if (window.__novaRender) window.__novaRender(); } catch (err) { console.warn('Alpha export restore:', err); }
+            try { window.__convDraw(); } catch (err) { console.warn('Conventional export restore:', err); }
         }
         const bbox = c => {
             const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
