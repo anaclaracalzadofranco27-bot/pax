@@ -112,7 +112,7 @@ const document={
   }};},
   createElement(tag){
     if(tag==='video')return {
-      videoWidth:1920,videoHeight:1080,remove(){this.removed=true;},
+      style:{}, videoWidth:1920,videoHeight:1080,remove(){this.removed=true;},
       async play(){}
     };
     if(tag==='canvas')return {
