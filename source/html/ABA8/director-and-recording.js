@@ -575,7 +575,6 @@
                 if (my !== token) return;
                 const st = STEPS[i];
                 currentTab = st.key;                               // alguns módulos só animam quando "sua" aba está ativa
-                call(st.pre);
                 borrow(st);
                 call(st.enter);                                // prepara o módulo já visível no palco ANTES de iniciar
                 const gap = entryGap; entryGap = 0;
@@ -594,14 +593,11 @@
                 }
                 h0 = 0;
                 if (!started) call(st.start);                  // inicia a animação imediatamente junto com o fade-in (sem travar no 1º frame)
-                call(st.afterIn);
-                if (window.__tourEdge) { const si = i; setTimeout(() => { if (my === token) window.__tourEdge(si, st, 'inicio'); }, st.startSnapMs || 750); }   // foto do COMEÇO (após o fade-in)
                 const completed = await waitFor(st, my);
                 if (my !== token) return;
                 if (!completed) throw new Error('Timeout na etapa ' + (i+1) + ': ' + st.title);
                 await sleep(st.hold);
                 if (my !== token) return;
-                if (window.__tourEdge) window.__tourEdge(i, st, 'fim');   // foto do FINAL (antes de dissolver para a próxima aba)
                 if (i < through) {
                     if (st.key === 'unified') {
                         const ok = await fxCabinToStow(my);
@@ -621,7 +617,9 @@
                 else { await fadeOut(); if (my !== token) return; giveBack(); currentTab = 'tour'; }
             }
             if (my !== token) return;
+            live = false; // o MediaRecorder pode encerrar sem acionar um segundo abort()
             if (window.__tourEnded) await window.__tourEnded();
+            if (my !== token) return;
             frameOn(false);
             btn.textContent = '↻ Run full simulation again'; btn.dataset.mode = 'run'; live = false;
             // Do not loop or restart the full presentation without the user's click.
