@@ -75,6 +75,10 @@ jobs:
               expand("source/html/ABA2/cad3d.js"))
           PY
           node --check /tmp/apha-assembled-cad3d.js
+      - name: Exercise Aba 1 playback, idle RAF, restart, scrubber and tour API
+        run: node tools/test_aba1_playback.js
+      - name: Exercise Aba 1 export concurrency, resource cleanup and failure recovery
+        run: node tools/test_aba1_export.js
       - name: Simulate CAD 3D export failures and state restoration
         run: node tools/test_cad3d_exports.js
       - name: Test Aba 5 door ownership, replay and 4K export recovery
@@ -170,6 +174,10 @@ jobs:
               expand("source/html/ABA2/cad3d.js"))
           PY
           node --check /tmp/apha-assembled-cad3d.js
+      - name: Exercise Aba 1 playback, idle RAF, restart, scrubber and tour API
+        run: node tools/test_aba1_playback.js
+      - name: Exercise Aba 1 export concurrency, resource cleanup and failure recovery
+        run: node tools/test_aba1_export.js
       - name: Simulate CAD 3D export failures and state restoration
         run: node tools/test_cad3d_exports.js
       - name: Test Aba 5 door ownership, replay and 4K export recovery
