@@ -1300,7 +1300,7 @@ window.drawUniReferenceBins = drawReferenceBins;
         // utiliza tamanho e transformacao diferentes da Aba 5 individual.
         let cachedCompletedFuselageArc = null;
         function getCompletedFuselageArc(g, toX, toY, W, H) {
-            const R = g.R, outerR = R + 5.5, N = 90;
+            const R = g.R, outerR = R + APHA_CABIN_GEOMETRY.shellThicknessCm, N = 90;
             const key = [W, H, R, toX(0), toY(0), toX(R), toY(R), toX(-R), toY(-R)].join('|');
             if (cachedCompletedFuselageArc && cachedCompletedFuselageArc.key === key)
                 return cachedCompletedFuselageArc.paths;
@@ -1378,7 +1378,8 @@ window.drawUniReferenceBins = drawReferenceBins;
 
             // Parede dupla (semicírculo): varredura da esquerda para a direita
             {
-                const p = S(0), R_ext = g.R + 5.5, N = 90, th1 = Math.PI * (1 - p);
+                // O arco superior é uma etapa visual distinta do perfil completo: conservar 90 amostras.
+                const p = S(0), R_ext = g.R + APHA_CABIN_GEOMETRY.shellThicknessCm, N = 90, th1 = Math.PI * (1 - p);
                 const pt = (r, th) => [toX(r * Math.cos(th)), toY(r * Math.sin(th))];
                 const th = i => Math.PI - (Math.PI - th1) * i / N;
                 if (p > 0 && FD.arc > 0.001) {
@@ -1397,7 +1398,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                         ctx.closePath();
                         ctx.fill();
                         [g.R, R_ext].forEach(rr => { ctx.beginPath(); for (let i = 0; i <= N; i++) { const [x, y] = pt(rr, th(i)); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); });
-                        const [x, y] = pt(g.R + 2.75, th1);
+                        const [x, y] = pt(g.R + APHA_CABIN_GEOMETRY.shellThicknessCm / 2, th1);
                         ctx.beginPath(); ctx.arc(x, y, 6, 0, 7); ctx.fillStyle = '#2a1dc2'; ctx.fill();
                     }
                     ctx.restore();

@@ -20,8 +20,8 @@
             
             // Snapshot da câmera REAL da Aba 5 para a emenda com a Aba 6.
             window.uniCameraState = (W,H) => cinematicCamera(W,H);
-            const YMIN = -14;                                   // enquadra apenas do piso para cima (sem porão)
-            const m4 = (W, H) => { const sc = Math.min((W - 60) / 380, (H - 50) / (230 - YMIN)), cx = W / 2; return { toX: x => cx + x * sc, toY: y => H - 22 - (y - YMIN) * sc, scale: sc }; };
+            // Projeção física compartilhada (y=0: piso; sem porão na vista).
+            const m4 = mapAphaCabinSection;
             // Referência geométrica compartilhada entre a Aba 5 e a cena biomecânica da Aba 6.
             // A projeção m4 é a mesma usada na planta integrada: y=0 é o piso, em centímetros.
             window.cabinSectionReference = {
@@ -31,23 +31,22 @@
                 wall: APHA_CABIN_GEOMETRY.shellThicknessCm,
                 aisle: APHA_CABIN_GEOMETRY.aisleHalfWidthCm,
                 drawShell(ctx, toX, toY, scale) {
-                    const R = this.R, rOut = R + this.wall, cY = this.centerY;
-                    const aEnd = Math.asin(cY / R), N = 180;
+                    const aEnd = aphaCabinShellEndAngle(), N = 180;
                     const theta = i => Math.PI + aEnd - (Math.PI + 2 * aEnd) * i / N;
-                    // Mesma curvatura da seção CAD e os mesmos prolongamentos laterais
-                    // usados em before() na Aba 5. Exterior inferior avança somente em x.
-                    const pt = (r, a, outer = false) => [
-                        toX(r * Math.cos(a)),
-                        toY(cY + ((outer && Math.sin(a) < 0) ? R : r) * Math.sin(a))
-                    ];
+                    // O perfil completo mantém 180 amostras; utiliza os mesmos
+                    // pontos da parede dupla que a revelação lateral animada.
+                    const pt = (a, outer = false) => {
+                        const [x, y] = aphaCabinShellPoint(a, outer);
+                        return [toX(x), toY(y)];
+                    };
                     ctx.save();
                     ctx.beginPath();
                     for (let i = 0; i <= N; i++) {
-                        const p = pt(R, theta(i));
+                        const p = pt(theta(i));
                         i ? ctx.lineTo(...p) : ctx.moveTo(...p);
                     }
                     for (let i = N; i >= 0; i--) {
-                        const p = pt(rOut, theta(i), true);
+                        const p = pt(theta(i), true);
                         ctx.lineTo(...p);
                     }
                     ctx.closePath();
@@ -58,7 +57,7 @@
                     [false, true].forEach(outer => {
                         ctx.beginPath();
                         for (let i = 0; i <= N; i++) {
-                            const p = pt(outer ? rOut : R, theta(i), outer);
+                            const p = pt(theta(i), outer);
                             i ? ctx.lineTo(...p) : ctx.moveTo(...p);
                         }
                         ctx.stroke();
@@ -83,29 +82,28 @@
                 // recortada no centro da câmera sobre o mesmo canvas.
                 const p = aphaClamp01((U.t - TL.ring) / 0.8);          // trechos laterais da fuselagem até o piso (y=0), sem porão
                 if (p > 0) {
-                    const shellR = APHA_CABIN_GEOMETRY.fuselageRadiusCm;
-                    const shellOuterR = shellR + APHA_CABIN_GEOMETRY.shellThicknessCm;
-                    const aEnd = Math.asin(FC / shellR);
+                    // Revelação lateral: 40 amostras por lado, sem fechar a emenda.
+                    const aEnd = aphaCabinShellEndAngle();
                     const N = 40;
                     [-1, 1].forEach(side => {
                         ctx.save(); ctx.beginPath();
                         for (let i = 0; i <= N; i++) {
                             const a = -aEnd * p * (i / N);
-                            const x = side * shellR * Math.cos(a), y = FC + shellR * Math.sin(a);
+                            const [x, y] = aphaCabinShellPoint(a, false, side);
                             i ? ctx.lineTo(toX(x), toY(y)) : ctx.moveTo(toX(x), toY(y));
                         }
                         for (let i = N; i >= 0; i--) {
                             const a = -aEnd * p * (i / N);
-                            const x = side * shellOuterR * Math.cos(a), y = FC + shellR * Math.sin(a);
+                            const [x, y] = aphaCabinShellPoint(a, true, side);
                             ctx.lineTo(toX(x), toY(y));
                         }
                         ctx.closePath(); ctx.fillStyle = APHA_CABIN_PALETTE.rgba('shellFill', 0.35); ctx.fill();
                         ctx.strokeStyle = APHA_CABIN_PALETTE.shellOutline; ctx.lineWidth = 2.5;
-                        [shellR, shellOuterR].forEach(rx => {   // só as duas paredes (sem a reta horizontal de emenda)
+                        [false, true].forEach(outer => { // as duas bordas, sem reta de emenda
                             ctx.beginPath();
                             for (let i = 0; i <= N; i++) {
                                 const a = -aEnd * p * (i / N);
-                                const x = side * rx * Math.cos(a), y = FC + shellR * Math.sin(a);
+                                const [x, y] = aphaCabinShellPoint(a, outer, side);
                                 i ? ctx.lineTo(toX(x), toY(y)) : ctx.moveTo(toX(x), toY(y));
                             }
                             ctx.stroke();

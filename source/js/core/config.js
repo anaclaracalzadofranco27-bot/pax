@@ -95,6 +95,26 @@
             floorWidthCm: 252, floorThicknessCm: 8
         });
         window.APHA_CABIN_GEOMETRY = APHA_CABIN_GEOMETRY;
+        // Projeção única do plano em centímetros nas Abas 5/6 e na ponte da Aba 8.
+        // As margens, o centro e a referência do piso permanecem idênticos ao m4 original.
+        function mapAphaCabinSection(W, H) {
+            const YMIN = -14;
+            const sc = Math.min((W - 60) / 380, (H - 50) / (230 - YMIN)), cx = W / 2;
+            return { toX: x => cx + x * sc, toY: y => H - 22 - (y - YMIN) * sc, scale: sc };
+        }
+        // Ponto da parede dupla: abaixo do eixo, o exterior só avança em X,
+        // preservando a altura da parede interna na revelação das laterais.
+        function aphaCabinShellEndAngle() {
+            return Math.asin(APHA_CABIN_GEOMETRY.fuselageCenterYCm /
+                             APHA_CABIN_GEOMETRY.fuselageRadiusCm);
+        }
+        function aphaCabinShellPoint(angle, outer = false, side = 1) {
+            const R = APHA_CABIN_GEOMETRY.fuselageRadiusCm;
+            const radius = outer ? R + APHA_CABIN_GEOMETRY.shellThicknessCm : R;
+            const yRadius = outer && Math.sin(angle) < 0 ? R : radius;
+            return [side * radius * Math.cos(angle),
+                    APHA_CABIN_GEOMETRY.fuselageCenterYCm + yRadius * Math.sin(angle)];
+        }
         // Primitiva unica do piso fisico em cm: completa (progress=1)
         // ou revelada do centro durante o take da Aba 5 (0..1).
         function drawAphaCabinFloor(ctx, toX, toY, scale, progress = 1) {

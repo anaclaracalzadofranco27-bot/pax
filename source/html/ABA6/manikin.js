@@ -961,11 +961,8 @@
         }
         function drawManikinPanel(ctx, W, H, stature, mass, angleDeg, Fg, Fn, Ft, phase, tBack, tFront, title) {
             const cabin = window.cabinSectionReference;
-            // Durante a inicialização, preservar a mesma fórmula m4 da Aba 5.
-            const map = cabin ? cabin.map(W, H) : (() => {
-                const sc = Math.min((W - 60) / 380, (H - 50) / 244), cx = W / 2;
-                return { toX: x => cx + x * sc, toY: y => H - 22 - (y + 14) * sc, scale: sc };
-            })();
+            // A referência e o fallback usam a projeção única, mesmo antes da Aba 5 iniciar.
+            const map = cabin ? cabin.map(W, H) : mapAphaCabinSection(W, H);
             const { toX, toY, scale } = map;
             const R = cabin ? cabin.R : APHA_CABIN_GEOMETRY.fuselageRadiusCm;
             const centerY = cabin ? cabin.centerY : APHA_CABIN_GEOMETRY.fuselageCenterYCm;
@@ -1239,8 +1236,8 @@
                 if (window.cabinSectionReference) map = window.cabinSectionReference.map(W, H);
             } catch (_) { /* O fallback não deve depender de geometria CAD. */ }
             if (!map || !Number.isFinite(map.scale) || typeof map.toX !== 'function' || typeof map.toY !== 'function') {
-                const sc = Math.min((W - 60) / 380, (H - 50) / 244), cx = W / 2;
-                map = { toX: x => cx + x * sc, toY: y => H - 22 - (y + 14) * sc, scale: sc };
+                // Fallback robusto: mesma projeção sem exigir o controlador da Aba 5.
+                map = mapAphaCabinSection(W, H);
             }
             const { toX, toY, scale } = map;
             const P = (x, y) => [toX(x), toY(y)];
