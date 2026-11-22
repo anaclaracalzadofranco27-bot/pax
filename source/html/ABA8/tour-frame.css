@@ -1,4 +1,4 @@
-        /* ===== Quadro e Moldura da Simulação Completa (Aba 6) ===== */
+        /* ===== Quadro e moldura da Simulação Geral (Aba 8) ===== */
         .tw-corner{position:absolute;width:22px;height:22px;z-index:4;border:2px solid rgba(91,123,158,0.7);pointer-events:none}
         .tour-frame .c1{top:8px;left:8px;border-right:0;border-bottom:0}.tour-frame .c2{top:8px;right:8px;border-left:0;border-bottom:0}
         .tour-frame .c3{bottom:8px;left:8px;border-right:0;border-top:0}.tour-frame .c4{bottom:8px;right:8px;border-left:0;border-top:0}
@@ -8,14 +8,12 @@
         #tour-stage.tour-frame.on{display:block}
         #tour-stage .sim-bg{background:none}            /* a malha única do quadro aparece atrás de todas as simulações */
         .tour-frame .sim-card{background:transparent}
-        /* Aba 1 (CAD 3D) no roteiro: sem moldura do viewport, sem botões Iniciar/Restart/Open Door e sem a legenda */
+        /* Aba 2 (CAD 3D) no roteiro: sem moldura do viewport, sem botões Iniciar/Restart/Open Door e sem a legenda */
         #tour-stage #module-cad3d .sim-card{border:0;border-radius:0;box-shadow:none;background:transparent}
-        #tour-stage #module-cad3d .sim-card > div:first-child{border-bottom:0;background:transparent}
-        #tour-stage #cad3d-export{display:none}
         #tour-stage #cad3d-startSim,#tour-stage #cad3d-resetSim,#tour-stage #cad3d-toggleDoor{display:none}
         #tour-stage #cad3d-container > .absolute{display:none}
 
-        /* Aba 1 (CAD 3D) no roteiro/vídeo: SOMENTE o bin 3D com as malas + os 2 balões (sem painéis, títulos, botões, Standards ou legendas) */
+        /* Aba 2 (CAD 3D) no roteiro/vídeo: SOMENTE o bin 3D com as malas + os 2 balões (sem painéis, títulos, botões, Standards ou legendas) */
         #tour-stage #module-cad3d > div:first-child{display:none !important}
         #tour-stage #module-cad3d .sim-card{margin:0 !important;overflow:visible}
         #tour-stage #module-cad3d .sim-card > div:first-child{display:none !important}

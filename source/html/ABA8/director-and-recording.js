@@ -13,7 +13,6 @@
         const STEPS = [
             { key: 'pax', sec: 'module-pax', title: '1. Boarding Bridge – Passengers Walking', hold: 200, timeout: 45000, noFit: true,   // alerta OVERHEAD BINS FULL parado só ~2 s
               overlapMs: APHA_INTRO_CFG.crossfadeMs,             // sobreposição entre avião e bin, sem frame escuro
-              morphOut: null,                                    // avião e CAD trocam opacidade simultaneamente
               keepAlive: true,                                   // move o módulo sem recarregar o iframe (moveBefore), quando o navegador permite
               enter: () => { call(window.paxEnter); call(window.paxTourReset); },
               start: () => call(window.paxTourStart),
@@ -29,12 +28,11 @@
               enter: () => call(window.cad3dTourPrep),
               start: () => call(window.startCAD3DSim),
               done: () => /Replay|Repetir/.test($('cad3d-startSim').textContent) },
-            { key: 'nova', sec: 'module-nova', title: '3. Bin Top View', hold: 2000, timeout: 8000, startSnapMs: 1700,
+            { key: 'nova', sec: 'module-nova', title: '3. Bin Top View', hold: 2000, timeout: 8000,
               morphIn: my => fxNovaIn(my),                       // bin Alpha fixo no lugar → bin convencional ao lado → cotas junto com os nomes
               after: () => fxNovaClean(),
               overlapMs: 1400,                                   // a comparação some devagar enquanto a planta da aeronave surge
               enter: () => call(window.novaEnter),
-              start: () => call(window.novaEnter),
               done: () => true },
             { key: 'topview', sec: 'module-topview', title: '4. Top View – Volumetric Advantage', hold: 300, timeout: 60000,
               morphIn: (my, prev) => fxTopIn(my, 1400),          // planta surge no mesmo ritmo; depois abrem as cotas e a cabine se enche de bins
@@ -78,21 +76,28 @@
 
         // ---- transições cinematográficas (Simulação Completa e vídeo) ----
         // Câmera sempre parada: as trocas são feitas com luz e opacidade. A malha do fundo (#tour-stage) nunca se move nem muda de tamanho.
-        const fx = {};
         const tween = (ms, my, fn) => new Promise(res => {                               // fn(u) a cada quadro; u de 0 a 1
             const t0 = performance.now();
             const f = now => { if (my !== token) { res(false); return; } const u = Math.min(1, (now - t0) / ms); fn(u); if (u < 1) requestAnimationFrame(f); else res(true); };
             requestAnimationFrame(f);
         });
         const ezo = x => 1 - Math.pow(1 - x, 2);
-        // Verificação subpixel da matriz de câmera na junção dos dois atos.
-        function verifyBridgeSeam(b){
-            const m=b.lastRendered || b.end;
-            for(const [x,y] of [[0,0],[b.baseW/2,b.baseH/2],[b.baseW*.63,b.baseH*.22]]){
-                const a=[m.k*x+m.tx,m.k*y+m.ty];
-                const c=[b.end.k*x+b.end.tx,b.end.k*y+b.end.ty];
-                console.assert(Math.hypot(a[0]-c[0],a[1]-c[1])<.01,'Discontinuity at cabin seam');
+        // Verificação numérica subpixel da câmera no último/primeiro quadro.
+        function verifyBridgeSeam(b) {
+            const cameras = [b.start, b.end, b.lastRendered];
+            if (cameras.some(m => !m || !Number.isFinite(m.k) || m.k <= 0 ||
+                !Number.isFinite(m.tx) || !Number.isFinite(m.ty)) ||
+                !(b.baseW > 0 && b.baseH > 0)) {
+                throw new Error('Aba 5 → 6: matriz ou dimensões inválidas');
             }
+            for (const [x,y] of [[0,0],[b.baseW/2,b.baseH/2],[b.baseW*.63,b.baseH*.22]]) {
+                const a = [b.lastRendered.k*x+b.lastRendered.tx,b.lastRendered.k*y+b.lastRendered.ty];
+                const c = [b.end.k*x+b.end.tx,b.end.k*y+b.end.ty];
+                if (Math.hypot(a[0]-c[0],a[1]-c[1]) > .01) {
+                    throw new Error('Aba 5 → 6: descontinuidade da câmera');
+                }
+            }
+            return true;
         }
 
         // UMA cena m4, UMA matriz de escala+translação e UM canvas contínuo.
@@ -136,7 +141,6 @@
             }
             g.setTransform(dpr,0,0,dpr,0,0);
             // O #tour-stage mantém a malha e a cor por trás do canvas móvel.
-            drawUnifiedCabinBackground(g, W, H, { tour: true });
             // O CAD da Aba 5 e o renderizador do manikin não têm os mesmos
             // paths. Usar o frame real final do CAD, movendo-o pela MESMA
             // matriz, evita o corte visual ao trocar de renderizador.
@@ -188,7 +192,6 @@
                     if (typeof g.reset === 'function') g.reset();
                     else b.canvas.width = b.canvas.width;
                     g.setTransform(dpr,0,0,dpr,0,0);
-                    drawUnifiedCabinBackground(g,W,H,{tour:true});
                     g.save();
                     try {
                         g.transform(m.k,0,0,m.k,m.tx,m.ty);
@@ -251,6 +254,8 @@
                 console.warn('Aba 5 source frame capture unavailable:',err);
                 snapshot=null;
             }
+            if (![start.k,start.tx,start.ty,end.k,end.tx,end.ty].every(Number.isFinite) ||
+                start.k<=0 || end.k<=0) throw new Error('Aba 5 → 6: câmera inválida');
             const canvas=document.createElement('canvas');
             canvas.id='apha-continuous-cabin';
             canvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:12;pointer-events:none;opacity:1';
@@ -271,8 +276,12 @@
                 paintBridge(now);bridge.raf=requestAnimationFrame(tick);
             }
             bridge.raf=requestAnimationFrame(tick);
-            const ok=await tween(C.zoomOutMs,my,()=>{});
-            if(!ok){destroyBridge();return false;}
+            // O RAF da ponte já desenha os quadros: aguardar sem agendar RAF vazio.
+            await sleep(C.zoomOutMs);
+            if(my!==token || !bridge || bridge.canvas!==canvas){
+                if(bridge && bridge.canvas===canvas) destroyBridge();
+                return false;
+            }
             // Mantém o mesmo canvas e a mesma projeção m4 no frame de junção.
             // Renderiza explicitamente o frame terminal da câmera antes de
             // mudar somente a camada de personagem (sem mudar a matriz).
@@ -283,7 +292,6 @@
             return true;
         }
 
-        function fxClear() {}
         // Enquadra cada módulo no palco 16:9 sem cortar conteúdo horizontal ou vertical.
         // O tempo de cada etapa e a geometria interna permanecem inalterados.
         function fitRec(sec, step) {
@@ -305,23 +313,46 @@
         // Converter pixels visuais de getBoundingClientRect em pixels CSS locais
         // evita diferenças de enquadramento sob escala/zoom na prévia ou na gravação.
         function measureNovaCol() {
-            const sec = $('module-nova'), ph = document.createComment('m'), cs = getComputedStyle(stage);
-            call(window.novaShowHeader, false, true);            // zera eventual título de take anterior, sem piscar
-            sec.parentNode.insertBefore(ph, sec); stage.appendChild(sec); sec.classList.remove('hidden');
-            Object.assign(sec.style, { position: 'absolute', top: cs.paddingTop, left: cs.paddingLeft, right: cs.paddingRight, visibility: 'hidden' });
-            fitRec(sec, { key: 'nova' });
-            // Inicializa o WebGL e prepara o primeiro frame ainda com a aba invisível.
-            call(window.novaEnter);
-            const r = $('nova-container').getBoundingClientRect(), c = $('cad3d-container').getBoundingClientRect();
-            const vw=$('cad3d-container').clientWidth, vh=$('cad3d-container').clientHeight;
-            const sx=c.width/Math.max(1,vw), sy=c.height/Math.max(1,vh);
-            const target={
-                w:r.width/sx, h:r.height/sy,
-                cx:(r.left+r.width/2-c.left)/sx,
-                cy:(r.top+r.height/2-c.top)/sy
-            };
-            clearSec(sec); sec.style.visibility = ''; sec.classList.add('hidden'); ph.parentNode.insertBefore(sec, ph); ph.remove();
-            return target;
+            const sec = $('module-nova');
+            if (!sec || !sec.parentNode) throw new Error('Aba 3: módulo ausente para medição');
+            const ph = document.createComment('m');
+            const originalStyle = sec.getAttribute('style');
+            const wasHidden = sec.classList.contains('hidden');
+            const cs = getComputedStyle(stage);
+            sec.parentNode.insertBefore(ph, sec);
+            try {
+                stage.appendChild(sec);
+                sec.classList.remove('hidden');
+                Object.assign(sec.style, {
+                    position: 'absolute', top: cs.paddingTop, left: cs.paddingLeft,
+                    right: cs.paddingRight, visibility: 'hidden'
+                });
+                fitRec(sec, { key: 'nova' });
+                call(window.novaShowHeader, false, true);
+                call(window.novaEnter);
+                const alpha = $('nova-container'), cad = $('cad3d-container');
+                if (!alpha || !cad) throw new Error('Aba 3: contêiner de medida ausente');
+                const r = alpha.getBoundingClientRect(), c = cad.getBoundingClientRect();
+                const vw = cad.clientWidth, vh = cad.clientHeight;
+                if (vw <= 0 || vh <= 0 || c.width <= 0 || c.height <= 0 || r.width <= 0 || r.height <= 0) {
+                    throw new Error('Aba 3: viewport inválido na medição');
+                }
+                const sx = c.width / vw, sy = c.height / vh;
+                return {
+                    w: r.width / sx, h: r.height / sy,
+                    cx: (r.left + r.width / 2 - c.left) / sx,
+                    cy: (r.top + r.height / 2 - c.top) / sy
+                };
+            } finally {
+                // Falha no WebGL ou na medição nunca deixa a Aba 3 emprestada.
+                if (originalStyle === null) sec.removeAttribute('style');
+                else sec.setAttribute('style', originalStyle);
+                sec.classList.toggle('hidden', wasHidden);
+                if (ph.parentNode) {
+                    place(ph.parentNode, sec, ph, false);
+                    ph.remove();
+                }
+            }
         }
         // 3: o bin Alpha aparece sozinho, no ponto exato em que a transição do CAD 3D terminou; depois o convencional ao lado; por fim cotas + nomes
         async function fxNovaIn(my) {
@@ -330,7 +361,6 @@
             const dim = $('novaDimCanvas'), cvc = $('convDimCanvas');
             call(window.novaShowHeader,false,true);
             fitRec(sec, active.step);
-            call(window.novaEnter);
             // As duas cotas permanecem nos canvases originais: não criar cópias
             // temporárias que possam deixar o Conventional sem sua cota.
             window.__convNoDim = false; call(window.__convDraw);
@@ -340,9 +370,9 @@
             hide([dim, lab0, lab1, c1], '0'); hide([c0], '0'); sec.style.opacity = '1'; void sec.offsetHeight;
             const show = (els, ms) => els.forEach(el => { el.style.transition = `opacity ${ms / 1000}s ease-in-out`; el.style.opacity = '1'; });
             show([c0], 1100);                                    // o Alpha entra exatamente sobre o último frame 3D, sem pulo visual
-            if (!(await tween(1100 + 200, my, () => {}))) return true;
+            if (!(await tween(1100 + 200, my, () => {}))) return false;
             show([c1], 650);                                     // bin convencional ao lado
-            if (!(await tween(650 + 200, my, () => {}))) return true;
+            if (!(await tween(650 + 200, my, () => {}))) return false;
             show([dim, cvc, lab0, lab1], 550);                    // cotas 44" / 56" junto com os nomes ALPHA / CONVENTIONAL
             await tween(550, my, () => {});
             call(window.novaShowHeader,true);
@@ -364,11 +394,11 @@
             fitRec(sec, active.step);
             sec.style.transition = 'none'; sec.style.opacity = '0'; void sec.offsetHeight;
             sec.style.transition = `opacity ${ms / 1000}s ease-in-out`; sec.style.opacity = '1';
-            if (!(await tween(ms, my, () => {}))) return true;
+            if (!(await tween(ms, my, () => {}))) return false;
             sec.style.transition = '';
             const ov = { dims: 0, bins: 0, names: 0 };
-            if (!(await tween(750, my, u => { ov.dims = ov.names = ezo(u); call(window.topSetOv, ov); }))) return true;   // cotas + nomes
-            if (!(await tween(1300, my, u => { ov.bins = u; call(window.topSetOv, ov); }))) return true;                // fileira de bins, do nariz para a cauda
+            if (!(await tween(750, my, u => { ov.dims = ov.names = ezo(u); call(window.topSetOv, ov); }))) return false;   // cotas + nomes
+            if (!(await tween(1300, my, u => { ov.bins = u; call(window.topSetOv, ov); }))) return false;                // fileira de bins, do nariz para a cauda
             call(window.topSetOv, null);
             call(window.topTourStartAt, 2.3);                   // mesmo estado (todos os bins e cotas): segue para o corte S e o detalhe
             return true;
@@ -377,7 +407,7 @@
         async function fxUniIn(my, waitMs) {
             const sec = active.sec;
             sec.style.transition = 'none'; sec.style.opacity = '0'; void sec.offsetHeight;
-            if (!(await tween(waitMs, my, () => {}))) return true;
+            if (!(await tween(waitMs, my, () => {}))) return false;
             sec.style.transition = 'opacity .6s ease-in-out'; sec.style.opacity = '1';
             call(window.uniTourStart);
             return true;
@@ -406,13 +436,12 @@
         function release(e) {
             const { sec, ph } = e;
             clearSec(sec); clearCols(sec);
-            if (e.step.key === 'cad3d') call(window.cad3dMorphReset);   // devolve materiais/câmera ao estado normal da aba 1
+            if (e.step.key === 'cad3d') call(window.cad3dMorphReset);   // devolve materiais/câmera ao estado normal da Aba 2
             sec.classList.add('hidden');
             if (ph.parentNode) { place(ph.parentNode, sec, ph, e.step.keepAlive); ph.remove(); }
             call(e.step.after);
         }
         function giveBack() {
-            fxClear();
             if (outgoing) { const o = outgoing; outgoing = null; release(o); }
             if (!active) return;
             const e = active; active = null;
@@ -540,12 +569,12 @@
             btn.textContent = '■ Stop'; btn.dataset.mode = 'stop';
             stage.style.transition = 'none'; stage.style.opacity = '1';
             frameOn(true);
+            try {
             let h0 = 0;                                        // altura do quadro no passo anterior (0 = primeiro passo)
             for (let i = from; i <= Math.min(through, STEPS.length - 1); i++) {
                 if (my !== token) return;
                 const st = STEPS[i];
                 currentTab = st.key;                               // alguns módulos só animam quando "sua" aba está ativa
-                call(st.pre);
                 borrow(st);
                 call(st.enter);                                // prepara o módulo já visível no palco ANTES de iniciar
                 const gap = entryGap; entryGap = 0;
@@ -564,13 +593,11 @@
                 }
                 h0 = 0;
                 if (!started) call(st.start);                  // inicia a animação imediatamente junto com o fade-in (sem travar no 1º frame)
-                call(st.afterIn);
-                if (window.__tourEdge) { const si = i; setTimeout(() => { if (my === token) window.__tourEdge(si, st, 'inicio'); }, st.startSnapMs || 750); }   // foto do COMEÇO (após o fade-in)
-                await waitFor(st, my);
+                const completed = await waitFor(st, my);
                 if (my !== token) return;
+                if (!completed) throw new Error('Timeout na etapa ' + (i+1) + ': ' + st.title);
                 await sleep(st.hold);
                 if (my !== token) return;
-                if (window.__tourEdge) window.__tourEdge(i, st, 'fim');   // foto do FINAL (antes de dissolver para a próxima aba)
                 if (i < through) {
                     if (st.key === 'unified') {
                         const ok = await fxCabinToStow(my);
@@ -590,48 +617,98 @@
                 else { await fadeOut(); if (my !== token) return; giveBack(); currentTab = 'tour'; }
             }
             if (my !== token) return;
+            live = false; // o MediaRecorder pode encerrar sem acionar um segundo abort()
             if (window.__tourEnded) await window.__tourEnded();
+            if (my !== token) return;
             frameOn(false);
             btn.textContent = '↻ Run full simulation again'; btn.dataset.mode = 'run'; live = false;
             // Do not loop or restart the full presentation without the user's click.
+            } catch (err) {
+                if (my !== token) return;
+                console.error('Aba 8: falha na sequência:', err);
+                abort(err);
+                alert('A simulação foi interrompida: ' + (err && err.message || err));
+            }
         }
-        function abort() {
-            if (!live && !active) return;                       // nada rodando: não mexe em nada
+        function abort(error = null) {
+            if (!live && !active && !outgoing && !bridge) return;
+            if (error && rec) rec.discard = true;
             live = false; token++; destroyBridge(); giveBack(); currentTab = 'tour'; frameOn(false);
-            if (window.__tourEnded) window.__tourEnded();
+            if (window.__tourEnded) {
+                Promise.resolve().then(() => window.__tourEnded())
+                    .catch(e => console.warn('Erro ao encerrar captura:', e));
+            }
             btn.textContent = '▶ Run full simulation'; btn.dataset.mode = 'run';
             stage.style.transition = 'none'; stage.style.opacity = '1';
         }
 
         btn.addEventListener('click', () => { if (btn.dataset.mode === 'stop') abort(); else run(0); });
         document.querySelectorAll('#tour-takes [data-take-play]').forEach(b => b.addEventListener('click', () => {
-            if (rec) return;
+            if (rec || capturePending) return;
             const take=TOUR_TAKES[Number(b.dataset.takePlay)];
             if(take) run(take.start,take.end,take.mode);
         }));
 
-        // ---- exportar vídeo: grava o quadro com suporte universal (file://, Guia, Janela ou Tela Cheia) em 1920x1080 ----
+        // ---- gravação Full HD: aquisição, renderização e recuperação centralizadas ----
         const recBtn = $('tour-rec');
-        let rec = null;
-        function stopRec() {
-            if (!rec) return;
-            const r = rec;
+        let rec = null, capturePending = false;
+        const REC_FPS = 30, REC_BPS = 10e6;
+
+        function setCapturePending(pending) {
+            recBtn.disabled = pending;
+            document.querySelectorAll('#tour-takes [data-take-rec]').forEach(b => { b.disabled = pending; });
+        }
+        function cleanupRecording(r) {
+            if (!r || r.cleaned) return;
+            r.cleaned = true;
+            if (rec === r) rec = null; // evita reentrância quando as tracks terminarem
             if (r.timer) { clearInterval(r.timer); r.timer = null; }
+            if (r.cropCache) r.cropCache.dispose();
+            if (r.video) {
+                r.video.srcObject = null;
+                r.video.remove();
+                r.video = null;
+            }
+            const streams = new Set([r.captureStream, r.stream]);
+            for (const stream of streams) {
+                if (stream && typeof stream.getTracks === 'function') {
+                    stream.getTracks().forEach(track => {
+                        try { track.stop(); } catch (e) { console.warn('Track cleanup:', e); }
+                    });
+                }
+            }
+            document.body.classList.remove('rec-clean');
+            document.body.style.removeProperty('--rec-w');
+            stage.classList.remove('rec');
+            stage.style.removeProperty('--rec-w');
+            stage.style.removeProperty('--rec-h');
+            recBtn.classList.remove('on');
+            recBtn.textContent = '⏺ Export video (MP4)';
+            setCapturePending(false);
+            if (liveFit) fitFrame(false);
+            if (!live) frameOn(false);
+        }
+        function stopRec() {
+            const r = rec;
+            if (!r) return;
             if (r.mr && r.mr.state !== 'inactive') {
                 try { r.mr.requestData(); } catch (e) {}
-                try { r.mr.stop(); } catch (e) {}
-            }
+                try { r.mr.stop(); } catch (e) {
+                    console.warn('MediaRecorder stop:', e);
+                    cleanupRecording(r);
+                }
+            } else cleanupRecording(r);
         }
         window.__stopTourRec = () => { if (rec) { stopRec(); abort(); } };
         window.__tourEnded = async () => {
-            if (!rec) return;
+            const r = rec;
+            if (!r) return;
             await sleep(350);
+            if (rec !== r) return;
             stopRec();
             await sleep(250);
         };
         async function suppressRecordedCursor(track) {
-            // Pede ao navegador para excluir o ponteiro quando a superfície oferecer suporte.
-            // Fallback: a classe rec-clean oculta o cursor no conteúdo HTML da guia.
             try {
                 const caps = typeof track.getCapabilities === 'function' ? track.getCapabilities() : null;
                 if (caps && Array.isArray(caps.cursor) && caps.cursor.includes('never') &&
@@ -642,183 +719,212 @@
                 console.info('Cursor suppression delegated to CSS/browser:', e);
             }
         }
+
+        // Recorte validado: nenhum drawImage com área zero, negativa ou NaN.
+        function computeCaptureGeometry(vw, vh, cropped, surf, rect, windowW, windowH) {
+            if (![vw, vh].every(n => Number.isFinite(n) && n > 0)) return null;
+            let sx = 0, sy = 0, sw = vw, sh = vh;
+            if (!cropped && surf === 'browser' && rect && windowW > 0 && windowH > 0 &&
+                rect.width > 50 && rect.height > 50) {
+                const kx = vw / windowW, ky = vh / windowH;
+                sx = Math.max(0, Math.min(vw - 1, Math.round(rect.left * kx)));
+                sy = Math.max(0, Math.min(vh - 1, Math.round(rect.top * ky)));
+                sw = Math.max(1, Math.min(vw - sx, Math.round(rect.width * kx)));
+                sh = Math.max(1, Math.min(vh - sy, Math.round(rect.height * ky)));
+            }
+            const OW = 1920, OH = 1080;
+            const k = Math.min(OW / sw, OH / sh);
+            if (!Number.isFinite(k) || k <= 0) return null;
+            const dw = Math.round(sw * k), dh = Math.round(sh * k);
+            return { sx, sy, sw, sh, dx: Math.round((OW - dw) / 2),
+                     dy: Math.round((OH - dh) / 2), dw, dh };
+        }
+        // Lê o retângulo do palco uma vez; recalcula só em alterações de layout.
+        function captureGeometryCache(video, cropped, surf) {
+            let cached = null, lastW = 0, lastH = 0;
+            const invalidate = () => { cached = null; };
+            window.addEventListener('resize', invalidate);
+            window.addEventListener('scroll', invalidate, true);
+            const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(invalidate) : null;
+            if (observer) observer.observe(stage);
+            return {
+                get() {
+                    const vw = video.videoWidth, vh = video.videoHeight;
+                    if (!cached || vw !== lastW || vh !== lastH) {
+                        lastW = vw; lastH = vh;
+                        const rect = (!cropped && surf === 'browser') ? stage.getBoundingClientRect() : null;
+                        cached = computeCaptureGeometry(vw, vh, cropped, surf, rect,
+                            window.innerWidth, window.innerHeight);
+                    }
+                    return cached;
+                },
+                dispose() {
+                    if (observer) observer.disconnect();
+                    window.removeEventListener('resize', invalidate);
+                    window.removeEventListener('scroll', invalidate, true);
+                }
+            };
+        }
+
         async function startRec(takeIndex = null) {
+            if (capturePending) return; // uma única permissão de captura pendente
             if (rec) { stopRec(); abort(); return; }
-            const selectedTake = Number.isInteger(takeIndex) && takeIndex >= 0 && takeIndex < TOUR_TAKES.length ? TOUR_TAKES[takeIndex] : null;
+            const selectedTake = Number.isInteger(takeIndex) && takeIndex >= 0 && takeIndex < TOUR_TAKES.length
+                ? TOUR_TAKES[takeIndex] : null;
             if (!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) || !window.MediaRecorder) {
-                alert('Video export requires the Google Chrome or Microsoft Edge browser (open the HTML file directly in the browser).');
+                alert('Video export requires Google Chrome or Microsoft Edge.');
                 return;
             }
-            let stream;
+            if (live) abort();
+            capturePending = true;
+            setCapturePending(true);
+            const r = { stream: null, captureStream: null, video: null, timer: null,
+                        mr: null, cropCache: null, discard: false, cleaned: false };
             try {
-                stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { frameRate: { ideal: 30, max: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 }, aspectRatio: { ideal: 16 / 9 }, cursor: 'never' },
-                    audio: false,
-                    preferCurrentTab: true,
-                    selfBrowserSurface: 'include',
+                r.stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { frameRate: { ideal: 30, max: 60 }, width: { ideal: 1920 },
+                             height: { ideal: 1080 }, aspectRatio: { ideal: 16 / 9 }, cursor: 'never' },
+                    audio: false, preferCurrentTab: true, selfBrowserSurface: 'include',
                     surfaceSwitching: 'include'
                 });
-            } catch (e) {
-                if (e && e.name !== 'NotAllowedError' && e.name !== 'AbortError') {
-                    alert('Could not start screen capture (' + (e.message || e.name) + '). Open the HTML file directly in a Chrome or Edge tab.');
-                }
-                return;
-            }
-            const track = stream.getVideoTracks()[0];
-            if (!track) { stream.getTracks().forEach(t => t.stop()); return; }
-            await suppressRecordedCursor(track);
+                const track = r.stream.getVideoTracks()[0];
+                if (!track) throw new Error('A captura não forneceu vídeo');
+                rec = r; // todas as falhas posteriores passam pela limpeza comum
+                track.addEventListener('ended', () => {
+                    if (rec !== r || r.cleaned) return;
+                    stopRec();
+                    abort();
+                });
+                await suppressRecordedCursor(track);
+                if (r.cleaned) return;
+                document.body.classList.add('rec-clean');
+                const recW = frameWidth(true), recH = recW * 9 / 16;
+                fitFrame(false);
+                stage.style.setProperty('--rec-w', recW + 'px');
+                stage.style.setProperty('--rec-h', recH + 'px');
+                document.body.style.setProperty('--rec-w', recW + 'px');
+                stage.classList.add('rec');
+                frameOn(true);
+                await sleep(250);
+                if (r.cleaned) return;
 
-            // Ativa modo gravação limpo (sem cabeçalho fixo e com altura par garantida)
-            document.body.classList.add('rec-clean');
-            // Gravação: o quadro 16:9 fica menor do que a janela, com margem de segurança,
-            // respeitando o ajuste selecionado pelo usuário antes de iniciar o MP4.
-            const recW = frameWidth(true);
-            const recH = recW * 9 / 16;
-            fitFrame(false);                                            // sai do quadro fixo da tela; a gravação define o próprio tamanho
-            stage.style.setProperty('--rec-w', recW + 'px');
-            stage.style.setProperty('--rec-h', recH + 'px');
-            document.body.style.setProperty('--rec-w', recW + 'px');
-            stage.classList.add('rec');
-            // Exibir e dimensionar o palco ANTES do CropTarget e do MediaRecorder.
-            // A primeira cena começa SOMENTE depois do recorder.start(), evitando
-            // que o vídeo da logo, que é curto, perca os primeiros keyframes.
-            frameOn(true);
-            await sleep(250);
-
-            // Tenta recortar apenas o #tour-stage via Region Capture (funciona ao compartilhar Guia);
-            // se estiver em file:// ou capturando Janela/Tela Inteira, continua sem abortar!
-            let croppedByBrowser = false;
-            if (window.CropTarget && typeof track.cropTo === 'function') {
-                try {
-                    const ct = await CropTarget.fromElement(stage);
-                    await track.cropTo(ct);
-                    croppedByBrowser = true;
-                } catch (e) {
-                    console.warn('Region Capture (cropTo) unavailable in this capture mode; using 1080p Canvas compositor:', e);
-                }
-            }
-
-            // Pipeline de composição 1920x1080 (dimensões pares fixas evitam falha no encoder H.264/MP4)
-            const recVideo = document.createElement('video');
-            recVideo.style.cssText = 'position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:0.01;pointer-events:none;z-index:-1;';
-            recVideo.muted = true;
-            recVideo.playsInline = true;
-            recVideo.srcObject = stream;
-            document.body.appendChild(recVideo);
-            try { await recVideo.play(); } catch (e) {}
-            for (let w = 0; w < 20 && !recVideo.videoWidth; w++) await sleep(50);
-
-            const surf = (track.getSettings && track.getSettings().displaySurface) || '';
-            const REC_FPS = 30;
-
-            // área de origem a gravar (o quadro do roteiro)
-            function cropRect() {
-                const vw = recVideo.videoWidth, vh = recVideo.videoHeight;
-                let sx = 0, sy = 0, sw = vw, sh = vh;
-                // Se capturou a guia sem CropTarget, recorta exatamente nas coordenadas do #tour-stage
-                if (!croppedByBrowser && surf === 'browser' && window.innerWidth > 0 && window.innerHeight > 0) {
-                    const r = stage.getBoundingClientRect();
-                    if (r.width > 50 && r.height > 50) {
-                        const scaleX = vw / window.innerWidth, scaleY = vh / window.innerHeight;
-                        sx = Math.max(0, Math.round(r.left * scaleX));
-                        sy = Math.max(0, Math.round(r.top * scaleY));
-                        sw = Math.min(vw - sx, Math.round(r.width * scaleX));
-                        sh = Math.min(vh - sy, Math.round(r.height * scaleY));
+                let croppedByBrowser = false;
+                if (window.CropTarget && typeof track.cropTo === 'function') {
+                    try {
+                        await track.cropTo(await CropTarget.fromElement(stage));
+                        croppedByBrowser = true;
+                    } catch (e) {
+                        console.warn('Region Capture unavailable; using canvas crop:', e);
                     }
                 }
-                return { sx, sy, sw, sh };
-            }
+                if (r.cleaned) return;
+                const video = document.createElement('video');
+                r.video = video;
+                video.style.cssText = 'position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:0.01;pointer-events:none;z-index:-1;';
+                video.muted = true; video.playsInline = true;
+                video.srcObject = r.stream;
+                document.body.appendChild(video);
+                try { await video.play(); } catch (e) {}
+                for (let w = 0; w < 20 && !video.videoWidth && !r.cleaned; w++) await sleep(50);
+                if (r.cleaned) return;
 
-            // Resolução de saída fixa em Full HD (estável).
-            const OW = 1920, OH = 1080;   // dimensões pares fixas (evita falha no encoder H.264/MP4)
-            const recCanvas = document.createElement('canvas');
-            recCanvas.width = OW;
-            recCanvas.height = OH;
-            const recCtx = recCanvas.getContext('2d', { alpha: false });
-            recCtx.imageSmoothingEnabled = true; recCtx.imageSmoothingQuality = 'high';
-
-            function drawRecFrame() {
-                const vw = recVideo.videoWidth, vh = recVideo.videoHeight;
-                if (!vw || !vh) return;
-                recCtx.fillStyle = APHA_CABIN_PALETTE.background;
-                recCtx.fillRect(0, 0, OW, OH);
-                const { sx, sy, sw, sh } = cropRect();
-                const scale = Math.min(OW / sw, OH / sh);
-                const dw = Math.round(sw * scale), dh = Math.round(sh * scale);
-                const dx = Math.round((OW - dw) / 2), dy = Math.round((OH - dh) / 2);
-                recCtx.drawImage(recVideo, sx, sy, sw, sh, dx, dy, dw, dh);
-            }
-            drawRecFrame();
-            const timer = setInterval(drawRecFrame, Math.round(1000 / REC_FPS));
-            const recStream = (recVideo.videoWidth > 0 && recCanvas.captureStream) ? recCanvas.captureStream(REC_FPS) : stream;
-            const REC_BPS = 10e6;   // 10 Mbps (limite do perfil H.264 Baseline nível 3.0); 8 Mbps era o valor original
-
-            const mimeList = [
-                'video/mp4;codecs=avc1.42E01E',
-                'video/mp4;codecs=avc1',
-                'video/mp4',
-                'video/webm;codecs=vp9',
-                'video/webm;codecs=vp8',
-                'video/webm'
-            ].filter(m => MediaRecorder.isTypeSupported(m));
-
-            let mr = null, chosenMime = '';
-            for (const m of mimeList) {
-                try {
-                    mr = new MediaRecorder(recStream, { mimeType: m, videoBitsPerSecond: REC_BPS });
-                    chosenMime = m;
-                    break;
-                } catch (e) {}
-            }
-            if (!mr) {
-                try { mr = new MediaRecorder(recStream); chosenMime = mr.mimeType || 'video/webm'; }
-                catch (e) {
-                    clearInterval(timer); recVideo.remove();
-                    stream.getTracks().forEach(t => t.stop());
-                    document.body.classList.remove('rec-clean');
-                    stage.classList.remove('rec'); abort();
-                    alert('This browser could not initialize the video recorder.');
-                    return;
+                const surf = (track.getSettings && track.getSettings().displaySurface) || '';
+                r.cropCache = captureGeometryCache(video, croppedByBrowser, surf);
+                const OW = 1920, OH = 1080;
+                const canvas = document.createElement('canvas');
+                canvas.width = OW; canvas.height = OH;
+                const ctx = canvas.getContext('2d', { alpha: false });
+                if (!ctx) throw new Error('Compositor Canvas 2D indisponível');
+                ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+                function drawRecFrame() {
+                    if (r.cleaned) return;
+                    const crop = r.cropCache.get();
+                    if (!crop) return;
+                    ctx.fillStyle = APHA_CABIN_PALETTE.background;
+                    ctx.fillRect(0, 0, OW, OH);
+                    const {sx, sy, sw, sh, dx, dy, dw, dh} = crop;
+                    ctx.drawImage(video, sx, sy, sw, sh, dx, dy, dw, dh);
                 }
-            }
+                drawRecFrame();
+                r.timer = setInterval(() => {
+                    try { drawRecFrame(); }
+                    catch (e) {
+                        console.error('Canvas recording frame failed:', e);
+                        r.discard = true; stopRec(); abort(e);
+                    }
+                }, Math.round(1000 / REC_FPS));
+                r.captureStream = (video.videoWidth > 0 && canvas.captureStream)
+                    ? canvas.captureStream(REC_FPS) : r.stream;
 
-            const chunks = [];
-            mr.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
-            mr.onerror = e => { console.error('MediaRecorder error:', e); stopRec(); };
-            mr.onstop = () => {
-                clearInterval(timer);
-                recVideo.srcObject = null;
-                recVideo.remove();
-                stream.getTracks().forEach(t => t.stop());
-                document.body.classList.remove('rec-clean');
-                document.body.style.removeProperty('--rec-w');
-                stage.classList.remove('rec');
-                recBtn.classList.remove('on');
-                recBtn.textContent = '⏺ Export video (MP4)';
-                rec = null;
-                if (!chunks.length) {
-                    alert('No frames were captured. Make sure to keep the window visible during recording.');
-                    return;
+                const mimeList = [
+                    'video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=avc1', 'video/mp4',
+                    'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'
+                ].filter(m => typeof MediaRecorder.isTypeSupported === 'function' && MediaRecorder.isTypeSupported(m));
+                let mr = null, chosenMime = '';
+                for (const mime of mimeList) {
+                    try {
+                        mr = new MediaRecorder(r.captureStream, { mimeType: mime, videoBitsPerSecond: REC_BPS });
+                        chosenMime = mime; break;
+                    } catch (e) {}
                 }
-                const ext = chosenMime.indexOf('mp4') >= 0 ? 'mp4' : 'webm';
-                const blob = new Blob(chunks, { type: chosenMime.split(';')[0] || 'video/' + ext });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = (selectedTake === null ? 'simulacao-completa-bin-alpha' :
-                    'take-' + selectedTake.name + '-bin-alpha') + '.' + ext;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                setTimeout(() => URL.revokeObjectURL(url), 15000);
-            };
-            track.addEventListener('ended', () => { stopRec(); abort(); });
-            rec = { mr, timer };
-            mr.start(500);
-            recBtn.classList.add('on');
-            recBtn.textContent = '■ Stop and save video';
-            if(selectedTake === null) run(0);
-            else run(selectedTake.start,selectedTake.end,selectedTake.mode);
+                if (!mr) {
+                    mr = new MediaRecorder(r.captureStream);
+                    chosenMime = mr.mimeType || 'video/webm';
+                }
+                r.mr = mr;
+                const chunks = [];
+                mr.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+                mr.onerror = e => {
+                    console.error('MediaRecorder error:', e);
+                    r.discard = true;
+                    if (mr.state !== 'inactive') stopRec();
+                    else cleanupRecording(r);
+                    abort(e && e.error || new Error('Falha do MediaRecorder'));
+                };
+                mr.onstop = () => {
+                    const discard = r.discard;
+                    cleanupRecording(r);
+                    if (live) abort();
+                    if (discard) return;
+                    if (!chunks.length) {
+                        alert('No frames were captured. Keep the window visible during recording.');
+                        return;
+                    }
+                    try {
+                        const ext = chosenMime.includes('mp4') ? 'mp4' : 'webm';
+                        const blob = new Blob(chunks, { type: chosenMime.split(';')[0] || 'video/' + ext });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = (selectedTake === null ? 'simulacao-completa-bin-alpha' :
+                            'take-' + selectedTake.name + '-bin-alpha') + '.' + ext;
+                        document.body.appendChild(a);
+                        try { a.click(); } finally { a.remove(); }
+                        setTimeout(() => URL.revokeObjectURL(url), 15000);
+                    } catch (e) {
+                        console.error('Aba 8: falha ao salvar gravação:', e);
+                        alert('Não foi possível salvar o vídeo: ' + (e.message || e));
+                    }
+                };
+                mr.start(500);
+                recBtn.classList.add('on');
+                recBtn.textContent = '■ Stop and save video';
+                capturePending = false; setCapturePending(false);
+                // A animação só começa após o recorder ter iniciado.
+                if (selectedTake === null) void run(0);
+                else void run(selectedTake.start, selectedTake.end, selectedTake.mode);
+            } catch (e) {
+                r.discard = true;
+                cleanupRecording(r);
+                abort();
+                if (!e || (e.name !== 'NotAllowedError' && e.name !== 'AbortError')) {
+                    console.error('Aba 8: falha ao iniciar captura:', e);
+                    alert('Could not initialize screen recording (' + (e.message || e.name || e) + ').');
+                }
+            } finally {
+                capturePending = false;
+                setCapturePending(false);
+            }
         }
         recBtn.addEventListener('click', () => startRec());
         document.querySelectorAll('#tour-takes [data-take-rec]').forEach(b => b.addEventListener('click', () => {
@@ -826,151 +932,7 @@
             if (i >= 0 && i < TOUR_TAKES.length) startRec(i);
         }));
 
-        // ---- exportar PNGs do COMEÇO e do FINAL de cada aba: mesma captura/recorte do vídeo, quadros 1920x1080 num único ZIP ----
-        const snapBtn = $('tour-snap');
-        let snap = null;
-        const snapLabel = () => '■ Stop and save PNGs (' + (snap ? snap.frames.length : 0) + ')';
-
-        // ZIP mínimo (método "store", sem compressão — PNG já é comprimido)
-        const crcTable = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
-        const crc32 = u8 => { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = crcTable[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
-        function buildZip(files) {          // files: [{ name, data:Uint8Array }]
-            const enc = new TextEncoder(), parts = [], central = [];
-            const d = new Date();
-            const dosTime = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
-            const dosDate = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
-            let offset = 0;
-            files.forEach(f => {
-                const nm = enc.encode(f.name), crc = crc32(f.data), sz = f.data.length;
-                const lh = new DataView(new ArrayBuffer(30));
-                lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
-                lh.setUint16(10, dosTime, true); lh.setUint16(12, dosDate, true); lh.setUint32(14, crc, true);
-                lh.setUint32(18, sz, true); lh.setUint32(22, sz, true); lh.setUint16(26, nm.length, true); lh.setUint16(28, 0, true);
-                parts.push(lh.buffer, nm, f.data);
-                const ch = new DataView(new ArrayBuffer(46));
-                ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true);
-                ch.setUint16(12, dosTime, true); ch.setUint16(14, dosDate, true); ch.setUint32(16, crc, true);
-                ch.setUint32(20, sz, true); ch.setUint32(24, sz, true); ch.setUint16(28, nm.length, true);
-                ch.setUint32(42, offset, true);
-                central.push(ch.buffer, nm);
-                offset += 30 + nm.length + sz;
-            });
-            const cdSize = central.reduce((a, b) => a + (b.byteLength !== undefined ? b.byteLength : b.length), 0);
-            const end = new DataView(new ArrayBuffer(22));
-            end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
-            end.setUint32(12, cdSize, true); end.setUint32(16, offset, true);
-            return new Blob([...parts, ...central, end.buffer], { type: 'application/zip' });
-        }
-        const pad = (n, w) => String(n).padStart(w, '0');
-
-        async function snapFinish() {
-            if (!snap || snap.finishing) return;
-            const sn = snap; sn.finishing = true;
-            await Promise.all(sn.pending);
-            sn.video.srcObject = null; sn.video.remove();
-            sn.stream.getTracks().forEach(t => t.stop());
-            document.body.classList.remove('rec-clean');
-            document.body.style.removeProperty('--rec-w');
-            stage.classList.remove('rec');
-            snapBtn.classList.remove('on'); snapBtn.textContent = '📷 Export start/end PNGs';
-            recBtn.disabled = false;
-            snap = null;
-            if (!sn.frames.length) { alert('No frames were captured. Keep the window visible while the simulation runs.'); return; }
-            const files = [];
-            for (const f of sn.frames) files.push({ name: f.name, data: new Uint8Array(await f.blob.arrayBuffer()) });
-            const url = URL.createObjectURL(buildZip(files));
-            const a = document.createElement('a');
-            a.href = url; a.download = 'simulacao-completa-bin-alpha-frames-png.zip';
-            document.body.appendChild(a); a.click(); a.remove();
-            setTimeout(() => URL.revokeObjectURL(url), 30000);
-        }
-
-        function snapTake(name) {
-            if (!snap || snap.finishing) return;
-            const v = snap.video, vw = v.videoWidth, vh = v.videoHeight;
-            if (!vw || !vh) return;
-            const OW = 1920, OH = 1080, c = snap.canvas, g = snap.ctx;
-            g.fillStyle = '#000223'; g.fillRect(0, 0, OW, OH);
-            let sx = 0, sy = 0, sw = vw, sh = vh;
-            if (!snap.cropped && snap.surf === 'browser' && window.innerWidth > 0 && window.innerHeight > 0) {
-                const r = stage.getBoundingClientRect();
-                if (r.width > 50 && r.height > 50) {
-                    const kx = vw / window.innerWidth, ky = vh / window.innerHeight;
-                    sx = Math.max(0, Math.round(r.left * kx)); sy = Math.max(0, Math.round(r.top * ky));
-                    sw = Math.min(vw - sx, Math.round(r.width * kx)); sh = Math.min(vh - sy, Math.round(r.height * ky));
-                }
-            }
-            const k = Math.min(OW / sw, OH / sh), dw = Math.round(sw * k), dh = Math.round(sh * k);
-            g.drawImage(v, sx, sy, sw, sh, Math.round((OW - dw) / 2), Math.round((OH - dh) / 2), dw, dh);
-            const sn = snap;
-            const pr = new Promise(res => c.toBlob(b => { if (b) sn.frames.push({ name, blob: b }); snapBtn.textContent = snapLabel(); res(); }, 'image/png'));
-            sn.pending.push(pr);
-            pr.then(() => { sn.pending = sn.pending.filter(x => x !== pr); });
-        }
-
-        async function startSnap() {
-            if (snap) { await snapFinish(); abort(); return; }
-            if (rec) { alert('Stop the video recording first.'); return; }
-            if (!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia)) {
-                alert('PNG export requires the Google Chrome or Microsoft Edge browser (open the HTML file directly in the browser).');
-                return;
-            }
-            let stream;
-            try {
-                stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { frameRate: { ideal: 30, max: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 }, aspectRatio: { ideal: 16 / 9 }, cursor: 'never' },
-                    audio: false, preferCurrentTab: true, selfBrowserSurface: 'include', surfaceSwitching: 'include'
-                });
-            } catch (e) {
-                if (e && e.name !== 'NotAllowedError' && e.name !== 'AbortError') alert('Could not start screen capture (' + (e.message || e.name) + '). Open the HTML file directly in a Chrome or Edge tab.');
-                return;
-            }
-            const track = stream.getVideoTracks()[0];
-            if (!track) { stream.getTracks().forEach(t => t.stop()); return; }
-            await suppressRecordedCursor(track);
-
-            document.body.classList.add('rec-clean');
-            const recW = frameWidth(true), recH = recW * 9 / 16;
-            fitFrame(false);
-            stage.style.setProperty('--rec-w', recW + 'px'); stage.style.setProperty('--rec-h', recH + 'px');
-            document.body.style.setProperty('--rec-w', recW + 'px');
-            stage.classList.add('rec');
-            recBtn.disabled = true;
-            run(0);
-            await sleep(250);
-
-            let cropped = false;
-            if (window.CropTarget && typeof track.cropTo === 'function') {
-                try { await track.cropTo(await CropTarget.fromElement(stage)); cropped = true; } catch (e) { console.warn('cropTo unavailable; using manual crop:', e); }
-            }
-            const video = document.createElement('video');
-            video.style.cssText = 'position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:0.01;pointer-events:none;z-index:-1;';
-            video.muted = true; video.playsInline = true; video.srcObject = stream;
-            document.body.appendChild(video);
-            try { await video.play(); } catch (e) {}
-            for (let w = 0; w < 20 && !video.videoWidth; w++) await sleep(50);
-
-            const canvas = document.createElement('canvas'); canvas.width = 1920; canvas.height = 1080;
-            const ctx = canvas.getContext('2d', { alpha: false });
-            ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-            const surf = (track.getSettings && track.getSettings().displaySurface) || '';
-
-            snap = { stream, video, canvas, ctx, cropped, surf, frames: [], pending: [], finishing: false };
-            track.addEventListener('ended', () => { snapFinish().then(() => abort()); });
-            snapBtn.classList.add('on'); snapBtn.textContent = snapLabel();
-        }
-        snapBtn.addEventListener('click', startSnap);
-        window.__tourEdge = (i, st, when) => { if (snap) snapTake(pad(i + 1, 2) + '_' + st.key + '_' + when + '.png'); };
-
-        // integra com o fim/parada da sequência (o handler do vídeo só age quando há gravação de vídeo)
-        const prevTourEnded = window.__tourEnded, prevStopRec = window.__stopTourRec;
-        window.__tourEnded = async () => {
-            if (snap) { await sleep(150); await snapFinish(); return; }   // gera o ZIP
-            return prevTourEnded();
-        };
-        window.__stopTourRec = () => { if (snap) { snapFinish().then(() => abort()); return; } prevStopRec(); };
-
-        window.tourStart = () => { if (!live) run(0); }; // explicit start only (general presentation button)
+        window.tourStart = () => { if (!live && !capturePending && !rec) run(0); }; // explicit start only (general presentation button)
         window.tourAbort = abort;               // chamado ao sair da aba 8
     })();
 
