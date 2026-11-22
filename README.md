@@ -189,6 +189,24 @@ A divisão somente reorganiza o código original, preservando as fórmulas,
 o zoom, os shaders, as cores, os tempos e o contrato de exportação.
 O GitHub Actions verifica a sintaxe do avião **já montado**, além de
 validar os oito módulos de passageiros e os cinco takes.
+### Esqueleto compartilhado e renderização ociosa
+
+As três construções dos personagens reutilizam somente a hierarquia e as
+posições idênticas de pivôs em `passengers/04-model-tools.js`: pelve, tórax,
+ombro, cotovelo, quadril, joelho, tornozelo e pé. Os comprimentos anatômicos
+foram centralizados em `PAX_LIMB`. As receitas de `tvLoft`, materiais,
+cores, roupas, cabelo, bebê, malas, escalas e poses individuais foram
+preservadas nos próprios construtores.
+
+Em `passengers/08-animation.js`, o loop `requestAnimationFrame` permanece
+ativo para observar zoom CSS e scrubber, mas evita `updateWalk()` e o render
+WebGL enquanto pausa, tempo e zoom estiverem inalterados. Resize e término
+de exportação forçam o próximo desenho. Em `04-model-tools.js`, o cabelo
+não recalcula vértices na mesma pose, exceto ao inicializar novos atributos
+de normais de contorno. `PAX.renderAt()` continua independente e preciso.
+
+Recomenda-se validar visualmente Play/Pause, 14 s de animação, X-ray,
+retorno da Simulação Geral e a exportação 1920 × 1080 no navegador.
 ## Passageiros: limpeza conservadora e testes
 
 A Aba 1 compõe os três passageiros pelo manifesto `source/html/ABA1/js/passengers.js`.

@@ -2,7 +2,7 @@
         // VIAJANTE (BONECO 1) - REDESENHO COMPLETO a partir da ilustração de referência
         // Homem jovem de camiseta verde-oliva folgada, jeans reto azul, tênis cinza de sola branca, cabelo castanho com franja,
         // mão direita carregando a mala preta pela alça e mão esquerda espalmada na testa (rosto sem traços, como no desenho).
-        // Mesmo esqueleto (juntas, comprimentos) do rig anterior: a animação continua a mesma. Todas as peças são "lofts" de
+        // Os pivôs do esqueleto usam funções compartilhadas paxCreate*, sem mudar a cinemática. As peças visuais são "lofts" de
         // seções super-elípticas (tvLoft), com cor chapada + linhas de tinta pintadas em textura.
         // ============================================================================
         const TVC = {
@@ -18,6 +18,58 @@
         const paxMat = (c, cls) => tvLit(new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, metalness: 0 }), cls);
         const paxPaintedMat = (P, cls) => tvLit(paintedMat(P), cls);
         const paxDoublePaintedMat = (P, cls) => { const m = paxPaintedMat(P, cls); m.side = THREE.DoubleSide; return m; };
+
+
+        // Pivôs anatômicos idênticos nos três personagens; malhas e poses ficam nos seus construtores.
+        const PAX_LIMB = Object.freeze({ upperArm: 10.2, forearm: 9.2, femur: 15.0, tibia: 14.0 });
+        function paxCreatePelvis(root, S) {
+            const pelvis = new THREE.Group();
+            pelvis.position.y = 33.6 * S;
+            root.add(pelvis);
+            return pelvis;
+        }
+        function paxCreateThorax(pelvis, S) {
+            const thorax = new THREE.Group();
+            thorax.position.set(0, 4.0 * S, 0);
+            pelvis.add(thorax);
+            return thorax;
+        }
+        function paxCreateShoulder(thorax, side, S) {
+            const shoulder = new THREE.Group();
+            shoulder.rotation.order = 'YXZ';
+            shoulder.position.set(side * (6.2 * S) * 0.92, 13.0 * S, 0);
+            thorax.add(shoulder);
+            return shoulder;
+        }
+        function paxCreateElbow(shoulder, upperArmLen) {
+            const elbow = new THREE.Group();
+            elbow.position.y = -upperArmLen;
+            shoulder.add(elbow);
+            return elbow;
+        }
+        function paxCreateHip(pelvis, side, S) {
+            const hip = new THREE.Group();
+            hip.position.set(side * (3.6 * S) * 0.94, -1.2 * S, 0);
+            pelvis.add(hip);
+            return hip;
+        }
+        function paxCreateKnee(hip, femurLen) {
+            const knee = new THREE.Group();
+            knee.position.y = -femurLen;
+            hip.add(knee);
+            return knee;
+        }
+        function paxCreateAnkle(knee, tibiaLen) {
+            const ankle = new THREE.Group();
+            ankle.position.y = -tibiaLen;
+            knee.add(ankle);
+            return ankle;
+        }
+        function paxCreateFoot(ankle) {
+            const foot = new THREE.Group();
+            ankle.add(foot);
+            return foot;
+        }
 
         function tvSgnPow(v, e) { return Math.sign(v) * Math.pow(Math.abs(v), e); }
 
@@ -142,7 +194,12 @@
                 return { m, P0: P.array.slice(), N0: m.geometry.attributes.normal.array.slice(), O0: null, W };
             });
             const qI = new THREE.Quaternion(), qi = new THREE.Quaternion(), v = new THREE.Vector3();
+            const lastPose = new THREE.Quaternion();
+            let hasLastPose = false;
             return { update(q) {
+                // A mesma pose não exige recalcular vértices. Se aOutN aparecer depois, inicializar normalmente.
+                if (hasLastPose && lastPose.equals(q) &&
+                    items.every(it => !it.m.geometry.attributes.aOutN || it.O0)) return;
                 items.forEach(it => {
                     const g = it.m.geometry, P = g.attributes.position, N = g.attributes.normal, O = g.attributes.aOutN;
                     if (O && !it.O0) it.O0 = O.array.slice();
@@ -157,6 +214,8 @@
                     P.needsUpdate = true; N.needsUpdate = true; if (O) O.needsUpdate = true;
                     g.computeBoundingSphere();
                 });
+                lastPose.copy(q);
+                hasLastPose = true;
             } };
         }
 

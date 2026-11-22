@@ -674,6 +674,22 @@ def verify_aba1_passengers(v: Checker) -> None:
         require(removed not in code, "obsolete rendering branch reintroduced: " + removed)
 
 
+    # Apenas os pivôs idênticos dos três personagens são compartilhados.
+    for part in ("Pelvis", "Thorax", "Shoulder", "Elbow", "Hip", "Knee", "Ankle", "Foot"):
+        once("function paxCreate" + part + "(")
+        require(code.count("= paxCreate" + part + "(") == 3,
+                "Pivô não compartilhado pelos três personagens: " + part)
+    for requirement in (
+        "upperArm: 10.2, forearm: 9.2, femur: 15.0, tibia: 14.0",
+        "shoulder.rotation.order = 'YXZ'",
+        "side * (6.2 * S) * 0.92, 13.0 * S, 0",
+        "side * (3.6 * S) * 0.94, -1.2 * S, 0",
+        "hasLastPose && lastPose.equals(q)",
+        "items.every(it => !it.m.geometry.attributes.aOutN || it.O0)",
+        "if (!playing && !paxSceneDirty && tl === lastLiveTl && z === lastLiveZoom) return;",
+        "paxSceneDirty = true;                         // redesenhar após a captura",
+    ):
+        require(requirement in code, "Proteção anatômica/performance ausente: " + requirement)
 
 def verify_aba2(v: Checker) -> None:
     """Aba 2: módulos CAD, exportadores e ordem compartilhada com a Aba 3."""

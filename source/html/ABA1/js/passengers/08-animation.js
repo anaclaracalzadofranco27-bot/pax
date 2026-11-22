@@ -400,8 +400,10 @@
             }
         }
 
+        let paxSceneDirty = true, lastLiveTl = NaN, lastLiveZoom = NaN;
         window.addEventListener('resize', () => {
             renderer.setSize(container.clientWidth, container.clientHeight);
+            paxSceneDirty = true;
         });
 
         // Tempo da animação = tempo da linha do tempo do avião (Play/Restart/scrubber), suavizado entre os passos de 100 ms
@@ -412,9 +414,13 @@
             requestAnimationFrame(animate);
             if (paxExporting) return;                    // durante a exportação quem desenha é PAX.renderAt
             const tl = PAX_TIMELINE();
+            const z = cssZoom();                          // observar o zoom mesmo durante o Play pausado
+            if (!playing && !paxSceneDirty && tl === lastLiveTl && z === lastLiveZoom) return;
+            lastLiveTl = tl;
+            lastLiveZoom = z;
+            paxSceneDirty = false;
             elapsed = Math.max(0, Math.min(MAX_ANIMATION_TIME, tl - PAX_START));
             updateWalk();
-            const z = cssZoom();
             OUTLINE_W.value = OUTLINE_PX * (FRUSTUM_H / camera.zoom) / Math.max(1, renderer.domElement.clientHeight) / rig1.root.scale.x / z;
             renderer.render(scene, camera);
             updateBalloonsLive(tl, z, labelAnchors());
@@ -430,8 +436,13 @@
         function beginExport(bufferWidth) {            // resolução do canvas 3D adequada ao vídeo (largura em pixels)
             paxExporting = true; paxSavedRatio = renderer.getPixelRatio();
             renderer.setPixelRatio(bufferWidth / Math.max(1, container.clientWidth));
+            paxSceneDirty = true;
         }
-        function endExport() { renderer.setPixelRatio(paxSavedRatio); paxExporting = false; }
+        function endExport() {
+            renderer.setPixelRatio(paxSavedRatio);
+            paxExporting = false;
+            paxSceneDirty = true;                         // redesenhar após a captura, mesmo com o Play pausado
+        }
         window.PAX = { rig1, rig2, rig3, camera, renderer, scene, renderAt, labelAnchors, beginExport, endExport, get elapsed() { return elapsed; } };
         requestAnimationFrame(animate);
 
