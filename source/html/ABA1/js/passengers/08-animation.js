@@ -401,29 +401,55 @@
         }
 
         let paxSceneDirty = true, lastLiveTl = NaN, lastLiveZoom = NaN;
-        window.addEventListener('resize', () => {
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            paxSceneDirty = true;
-        });
-
-        // Tempo da animação = tempo da linha do tempo do avião (Play/Restart/scrubber), suavizado entre os passos de 100 ms
+        let paxRaf = 0, paxZoomUntil = 0;
+        // O iframe também pode estar escondido por uma aba do documento pai.
+        // Quando não há movimento nem transição de câmera, nenhum RAF é mantido.
+        let paxActive = !window.frameElement || window.frameElement.getClientRects().length > 0;
         const camRig = document.getElementById('camera-rig');
         function cssZoom() { const t = getComputedStyle(camRig).transform; return t && t !== 'none' ? new DOMMatrix(t).a : 1; }
         let paxExporting = false, paxSavedRatio = 1;
-        function animate() {
-            requestAnimationFrame(animate);
-            if (paxExporting) return;                    // durante a exportação quem desenha é PAX.renderAt
+        function requestPaxFrame() {
+            if (!paxRaf && paxActive && !document.hidden && !paxExporting) paxRaf = requestAnimationFrame(animate);
+        }
+        function invalidate(zoomChanged = false) {
+            paxSceneDirty = true;
+            // O CSS interpola o zoom por 1,8 s mesmo que o Play seja pausado.
+            if (zoomChanged) paxZoomUntil = performance.now() + CAM_ZOOM.dur * 1000 + 70;
+            requestPaxFrame();
+        }
+        function setActive(active) {
+            paxActive = !!active;
+            if (!paxActive && paxRaf) {
+                cancelAnimationFrame(paxRaf);
+                paxRaf = 0;
+            }
+            if (paxActive) invalidate();
+        }
+        window.addEventListener('resize', () => {
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            invalidate();
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && paxRaf) { cancelAnimationFrame(paxRaf); paxRaf = 0; }
+            if (!document.hidden) invalidate();
+        });
+        function animate(now) {
+            paxRaf = 0;
+            if (paxExporting || !paxActive || document.hidden) return;
             const tl = PAX_TIMELINE();
-            const z = cssZoom();                          // observar o zoom mesmo durante o Play pausado
-            if (!playing && !paxSceneDirty && tl === lastLiveTl && z === lastLiveZoom) return;
-            lastLiveTl = tl;
-            lastLiveZoom = z;
-            paxSceneDirty = false;
-            elapsed = Math.max(0, Math.min(MAX_ANIMATION_TIME, tl - PAX_START));
-            updateWalk();
-            OUTLINE_W.value = OUTLINE_PX * (FRUSTUM_H / camera.zoom) / Math.max(1, renderer.domElement.clientHeight) / rig1.root.scale.x / z;
-            renderer.render(scene, camera);
-            updateBalloonsLive(tl, z, labelAnchors());
+            const z = cssZoom();
+            const changed = paxSceneDirty || tl !== lastLiveTl || z !== lastLiveZoom;
+            if (changed) {
+                lastLiveTl = tl;
+                lastLiveZoom = z;
+                paxSceneDirty = false;
+                elapsed = Math.max(0, Math.min(MAX_ANIMATION_TIME, tl - PAX_START));
+                updateWalk();
+                OUTLINE_W.value = OUTLINE_PX * (FRUSTUM_H / camera.zoom) / Math.max(1, renderer.domElement.clientHeight) / rig1.root.scale.x / z;
+                renderer.render(scene, camera);
+                updateBalloonsLive(tl, z, labelAnchors());
+            }
+            if (playing || now < paxZoomUntil) requestPaxFrame();
         }
         // Exportação de vídeo: desenha os passageiros no instante tl da linha do tempo, com o contorno calculado para o zoom informado
         function renderAt(tl, zoom) {
@@ -433,17 +459,28 @@
             renderer.render(scene, camera);
             return renderer.domElement;
         }
-        function beginExport(bufferWidth) {            // resolução do canvas 3D adequada ao vídeo (largura em pixels)
-            paxExporting = true; paxSavedRatio = renderer.getPixelRatio();
-            renderer.setPixelRatio(bufferWidth / Math.max(1, container.clientWidth));
+        function beginExport(bufferWidth) {
+            if (paxExporting) throw new Error('Exportação PAX já ativa');
+            paxSavedRatio = renderer.getPixelRatio();
+            paxExporting = true;
+            if (paxRaf) { cancelAnimationFrame(paxRaf); paxRaf = 0; }
+            try {
+                renderer.setPixelRatio(bufferWidth / Math.max(1, container.clientWidth));
+            } catch (err) {
+                paxExporting = false;
+                try { renderer.setPixelRatio(paxSavedRatio); } catch (_) {}
+                throw err;
+            }
             paxSceneDirty = true;
         }
         function endExport() {
+            if (!paxExporting) return;
             renderer.setPixelRatio(paxSavedRatio);
             paxExporting = false;
-            paxSceneDirty = true;                         // redesenhar após a captura, mesmo com o Play pausado
+            invalidate(); // restaura o quadro ao voltar da captura, inclusive em pausa
         }
-        window.PAX = { rig1, rig2, rig3, camera, renderer, scene, renderAt, labelAnchors, beginExport, endExport, get elapsed() { return elapsed; } };
-        requestAnimationFrame(animate);
+        window.PAX = { rig1, rig2, rig3, camera, renderer, scene, renderAt, labelAnchors,
+            beginExport, endExport, invalidate, setActive, get elapsed() { return elapsed; } };
+        requestPaxFrame();
 
 })();
