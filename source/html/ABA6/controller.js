@@ -26,7 +26,7 @@
             manikinFrameTime = 0;
             manikinState.animating = true;
             startManikinLoop(); // relógio novo; startManikinLoop usa performance.now()
-            // Não há mais setAnimLabel(): sua chamada órfã impedia a
+            // A chamada órfã ao antigo atualizador de rótulo impedia a
             // notificação de prontidão da ponte e congelava o Take 03.
             updateErgonomics();
             // Só agora a ponte pode usar manikinState.phase: antes deste ponto
