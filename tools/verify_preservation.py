@@ -577,7 +577,7 @@ def verify_aba1_passengers(v: Checker) -> None:
     fragments = [v.read(prefix + name) for name in parts]
     if any(part is None for part in fragments):
         return
-    code = "\\n".join(fragments)
+    code = "\n".join(fragments)
 
 
     def require(test: bool, message: str) -> None:
