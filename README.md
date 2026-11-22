@@ -173,6 +173,22 @@ Esses testes não substituem a reprodução visual das oito abas nem a gravaçã
 
 **Verificação consolidada (18/11/2026):** os contratos completos dos passageiros (três construções, anatomia, manta, cores, shaders, receitas de textura e detecção de código obsoleto) foram incorporados ao `tools/verify_preservation.py` em uma seção dedicada à Aba 1. O antigo `tools/verify_passengers.py` foi excluído; o GitHub Actions executa um único verificador Python para as oito abas, os cinco takes, a resolução Full HD e os testes de passageiros. O `node --check` da Aba 1 continua separado por ser uma checagem sintática JavaScript. Nenhuma lógica da apresentação nem o HTML gerado foi modificada.
 
+## Aba 1 — scripts do avião modularizados
+
+`source/html/ABA1/js/aircraft.js` agora é um manifesto de quatro fragmentos,
+montados pelo `tools/build.py` dentro do mesmo `<script>` e escopo original:
+
+| Fragmento em `source/html/ABA1/js/aircraft/` | Responsabilidade |
+| --- | --- |
+| `01-aircraft-scene.js` | Paleta, caminhos SVG e identificação visual das malas |
+| `02-aircraft-playback.js` | Play, pause, restart, scrubber e roteiro de 14 segundos |
+| `03-aircraft-overlays-and-frames.js` | Balões, zoom, camadas e composição de quadros |
+| `04-aircraft-video-export.js` | Codificação MP4/WebM e download Full HD |
+
+A divisão somente reorganiza o código original, preservando as fórmulas,
+o zoom, os shaders, as cores, os tempos e o contrato de exportação.
+O GitHub Actions verifica a sintaxe do avião **já montado**, além de
+validar os oito módulos de passageiros e os cinco takes.
 ## Passageiros: limpeza conservadora e testes
 
 A Aba 1 compõe os três passageiros pelo manifesto `source/html/ABA1/js/passengers.js`.

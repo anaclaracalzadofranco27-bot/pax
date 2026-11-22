@@ -1,7 +1,7 @@
 
 // ============================================================================
 // PASSAGEIROS (viajante, senhor e mãe com bebê) caminhando na passarela de embarque.
-// Mesmo código e animação do arquivo do manequim; a câmera 3D foi enquadrada na passarela do SVG.
+// Personagens Three.js da Aba 1 (distintos dos manequins Canvas 2D da Aba 6); câmera enquadrada na passarela SVG.
 // ============================================================================
 const PAX_START = 0.5;                        // segundos da linha do tempo em que o primeiro passageiro começa a andar
 let paxLastTick = performance.now();
@@ -11,7 +11,7 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
         // CENA 3D E MAPEAMENTO EXATO SOBRE O VETOR DA RAMPA (A → z → y → x)
         // ============================================================================
         // Camada 3D sobre a passarela do avião: o canvas cobre só o retângulo AV do SVG (unidades do viewBox), para renderizar nítido com o zoom.
-        // K = unidades do SVG por unidade do mundo. 17.94 dá a mesma proporção boneco/piso do arquivo do manequim; aqui os passageiros ficam 2x maiores,
+        // K = unidades do SVG por unidade do mundo. A escala 17.94 foi calibrada para a cena; aqui os passageiros ficam 2x maiores,
         // mais perto do tamanho dos passageiros sentados na cabine (maior que isso, a cabeça passaria da borda de cima da passarela).
         const PAX_SCALE = 2.0;
         const PAX_DY = 7.5; // o caminho desce um pouco no piso (unidades do SVG), para a cabeça dos bonecos maiores não passar da borda de cima da passarela

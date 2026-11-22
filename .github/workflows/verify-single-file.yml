@@ -45,6 +45,16 @@ jobs:
           PY
           node --check /tmp/apha-assembled-config.js
           node --check /tmp/apha-assembled-engine.js
+      - name: Check assembled aircraft JavaScript syntax
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from tools.build import expand
+          Path("/tmp/apha-assembled-aircraft.js").write_bytes(
+              expand("source/html/ABA1/js/aircraft.js"))
+          PY
+          node --check /tmp/apha-assembled-aircraft.js
       - name: Check assembled passenger JavaScript syntax
         shell: bash
         run: |
@@ -114,6 +124,16 @@ jobs:
           PY
           node --check /tmp/apha-assembled-config.js
           node --check /tmp/apha-assembled-engine.js
+      - name: Check assembled aircraft JavaScript syntax
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from tools.build import expand
+          Path("/tmp/apha-assembled-aircraft.js").write_bytes(
+              expand("source/html/ABA1/js/aircraft.js"))
+          PY
+          node --check /tmp/apha-assembled-aircraft.js
       - name: Check assembled passenger JavaScript syntax
         shell: bash
         run: |

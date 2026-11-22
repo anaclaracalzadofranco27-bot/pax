@@ -563,6 +563,33 @@ def verify_aba1_assets(v: Checker) -> None:
                 "Transição X-ray voltou a percorrer paths ou contém auxiliares mortos")
 
 
+def verify_aba1_aircraft(v: Checker) -> None:
+    """Uma cena SVG, linha do tempo, sobreposições e exportação no mesmo script."""
+    manifest = v.read("source/html/ABA1/js/aircraft.js")
+    if manifest is None:
+        return
+    prefix = "source/html/ABA1/js/aircraft/"
+    names = ("01-aircraft-scene.js", "02-aircraft-playback.js",
+             "03-aircraft-overlays-and-frames.js", "04-aircraft-video-export.js")
+    expected = [f"@@APHA_INCLUDE:{prefix}{name}@@" for name in names]
+    v.check(manifest.splitlines() == expected, "Manifesto de avião alterado ou fora de ordem")
+    chunks = [v.read(prefix + name) for name in names]
+    if any(chunk is None for chunk in chunks):
+        return
+    code = "\n".join(chunks)
+    for term in (
+        "(function cadBlueprintPalette() {", "const rig = document.getElementById('camera-rig');",
+        "const ZOOM_END = 10;", "const BIN_ON = ZOOM_END + 1.8;",
+        "const TOTAL_TIME = 14;", "function updateStage(sec)",
+        "const EXPORT_W = 1920, EXPORT_H = 1080, EXPORT_FPS = 30;",
+        "const CAM_ZOOM = { s: 1.68, tx: -0.045, ty: -0.24, dur: 1.8 };",
+        "function updateBalloonsLive(", "function drawExportFrame(",
+        "function buildExportLayers(", "function encodeMp4(", "function recordRealtime(",
+        "async function exportVideo(", "exportBtn.onclick = () => exportVideo();",
+    ):
+        v.check(term in code, "Contrato de avião/exportação ausente: " + term)
+
+
 def verify_aba1_passengers(v: Checker) -> None:
     manifest = v.read("source/html/ABA1/js/passengers.js")
     if manifest is None:
@@ -868,6 +895,7 @@ def main() -> int:
         ("Aba 6: layout", verify_aba6_layout),
         ("CSS de gravação", verify_recording_css),
         ("Aba 1: recursos", verify_aba1_assets),
+        ("Aba 1: avião e exportação", verify_aba1_aircraft),
         ("Aba 1: passageiros", verify_aba1_passengers),
         ("Aba 2: CAD 3D", verify_aba2),
         ("Aba 3: comparação", verify_aba3),
