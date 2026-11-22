@@ -4,8 +4,7 @@
 // Personagens Three.js da Aba 1 (distintos dos manequins Canvas 2D da Aba 6); câmera enquadrada na passarela SVG.
 // ============================================================================
 const PAX_START = 0.5;                        // segundos da linha do tempo em que o primeiro passageiro começa a andar
-let paxLastTick = performance.now();
-function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.now() - paxLastTick) / 1000) : 0); }
+function PAX_TIMELINE() { return paxClockTime(); } // o mesmo relógio absoluto do avião e do roteiro
 (() => {
         // ============================================================================
         // CENA 3D E MAPEAMENTO EXATO SOBRE O VETOR DA RAMPA (A → z → y → x)

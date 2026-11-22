@@ -5,7 +5,8 @@ window.paxEmbed = {
   reset: () => { rig.style.transition = 'none'; document.getElementById('resetBtn').click(); void rig.offsetWidth; rig.style.transition = ''; },
   play: () => { if (!playing && !exportingVideo) togglePlay(); },
   pause: () => { if (playing) togglePlay(); },
-  done: () => time >= TOTAL_TIME,
+  setActive: on => { if (window.PAX) window.PAX.setActive(on); },
+  done: () => paxClockTime() >= TOTAL_TIME,
   setControls: on => { document.body.classList.toggle('no-ctl', !on); window.dispatchEvent(new Event('resize')); },
   xray: ms => xrayRun(ms || 1700),
   xrayReset: () => xrayReset()
@@ -26,8 +27,6 @@ const xrayLayers = () => [
 function xrayReset() {
   if (!xrayOn) return;
   xrayOn = false;
-  const ov = document.getElementById('xray-bags');
-  if (ov) ov.style.display = 'none';
   const layers = xrayLayers();
   layers.forEach(el => {
     el.style.transition = 'none';

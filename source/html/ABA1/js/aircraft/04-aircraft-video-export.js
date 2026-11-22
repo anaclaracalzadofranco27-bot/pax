@@ -59,23 +59,30 @@ async function encodeMp4(canvas, ctx, L, fps, cfg, onProgress) {
     },
     error: e => { failure = e; }
   });
-  enc.configure(cfg);
-  const n = Math.round(TOTAL_TIME * fps) + 1;
-  for (let i = 0; i < n; i++) {
+  try {
+    enc.configure(cfg);
+    const n = Math.round(TOTAL_TIME * fps) + 1;
+    for (let i = 0; i < n; i++) {
+      if (failure) throw failure;
+      const t = Math.min(TOTAL_TIME, i / fps);
+      drawExportFrame(ctx, t, L);
+      const frame = new VideoFrame(canvas, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
+      try {
+        enc.encode(frame, { keyFrame: i % (fps * 2) === 0 });
+      } finally {
+        frame.close(); // também no erro do codec
+      }
+      while (enc.encodeQueueSize > 4) await new Promise(r => setTimeout(r, 0));
+      if (i % 3 === 0) { onProgress(t); await new Promise(r => setTimeout(r, 0)); }
+    }
+    await enc.flush();
     if (failure) throw failure;
-    const t = Math.min(TOTAL_TIME, i / fps);
-    drawExportFrame(ctx, t, L);
-    const frame = new VideoFrame(canvas, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
-    enc.encode(frame, { keyFrame: i % (fps * 2) === 0 });
-    frame.close();
-    while (enc.encodeQueueSize > 4) await new Promise(r => setTimeout(r, 0));
-    if (i % 3 === 0) { onProgress(t); await new Promise(r => setTimeout(r, 0)); }
+    if (!avcC) throw new Error('o codificador não forneceu a configuração H.264');
+    samples.sort((a, b) => a.ts - b.ts);
+    return buildMp4(samples, avcC, canvas.width, canvas.height, fps);
+  } finally {
+    if (enc.state !== 'closed') enc.close(); // não mantém encoder vivo se a gravação falhar
   }
-  await enc.flush(); enc.close();
-  if (failure) throw failure;
-  if (!avcC) throw new Error('o codificador não forneceu a configuração H.264');
-  samples.sort((a, b) => a.ts - b.ts);
-  return buildMp4(samples, avcC, canvas.width, canvas.height, fps);
 }
 
 function pickVideoType(prefer) {           // gravação em tempo real (alternativa): prefer = 'webm' para forçar WebM
@@ -86,30 +93,57 @@ function pickVideoType(prefer) {           // gravação em tempo real (alternat
 // gravação em tempo real com MediaRecorder: usada só quando o navegador não tem o codificador quadro a quadro.
 // Se o computador travar durante a gravação, o vídeo pode sair com a animação um pouco adiantada.
 async function recordRealtime(canvas, ctx, L, fps, type) {
-  const stream = canvas.captureStream(0), track = stream.getVideoTracks()[0];
-  const grab = () => { if (track.requestFrame) track.requestFrame(); else if (stream.requestFrame) stream.requestFrame(); };
-  const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 16e6 });
-  const chunks = [];
-  rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
-  const stopped = new Promise(res => { rec.onstop = res; });
-  rec.start(1000);
-  const t0 = performance.now();
-  grab();
-  await new Promise(resolve => {
-    const step = () => {
-      const t = Math.min(TOTAL_TIME, (performance.now() - t0) / 1000);
-      drawExportFrame(ctx, t, L);
-      grab();
-      showExportProgress(t, 'Gravando');
-      if (t >= TOTAL_TIME) setTimeout(() => { grab(); setTimeout(resolve, 150); }, 1000 / fps);   // repete o último quadro para fechar a duração
-      else requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-  });
-  rec.stop();
-  await stopped;
-  return new Blob(chunks, { type: type.split(';')[0] });
+  const stream = canvas.captureStream(0);
+  let rec = null, raf = 0, timeout = 0;
+  try {
+    const track = stream.getVideoTracks()[0];
+    if (!track) throw new Error('Não há trilha de vídeo para gravar');
+    const grab = () => { if (track.requestFrame) track.requestFrame(); else if (stream.requestFrame) stream.requestFrame(); };
+    rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 16e6 });
+    const chunks = [];
+    let recordingError = null;
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.onerror = e => { recordingError = e.error || new Error('Falha no MediaRecorder'); };
+    const stopped = new Promise(res => { rec.onstop = res; });
+    rec.start(1000);
+    const t0 = performance.now();
+    grab();
+    await new Promise((resolve, reject) => {
+      const step = () => {
+        raf = 0;
+        try {
+          if (recordingError) throw recordingError;
+          const t = Math.min(TOTAL_TIME, (performance.now() - t0) / 1000);
+          drawExportFrame(ctx, t, L);
+          grab();
+          showExportProgress(t, 'Gravando');
+          if (t >= TOTAL_TIME) {
+            timeout = setTimeout(() => {
+              timeout = 0;
+              try {
+                grab();
+                timeout = setTimeout(resolve, 150);
+              } catch (e) { reject(e); }
+            }, 1000 / fps);
+          } else raf = requestAnimationFrame(step);
+        } catch (e) { reject(e); }
+      };
+      raf = requestAnimationFrame(step);
+    });
+    if (rec.state !== 'inactive') rec.stop();
+    await stopped;
+    if (recordingError) throw recordingError;
+    return new Blob(chunks, { type: type.split(';')[0] });
+  } finally {
+    if (raf) cancelAnimationFrame(raf);
+    if (timeout) clearTimeout(timeout);
+    if (rec && rec.state !== 'inactive') {
+      try { rec.stop(); } catch (err) { console.warn('MediaRecorder stop:', err); }
+    }
+    stream.getTracks().forEach(track => track.stop()); // captura nunca fica aberta após erro, aborto ou conclusão
+  }
 }
+
 function showExportProgress(t, label) {
   timerEl.textContent = `00:${String(Math.floor(t)).padStart(2, '0')} / 00:${String(TOTAL_TIME).padStart(2, '0')}`;
   exportBtn.textContent = `⏺ ${label} ${Math.round(t / TOTAL_TIME * 100)}%`;
@@ -120,26 +154,36 @@ function showExportProgress(t, label) {
 async function exportVideo({ width = EXPORT_W, height = EXPORT_H, fps = EXPORT_FPS, download = true, format, mode = 'auto' } = {}) {
   if (exportingVideo) return null;
   if (!window.PAX) { alert('A animação ainda está carregando. Tente de novo em alguns segundos.'); return null; }
-  const h264 = mode !== 'realtime' ? await pickH264(width, height, fps) : null;
-  const type = h264 ? 'video/mp4' : pickVideoType(format);
-  const canvas = document.createElement('canvas');
-  if (!type || (!h264 && !canvas.captureStream)) {
-    alert('Este navegador não consegue gerar vídeo. Use o Chrome ou o Edge.');
-    return null;
-  }
+
+  // Reservar a exportação ANTES do primeiro await evita duas gravações
+  // concorrentes compartilharem o mesmo WebGLRenderer.
   exportingVideo = true;
-  clearInterval(interval); playing = false; playBtn.textContent = '▶ Play';
-  [playBtn, document.getElementById('resetBtn'), scrubber, exportBtn].forEach(el => { el.disabled = true; });
-  exportBtn.textContent = '⏳ Preparando…';
-  canvas.width = width; canvas.height = height;
-  // o quadro sendo gerado aparece por cima do palco (prévia); a página por baixo fica parada, sem custo extra
-  canvas.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; z-index:5;';
-  document.getElementById('viewport').appendChild(canvas);
-  const ctx = canvas.getContext('2d', { alpha: false });   // vídeo sem canal alfa
+  let canvas = null, beganExport = false, uiLocked = false, previewMounted = false;
+  const controls = [playBtn, document.getElementById('resetBtn'), scrubber, exportBtn];
   try {
+    const h264 = mode !== 'realtime' ? await pickH264(width, height, fps) : null;
+    const type = h264 ? 'video/mp4' : pickVideoType(format);
+    canvas = document.createElement('canvas');
+    if (!type || (!h264 && !canvas.captureStream)) {
+      alert('Este navegador não consegue gerar vídeo. Use o Chrome ou o Edge.');
+      return null;
+    }
+
+    pausePlayback();
+    controls.forEach(el => { el.disabled = true; });
+    uiLocked = true;
+    exportBtn.textContent = '⏳ Preparando…';
+    canvas.width = width; canvas.height = height;
+    canvas.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; z-index:5;';
+    document.getElementById('viewport').appendChild(canvas);
+    previewMounted = true;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) throw new Error('Canvas 2D não disponível');
+
     const L = await buildExportLayers(width, height);
     PAX.beginExport(Math.round(175 / L.VB.width * L.stageW * CAM_ZOOM.s));
-    for (const t of [0, 4, ZOOM_END + 0.7, TOTAL_TIME, 0]) drawExportFrame(ctx, t, L);   // aquecimento: compila os shaders e prepara as imagens
+    beganExport = true;
+    for (const t of [0, 4, ZOOM_END + 0.7, TOTAL_TIME, 0]) drawExportFrame(ctx, t, L); // prepara shaders
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     const blob = h264
       ? await encodeMp4(canvas, ctx, L, fps, h264, t => showExportProgress(t, 'Gerando vídeo'))
@@ -147,9 +191,13 @@ async function exportVideo({ width = EXPORT_W, height = EXPORT_H, fps = EXPORT_F
     if (download) {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'aviao_passarela.' + (blob.type === 'video/mp4' ? 'mp4' : 'webm');
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+      try {
+        a.download = 'aviao_passarela.' + (blob.type === 'video/mp4' ? 'mp4' : 'webm');
+        document.body.appendChild(a); a.click(); a.remove();
+      } finally {
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+      }
     }
     return blob;
   } catch (err) {
@@ -157,15 +205,20 @@ async function exportVideo({ width = EXPORT_W, height = EXPORT_H, fps = EXPORT_F
     alert('Não foi possível exportar o vídeo: ' + err.message);
     return null;
   } finally {
-    PAX.endExport();
-    // a página termina no último quadro do vídeo (sem a transição do zoom)
-    time = TOTAL_TIME;
-    rig.style.transition = 'none'; updateStage(TOTAL_TIME); void rig.offsetWidth; rig.style.transition = '';
-    canvas.remove();
-    exportingVideo = false;
-    [playBtn, document.getElementById('resetBtn'), scrubber, exportBtn].forEach(el => { el.disabled = false; });
+    if (beganExport) {
+      try { PAX.endExport(); } catch (err) { console.error('Restaurando PAX:', err); }
+    }
+    if (previewMounted) {
+      // Mesmo comportamento visual anterior: termina no último quadro do vídeo.
+      time = TOTAL_TIME;
+      rig.style.transition = 'none'; updateStage(TOTAL_TIME); void rig.offsetWidth; rig.style.transition = '';
+      canvas.remove();
+    }
+    if (uiLocked) controls.forEach(el => { el.disabled = false; });
     exportBtn.textContent = '⬇ Exportar vídeo';
+    exportingVideo = false;
   }
 }
+
 exportBtn.onclick = () => exportVideo();
 

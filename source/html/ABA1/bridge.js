@@ -10,17 +10,17 @@
             window.paxEnter = () => {
                 try {
                     const w = win(); if (!w) return;
-                    if (w.paxEmbed) { if (w.paxEmbed.xrayReset && !fr.closest('#tour-stage')) w.paxEmbed.xrayReset(); w.paxEmbed.setControls(!fr.closest('#tour-stage')); }
+                    if (w.paxEmbed) { if (w.paxEmbed.xrayReset && !fr.closest('#tour-stage')) w.paxEmbed.xrayReset(); w.paxEmbed.setControls(!fr.closest('#tour-stage')); w.paxEmbed.setActive(!!fr.getClientRects().length); }
                     else w.dispatchEvent(new w.Event('resize'));
                 } catch (e) {}
             };
-            window.paxPause = () => { const a = api(); if (a) a.pause(); };
-            window.paxTourReset = () => { t0 = 0; const a = api(); if (a) { if (a.xrayReset) a.xrayReset(); a.setControls(false); a.reset(); } };
+            window.paxPause = () => { const a = api(); if (a) { a.pause(); a.setActive(false); } };
+            window.paxTourReset = () => { t0 = 0; const a = api(); if (a) { if (a.xrayReset) a.xrayReset(); a.setControls(false); a.setActive(true); a.reset(); } };
             window.paxXray = ms => { const a = api(); return a && a.xray ? a.xray(ms) : Promise.resolve(); };
             window.paxTourStart = async () => {
                 const t = performance.now(); let a;
                 while (!(a = api()) && performance.now() - t < 10000) await new Promise(r => setTimeout(r, 100));
-                if (a) { if (a.xrayReset) a.xrayReset(); a.setControls(false); a.reset(); a.play(); }
+                if (a) { if (a.xrayReset) a.xrayReset(); a.setControls(false); a.setActive(true); a.reset(); a.play(); }
                 t0 = performance.now();
             };
             // terminou quando a linha do tempo chega a 14 s (TOTAL_TIME); se o iframe não responder, segue após 15 s

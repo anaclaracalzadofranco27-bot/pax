@@ -57,7 +57,7 @@ body {
 
 /* Destaque individual das malas nos bagageiros superiores: pulsam no laranja do selo OVERHEAD BINS FULL (#f26a2a).
    As mesmas cores estão em BIN_ORANGE (exportação de vídeo). */
-.bag-top, .bag-front, .bag-detail {
+.bag-top, .bag-front {
   transition: fill 0.5s ease, stroke 0.5s ease, filter 0.5s ease;
 }
 
@@ -73,11 +73,6 @@ body {
   animation: pulseBag 1.1s infinite alternate;
 }
 
-.bin-active .bag-detail {
-  fill: #f78c55 !important;
-  stroke: #f78c55 !important;
-  animation: pulseBag 1.1s infinite alternate;
-}
 
 /* A partir de 00:10 (.bin-active): passageiros sentados na cabine um pouco mais escuros e sem tom azulado, para os bagageiros laranja se destacarem.
    As mesmas cores estão em CABIN_DIM (exportação de vídeo). */

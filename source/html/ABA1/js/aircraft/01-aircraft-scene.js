@@ -38,39 +38,3 @@ const rig = document.getElementById('camera-rig');
 const timerEl = document.getElementById('timer');
 const scrubber = document.getElementById('scrubber');
 const playBtn = document.getElementById('playBtn');
-// Identifica e classifica automaticamente os vetores individuais das 15 malas no bagageiro superior
-document.querySelectorAll('#camera-rig > svg path').forEach(p => {
-  const fill = (p.getAttribute('fill') || '').toLowerCase();
-  if (!['#4a3147', '#5e4156', '#623f59'].includes(fill)) return;
-
-  const d = p.getAttribute('d') || '';
-  const nums = (d.match(/[-+]?\d*\.\d+|\d+/g) || []).map(Number);
-  if (nums.length < 4) return;
-
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (let i = 0; i < nums.length - 1; i += 2) {
-    const x = nums[i], y = nums[i + 1];
-    if (x < minX) minX = x;
-    if (x > maxX) maxX = x;
-    if (y < minY) minY = y;
-    if (y > maxY) maxY = y;
-  }
-
-  const cx = (minX + maxX) / 2;
-  const cy = (minY + maxY) / 2;
-  const w = maxX - minX;
-  const h = maxY - minY;
-  const lineY = 442 - 0.5336 * (cx - 145);
-  const dy = cy - lineY;
-
-  if (cx >= 148 && cx <= 368 && dy >= -4.0 && dy <= 15.0 && w < 25 && h < 20) {
-    if (fill === '#5e4156') {
-      p.classList.add('bag-top');
-    } else if (fill === '#4a3147') {
-      p.classList.add('bag-front');
-    } else {
-      p.classList.add('bag-detail');
-    }
-  }
-});
-

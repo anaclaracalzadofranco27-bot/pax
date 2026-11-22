@@ -7,7 +7,7 @@
 const EXPORT_W = 1920, EXPORT_H = 1080, EXPORT_FPS = 30;
 const CAM_ZOOM = { s: 1.68, tx: -0.045, ty: -0.24, dur: 1.8 };   // mesmo zoom inicial do CSS; transição de 1,8 s
 const CABIN_DIM = { '#91999c': '#808283', '#8d8d8b': '#797979', '#758185': '#6a6d6e' };   // mesmas cores do CSS .bin-active .cabin-pax
-const BIN_ORANGE = { top: [242, 106, 42], front: [207, 83, 28], detail: [247, 140, 85] };     // mesmas cores do CSS .bin-active .bag-* (#f26a2a, #cf531c, #f78c55)
+const BIN_ORANGE = { top: [242, 106, 42], front: [207, 83, 28] };     // mesmas cores do CSS .bin-active .bag-* (#f26a2a, #cf531c, #f78c55)
 const exportBtn = document.getElementById('exportBtn');
 let exportingVideo = false;
 
@@ -152,11 +152,11 @@ async function buildExportLayers(W, H) {
   const fb = unionBBox([...frontSvg.querySelectorAll('path')], 1);
   const front = await rasterSvg(svgCloneText(frontSvg, fb, ppu), fb, ppu);
   // bagageiros em destaque (classes do CSS .bin-active), em duas intensidades do pulso: brilho 0,85 e 1,18 com brilho laranja em volta
-  const bags = [...mainSvg.querySelectorAll('.bag-top, .bag-front, .bag-detail')];
+  const bags = [...mainSvg.querySelectorAll('.bag-top, .bag-front')];
   let red = null;
   if (bags.length) {
     const bb = unionBBox(bags, 6);
-    const base = el => el.classList.contains('bag-top') ? BIN_ORANGE.top : el.classList.contains('bag-front') ? BIN_ORANGE.front : BIN_ORANGE.detail;
+    const base = el => el.classList.contains('bag-top') ? BIN_ORANGE.top : BIN_ORANGE.front;
     const col = (c, k) => 'rgb(' + c.map(v => Math.min(255, Math.round(v * k))).join(',') + ')';
     const layer = (k, glow) => {
       const paths = bags.map(el => { const c = col(base(el), k); return `<path d="${el.getAttribute('d')}" fill="${c}" stroke="${c}"/>`; }).join('');
