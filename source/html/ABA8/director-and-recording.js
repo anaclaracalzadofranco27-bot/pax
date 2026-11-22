@@ -104,6 +104,26 @@
         let bridge=null;
         const bridgeEase=v=>{v=Math.max(0,Math.min(1,v));return v<.5?4*v*v*v:1-Math.pow(-2*v+2,3)/2;};
         const bridgeMix=(a,b,u)=>({k:a.k+(b.k-a.k)*u,tx:a.tx+(b.tx-a.tx)*u,ty:a.ty+(b.ty-a.ty)*u});
+        // O estado da Aba 6 pode conter a fase FINAL de uma execução anterior.
+        // Até o relógio desta nova execução confirmar a reinicialização, a
+        // ponte mantém exatamente a pose que já vinha desenhando.
+        function bridgeStowPhase(b, currentPhase) {
+            if (b.mode !== 'stow' || !b.phaseClockReady) return b.initialPhase;
+            const next = Number.isFinite(currentPhase) ? Math.max(0, Math.min(1, currentPhase)) : b.lastPhase;
+            b.lastPhase = Math.max(b.lastPhase, next); // nunca reproduzir um frame anterior
+            return b.lastPhase;
+        }
+        // Chamado pelo controlador da Aba 6 somente depois do reset da fase e
+        // da inicialização do motor. Um callback atrasado não afeta outra ponte.
+        window.__aphaTourAba6ClockReady = initialPhase => {
+            const b = bridge;
+            if (!b || b.mode !== 'stow') return;
+            if (!Number.isFinite(initialPhase) || Math.abs(initialPhase - b.initialPhase) > 1e-6) {
+                console.warn('Aba 5 → 6: fase inicial fora de sincronia, aguardando o relógio correto');
+                return;
+            }
+            b.phaseClockReady = true;
+        };
         function destroyBridge(fadeMs=0){
             // Limpa a flag inclusive quando a ponte já não existe.
             window.__aphaTourBridgeActive = false;
@@ -124,9 +144,11 @@
             const width=Math.round(W*dpr),height=Math.round(H*dpr);
             if(b.canvas.width!==width||b.canvas.height!==height){b.canvas.width=width;b.canvas.height=height;}
             const g=b.canvas.getContext('2d'),elapsed=now-b.started;
-            // A abertura pertence inteiramente à Aba 5; a ponte não a reinicia.
+            // A porta e o manequim usam a MESMA fase validada da nova execução.
+            // Nunca ler diretamente a fase residual da Aba 6 durante a troca.
+            const phase=bridgeStowPhase(b,manikinState.phase);
             const doorU=b.mode==='stow'
-                ? 1-bridgeEase(((manikinState.phase||0)-.96)/.04)
+                ? 1-bridgeEase((phase-.96)/.04)
                 : 1;
             let m=b.end;
             if(b.mode!=='stow')m=bridgeMix(b.start,b.end,bridgeEase(elapsed/C.zoomOutMs));
@@ -161,10 +183,6 @@
             const L=manikinState.last,mass=L?L.mass:10,ang=L?L.angleDeg:17;
             const Fg=L?L.Fg:mass*9.81,Fn=L?L.Fn:Fg*Math.cos(ang*Math.PI/180),Ft=L?L.Ft:Fg*Math.sin(ang*Math.PI/180);
             const t=L?L.times[0]:ergoTimes(ERGO_PERCENTILES[0].h,mass,ang);
-            // Fixar o frame inicial: a inicialização da física não salta a mala.
-            const phase=b.mode==='stow'
-                ? Math.max(manikinState.phase||0,b.initialPhase)
-                : b.initialPhase;
             const old=[window.__aphaOnlyCabin,window.__aphaShowConventional,window.__aphaBridgeDoorU,window.__aphaBridgeMinimalHUD,window.__aphaBridgeManikinAlpha,window.__aphaBridgeSeatsAlpha,window.__aphaAlphaBodyOpacity];
             try{
                 // Renderiza o cenário inteiro em todos os quadros. O manequim surge
@@ -259,8 +277,9 @@
             const canvas=document.createElement('canvas');
             canvas.id='apha-continuous-cabin';
             canvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:12;pointer-events:none;opacity:1';
+            const initialPhase=aphaInitialManikinPhase();
             bridge={canvas,baseW,baseH,srcX,srcY,srcW,srcH,snapshot,
-                start,end,initialPhase:aphaInitialManikinPhase(),
+                start,end,initialPhase,lastPhase:initialPhase,phaseClockReady:false,
                 started:performance.now(),mode:'transition',stowStart:0,raf:0,error:false};
             window.__aphaTourBridgeActive = true;
             paintBridge(bridge.started);
