@@ -28,6 +28,11 @@
             startManikinLoop(); // relógio novo; startManikinLoop usa performance.now()
             setAnimLabel();
             updateErgonomics();
+            // Só agora a ponte pode usar manikinState.phase: antes deste ponto
+            // a variável ainda podia conter a pose final de outra reprodução.
+            if (options.tour && typeof window.__aphaTourAba6ClockReady === 'function') {
+                window.__aphaTourAba6ClockReady(manikinState.phase);
+            }
             // Sem resize global: evita reentrância no tour e nos outros canvases.
             return true;
         }
