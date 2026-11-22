@@ -990,6 +990,8 @@ def verify_aba6_controller(v: Checker) -> None:
         v.order(cabin, (inc, "function computeAllGeometries("),
                 "Controlador biomecânico fora da ordem do motor")
     if controller is not None:
+        v.check("setAnimLabel(" not in controller,
+                "Aba 6: referência órfã de setAnimLabel bloqueia a animação do tour")
         for name in ("initAba6Engine", "scheduleAba6Engine", "pauseAba6Engine"):
             v.check(f"function {name}(" in controller, f"Função biomecânica ausente: {name}")
             if cabin is not None:
