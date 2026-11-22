@@ -911,7 +911,7 @@ body {
 
 /* Destaque individual das malas nos bagageiros superiores: pulsam no laranja do selo OVERHEAD BINS FULL (#f26a2a).
    As mesmas cores estão em BIN_ORANGE (exportação de vídeo). */
-.bag-top, .bag-front, .bag-detail {
+.bag-top, .bag-front {
   transition: fill 0.5s ease, stroke 0.5s ease, filter 0.5s ease;
 }
 
@@ -927,11 +927,6 @@ body {
   animation: pulseBag 1.1s infinite alternate;
 }
 
-.bin-active .bag-detail {
-  fill: #f78c55 !important;
-  stroke: #f78c55 !important;
-  animation: pulseBag 1.1s infinite alternate;
-}
 
 /* A partir de 00:10 (.bin-active): passageiros sentados na cabine um pouco mais escuros e sem tom azulado, para os bagageiros laranja se destacarem.
    As mesmas cores estão em CABIN_DIM (exportação de vídeo). */
@@ -1489,91 +1484,75 @@ const rig = document.getElementById('camera-rig');
 const timerEl = document.getElementById('timer');
 const scrubber = document.getElementById('scrubber');
 const playBtn = document.getElementById('playBtn');
-// Identifica e classifica automaticamente os vetores individuais das 15 malas no bagageiro superior
-document.querySelectorAll('#camera-rig > svg path').forEach(p => {
-  const fill = (p.getAttribute('fill') || '').toLowerCase();
-  if (!['#4a3147', '#5e4156', '#623f59'].includes(fill)) return;
 
-  const d = p.getAttribute('d') || '';
-  const nums = (d.match(/[-+]?\d*\.\d+|\d+/g) || []).map(Number);
-  if (nums.length < 4) return;
-
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (let i = 0; i < nums.length - 1; i += 2) {
-    const x = nums[i], y = nums[i + 1];
-    if (x < minX) minX = x;
-    if (x > maxX) maxX = x;
-    if (y < minY) minY = y;
-    if (y > maxY) maxY = y;
-  }
-
-  const cx = (minX + maxX) / 2;
-  const cy = (minY + maxY) / 2;
-  const w = maxX - minX;
-  const h = maxY - minY;
-  const lineY = 442 - 0.5336 * (cx - 145);
-  const dy = cy - lineY;
-
-  if (cx >= 148 && cx <= 368 && dy >= -4.0 && dy <= 15.0 && w < 25 && h < 20) {
-    if (fill === '#5e4156') {
-      p.classList.add('bag-top');
-    } else if (fill === '#4a3147') {
-      p.classList.add('bag-front');
-    } else {
-      p.classList.add('bag-detail');
-    }
-  }
-});
-
-
-let time = 0, playing = false, interval = null;
+let time = 0, playing = false, interval = null, playStart = 0;
 const ZOOM_END = 10;   // segundos com o zoom na passarela; depois a câmera abre para o avião inteiro
 const BIN_ON = ZOOM_END + 1.8;   // bagageiros acendem em laranja só quando a câmera termina de abrir (1,8 s)
-const TOTAL_TIME = 14; // duração total da animação (s): o Play para aqui. O selo OVERHEAD BINS FULL assenta em ~12,5 s: a tela fica parada no alerta só ~2 s
+const TOTAL_TIME = 14; // duração total da animação (s); o contador visual continua oculto no tour
+
+// Um único relógio monotônico para o palco, os passageiros 3D e a conclusão do roteiro.
+// Intervalos atrasados nunca prolongam artificialmente a animação de 14 segundos.
+function paxClockTime(now = performance.now()) {
+  return playing ? Math.min(TOTAL_TIME, Math.max(0, (now - playStart) / 1000)) : time;
+}
 
 function updateStage(sec) {
-  paxLastTick = performance.now();
   scrubber.value = sec;
   timerEl.textContent = `00:${String(Math.floor(sec)).padStart(2,'0')} / 00:${String(TOTAL_TIME).padStart(2,'0')}`;
 
   const cls = sec < ZOOM_END ? 'zoom-bridge' : sec < BIN_ON ? '' : 'bin-active';
-  if (rig.className !== cls) rig.className = cls;   // só troca a classe quando muda (sem recalcular estilos a cada 0,1 s)
+  const changed = rig.className !== cls;
+  if (changed) rig.className = cls;
+  if (window.PAX) window.PAX.invalidate(changed); // reativa só os frames necessários, inclusive após Restart/scrubber
+}
+
+function pausePlayback() {
+  if (playing) time = paxClockTime();
+  clearInterval(interval);
+  interval = null;
+  playing = false;
+  playBtn.textContent = '▶ Play';
+  updateStage(time);
 }
 
 function togglePlay() {
-  playing = !playing;
-  playBtn.textContent = playing ? '⏸ Pause' : '▶ Play';
-  if (playing) {
-    if (time >= TOTAL_TIME) time = 0;
-    interval = setInterval(() => {
-      time = Math.min(TOTAL_TIME, +(time + 0.1).toFixed(1));
-      updateStage(time);
-      if (time >= TOTAL_TIME) {
-        clearInterval(interval);
-        playing = false;
-        playBtn.textContent = '▶ Play';
-      }
-    }, 100);
-  } else {
-    clearInterval(interval);
-  }
+  if (playing) { pausePlayback(); return; }
+  if (time >= TOTAL_TIME) time = 0;
+  playing = true;
+  playStart = performance.now() - time * 1000; // retoma da fase pausada ou escolhida no scrubber
+  playBtn.textContent = '⏸ Pause';
+  updateStage(time);
+  // 100 ms controla somente UI/estado; a posição exata vem de performance.now().
+  interval = setInterval(() => {
+    time = paxClockTime();
+    if (time >= TOTAL_TIME) {
+      time = TOTAL_TIME;
+      clearInterval(interval);
+      interval = null;
+      playing = false;
+      playBtn.textContent = '▶ Play';
+    }
+    updateStage(time);
+  }, 100);
 }
 
 playBtn.onclick = togglePlay;
 
 document.getElementById('resetBtn').onclick = () => {
   clearInterval(interval);
+  interval = null;
   playing = false;
   time = 0;
   playBtn.textContent = '▶ Play';
   updateStage(0);
 };
 
-scrubber.oninput = (e) => {
-  time = parseFloat(e.target.value);
+scrubber.oninput = e => {
+  time = Math.max(0, Math.min(TOTAL_TIME, Number(e.target.value) || 0));
+  // Mudar a posição durante Play mantém a reprodução a partir do novo instante.
+  if (playing) playStart = performance.now() - time * 1000;
   updateStage(time);
 };
-
 
 // ============================================================================
 // EXPORTAR VÍDEO: a animação é redesenhada em Full HD 1920 x 1080 (16:9, 30 quadros/s), sem deformar o SVG 575x425
@@ -1584,7 +1563,7 @@ scrubber.oninput = (e) => {
 const EXPORT_W = 1920, EXPORT_H = 1080, EXPORT_FPS = 30;
 const CAM_ZOOM = { s: 1.68, tx: -0.045, ty: -0.24, dur: 1.8 };   // mesmo zoom inicial do CSS; transição de 1,8 s
 const CABIN_DIM = { '#91999c': '#808283', '#8d8d8b': '#797979', '#758185': '#6a6d6e' };   // mesmas cores do CSS .bin-active .cabin-pax
-const BIN_ORANGE = { top: [242, 106, 42], front: [207, 83, 28], detail: [247, 140, 85] };     // mesmas cores do CSS .bin-active .bag-* (#f26a2a, #cf531c, #f78c55)
+const BIN_ORANGE = { top: [242, 106, 42], front: [207, 83, 28] };     // mesmas cores do CSS .bin-active .bag-* (#f26a2a, #cf531c, #f78c55)
 const exportBtn = document.getElementById('exportBtn');
 let exportingVideo = false;
 
@@ -1729,11 +1708,11 @@ async function buildExportLayers(W, H) {
   const fb = unionBBox([...frontSvg.querySelectorAll('path')], 1);
   const front = await rasterSvg(svgCloneText(frontSvg, fb, ppu), fb, ppu);
   // bagageiros em destaque (classes do CSS .bin-active), em duas intensidades do pulso: brilho 0,85 e 1,18 com brilho laranja em volta
-  const bags = [...mainSvg.querySelectorAll('.bag-top, .bag-front, .bag-detail')];
+  const bags = [...mainSvg.querySelectorAll('.bag-top, .bag-front')];
   let red = null;
   if (bags.length) {
     const bb = unionBBox(bags, 6);
-    const base = el => el.classList.contains('bag-top') ? BIN_ORANGE.top : el.classList.contains('bag-front') ? BIN_ORANGE.front : BIN_ORANGE.detail;
+    const base = el => el.classList.contains('bag-top') ? BIN_ORANGE.top : BIN_ORANGE.front;
     const col = (c, k) => 'rgb(' + c.map(v => Math.min(255, Math.round(v * k))).join(',') + ')';
     const layer = (k, glow) => {
       const paths = bags.map(el => { const c = col(base(el), k); return `<path d="${el.getAttribute('d')}" fill="${c}" stroke="${c}"/>`; }).join('');
@@ -1878,23 +1857,30 @@ async function encodeMp4(canvas, ctx, L, fps, cfg, onProgress) {
     },
     error: e => { failure = e; }
   });
-  enc.configure(cfg);
-  const n = Math.round(TOTAL_TIME * fps) + 1;
-  for (let i = 0; i < n; i++) {
+  try {
+    enc.configure(cfg);
+    const n = Math.round(TOTAL_TIME * fps) + 1;
+    for (let i = 0; i < n; i++) {
+      if (failure) throw failure;
+      const t = Math.min(TOTAL_TIME, i / fps);
+      drawExportFrame(ctx, t, L);
+      const frame = new VideoFrame(canvas, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
+      try {
+        enc.encode(frame, { keyFrame: i % (fps * 2) === 0 });
+      } finally {
+        frame.close(); // também no erro do codec
+      }
+      while (enc.encodeQueueSize > 4) await new Promise(r => setTimeout(r, 0));
+      if (i % 3 === 0) { onProgress(t); await new Promise(r => setTimeout(r, 0)); }
+    }
+    await enc.flush();
     if (failure) throw failure;
-    const t = Math.min(TOTAL_TIME, i / fps);
-    drawExportFrame(ctx, t, L);
-    const frame = new VideoFrame(canvas, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
-    enc.encode(frame, { keyFrame: i % (fps * 2) === 0 });
-    frame.close();
-    while (enc.encodeQueueSize > 4) await new Promise(r => setTimeout(r, 0));
-    if (i % 3 === 0) { onProgress(t); await new Promise(r => setTimeout(r, 0)); }
+    if (!avcC) throw new Error('o codificador não forneceu a configuração H.264');
+    samples.sort((a, b) => a.ts - b.ts);
+    return buildMp4(samples, avcC, canvas.width, canvas.height, fps);
+  } finally {
+    if (enc.state !== 'closed') enc.close(); // não mantém encoder vivo se a gravação falhar
   }
-  await enc.flush(); enc.close();
-  if (failure) throw failure;
-  if (!avcC) throw new Error('o codificador não forneceu a configuração H.264');
-  samples.sort((a, b) => a.ts - b.ts);
-  return buildMp4(samples, avcC, canvas.width, canvas.height, fps);
 }
 
 function pickVideoType(prefer) {           // gravação em tempo real (alternativa): prefer = 'webm' para forçar WebM
@@ -1905,30 +1891,57 @@ function pickVideoType(prefer) {           // gravação em tempo real (alternat
 // gravação em tempo real com MediaRecorder: usada só quando o navegador não tem o codificador quadro a quadro.
 // Se o computador travar durante a gravação, o vídeo pode sair com a animação um pouco adiantada.
 async function recordRealtime(canvas, ctx, L, fps, type) {
-  const stream = canvas.captureStream(0), track = stream.getVideoTracks()[0];
-  const grab = () => { if (track.requestFrame) track.requestFrame(); else if (stream.requestFrame) stream.requestFrame(); };
-  const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 16e6 });
-  const chunks = [];
-  rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
-  const stopped = new Promise(res => { rec.onstop = res; });
-  rec.start(1000);
-  const t0 = performance.now();
-  grab();
-  await new Promise(resolve => {
-    const step = () => {
-      const t = Math.min(TOTAL_TIME, (performance.now() - t0) / 1000);
-      drawExportFrame(ctx, t, L);
-      grab();
-      showExportProgress(t, 'Gravando');
-      if (t >= TOTAL_TIME) setTimeout(() => { grab(); setTimeout(resolve, 150); }, 1000 / fps);   // repete o último quadro para fechar a duração
-      else requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-  });
-  rec.stop();
-  await stopped;
-  return new Blob(chunks, { type: type.split(';')[0] });
+  const stream = canvas.captureStream(0);
+  let rec = null, raf = 0, timeout = 0;
+  try {
+    const track = stream.getVideoTracks()[0];
+    if (!track) throw new Error('Não há trilha de vídeo para gravar');
+    const grab = () => { if (track.requestFrame) track.requestFrame(); else if (stream.requestFrame) stream.requestFrame(); };
+    rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 16e6 });
+    const chunks = [];
+    let recordingError = null;
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.onerror = e => { recordingError = e.error || new Error('Falha no MediaRecorder'); };
+    const stopped = new Promise(res => { rec.onstop = res; });
+    rec.start(1000);
+    const t0 = performance.now();
+    grab();
+    await new Promise((resolve, reject) => {
+      const step = () => {
+        raf = 0;
+        try {
+          if (recordingError) throw recordingError;
+          const t = Math.min(TOTAL_TIME, (performance.now() - t0) / 1000);
+          drawExportFrame(ctx, t, L);
+          grab();
+          showExportProgress(t, 'Gravando');
+          if (t >= TOTAL_TIME) {
+            timeout = setTimeout(() => {
+              timeout = 0;
+              try {
+                grab();
+                timeout = setTimeout(resolve, 150);
+              } catch (e) { reject(e); }
+            }, 1000 / fps);
+          } else raf = requestAnimationFrame(step);
+        } catch (e) { reject(e); }
+      };
+      raf = requestAnimationFrame(step);
+    });
+    if (rec.state !== 'inactive') rec.stop();
+    await stopped;
+    if (recordingError) throw recordingError;
+    return new Blob(chunks, { type: type.split(';')[0] });
+  } finally {
+    if (raf) cancelAnimationFrame(raf);
+    if (timeout) clearTimeout(timeout);
+    if (rec && rec.state !== 'inactive') {
+      try { rec.stop(); } catch (err) { console.warn('MediaRecorder stop:', err); }
+    }
+    stream.getTracks().forEach(track => track.stop()); // captura nunca fica aberta após erro, aborto ou conclusão
+  }
 }
+
 function showExportProgress(t, label) {
   timerEl.textContent = `00:${String(Math.floor(t)).padStart(2, '0')} / 00:${String(TOTAL_TIME).padStart(2, '0')}`;
   exportBtn.textContent = `⏺ ${label} ${Math.round(t / TOTAL_TIME * 100)}%`;
@@ -1939,26 +1952,36 @@ function showExportProgress(t, label) {
 async function exportVideo({ width = EXPORT_W, height = EXPORT_H, fps = EXPORT_FPS, download = true, format, mode = 'auto' } = {}) {
   if (exportingVideo) return null;
   if (!window.PAX) { alert('A animação ainda está carregando. Tente de novo em alguns segundos.'); return null; }
-  const h264 = mode !== 'realtime' ? await pickH264(width, height, fps) : null;
-  const type = h264 ? 'video/mp4' : pickVideoType(format);
-  const canvas = document.createElement('canvas');
-  if (!type || (!h264 && !canvas.captureStream)) {
-    alert('Este navegador não consegue gerar vídeo. Use o Chrome ou o Edge.');
-    return null;
-  }
+
+  // Reservar a exportação ANTES do primeiro await evita duas gravações
+  // concorrentes compartilharem o mesmo WebGLRenderer.
   exportingVideo = true;
-  clearInterval(interval); playing = false; playBtn.textContent = '▶ Play';
-  [playBtn, document.getElementById('resetBtn'), scrubber, exportBtn].forEach(el => { el.disabled = true; });
-  exportBtn.textContent = '⏳ Preparando…';
-  canvas.width = width; canvas.height = height;
-  // o quadro sendo gerado aparece por cima do palco (prévia); a página por baixo fica parada, sem custo extra
-  canvas.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; z-index:5;';
-  document.getElementById('viewport').appendChild(canvas);
-  const ctx = canvas.getContext('2d', { alpha: false });   // vídeo sem canal alfa
+  let canvas = null, beganExport = false, uiLocked = false, previewMounted = false;
+  const controls = [playBtn, document.getElementById('resetBtn'), scrubber, exportBtn];
   try {
+    const h264 = mode !== 'realtime' ? await pickH264(width, height, fps) : null;
+    const type = h264 ? 'video/mp4' : pickVideoType(format);
+    canvas = document.createElement('canvas');
+    if (!type || (!h264 && !canvas.captureStream)) {
+      alert('Este navegador não consegue gerar vídeo. Use o Chrome ou o Edge.');
+      return null;
+    }
+
+    pausePlayback();
+    controls.forEach(el => { el.disabled = true; });
+    uiLocked = true;
+    exportBtn.textContent = '⏳ Preparando…';
+    canvas.width = width; canvas.height = height;
+    canvas.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; z-index:5;';
+    document.getElementById('viewport').appendChild(canvas);
+    previewMounted = true;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) throw new Error('Canvas 2D não disponível');
+
     const L = await buildExportLayers(width, height);
     PAX.beginExport(Math.round(175 / L.VB.width * L.stageW * CAM_ZOOM.s));
-    for (const t of [0, 4, ZOOM_END + 0.7, TOTAL_TIME, 0]) drawExportFrame(ctx, t, L);   // aquecimento: compila os shaders e prepara as imagens
+    beganExport = true;
+    for (const t of [0, 4, ZOOM_END + 0.7, TOTAL_TIME, 0]) drawExportFrame(ctx, t, L); // prepara shaders
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     const blob = h264
       ? await encodeMp4(canvas, ctx, L, fps, h264, t => showExportProgress(t, 'Gerando vídeo'))
@@ -1966,9 +1989,13 @@ async function exportVideo({ width = EXPORT_W, height = EXPORT_H, fps = EXPORT_F
     if (download) {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'aviao_passarela.' + (blob.type === 'video/mp4' ? 'mp4' : 'webm');
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+      try {
+        a.download = 'aviao_passarela.' + (blob.type === 'video/mp4' ? 'mp4' : 'webm');
+        document.body.appendChild(a); a.click(); a.remove();
+      } finally {
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+      }
     }
     return blob;
   } catch (err) {
@@ -1976,16 +2003,21 @@ async function exportVideo({ width = EXPORT_W, height = EXPORT_H, fps = EXPORT_F
     alert('Não foi possível exportar o vídeo: ' + err.message);
     return null;
   } finally {
-    PAX.endExport();
-    // a página termina no último quadro do vídeo (sem a transição do zoom)
-    time = TOTAL_TIME;
-    rig.style.transition = 'none'; updateStage(TOTAL_TIME); void rig.offsetWidth; rig.style.transition = '';
-    canvas.remove();
-    exportingVideo = false;
-    [playBtn, document.getElementById('resetBtn'), scrubber, exportBtn].forEach(el => { el.disabled = false; });
+    if (beganExport) {
+      try { PAX.endExport(); } catch (err) { console.error('Restaurando PAX:', err); }
+    }
+    if (previewMounted) {
+      // Mesmo comportamento visual anterior: termina no último quadro do vídeo.
+      time = TOTAL_TIME;
+      rig.style.transition = 'none'; updateStage(TOTAL_TIME); void rig.offsetWidth; rig.style.transition = '';
+      canvas.remove();
+    }
+    if (uiLocked) controls.forEach(el => { el.disabled = false; });
     exportBtn.textContent = '⬇ Exportar vídeo';
+    exportingVideo = false;
   }
 }
+
 exportBtn.onclick = () => exportVideo();
 
 
@@ -1996,8 +2028,7 @@ exportBtn.onclick = () => exportVideo();
 // Personagens Three.js da Aba 1 (distintos dos manequins Canvas 2D da Aba 6); câmera enquadrada na passarela SVG.
 // ============================================================================
 const PAX_START = 0.5;                        // segundos da linha do tempo em que o primeiro passageiro começa a andar
-let paxLastTick = performance.now();
-function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.now() - paxLastTick) / 1000) : 0); }
+function PAX_TIMELINE() { return paxClockTime(); } // o mesmo relógio absoluto do avião e do roteiro
 (() => {
         // ============================================================================
         // CENA 3D E MAPEAMENTO EXATO SOBRE O VETOR DA RAMPA (A → z → y → x)
@@ -4116,29 +4147,55 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
         }
 
         let paxSceneDirty = true, lastLiveTl = NaN, lastLiveZoom = NaN;
-        window.addEventListener('resize', () => {
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            paxSceneDirty = true;
-        });
-
-        // Tempo da animação = tempo da linha do tempo do avião (Play/Restart/scrubber), suavizado entre os passos de 100 ms
+        let paxRaf = 0, paxZoomUntil = 0;
+        // O iframe também pode estar escondido por uma aba do documento pai.
+        // Quando não há movimento nem transição de câmera, nenhum RAF é mantido.
+        let paxActive = !window.frameElement || window.frameElement.getClientRects().length > 0;
         const camRig = document.getElementById('camera-rig');
         function cssZoom() { const t = getComputedStyle(camRig).transform; return t && t !== 'none' ? new DOMMatrix(t).a : 1; }
         let paxExporting = false, paxSavedRatio = 1;
-        function animate() {
-            requestAnimationFrame(animate);
-            if (paxExporting) return;                    // durante a exportação quem desenha é PAX.renderAt
+        function requestPaxFrame() {
+            if (!paxRaf && paxActive && !document.hidden && !paxExporting) paxRaf = requestAnimationFrame(animate);
+        }
+        function invalidate(zoomChanged = false) {
+            paxSceneDirty = true;
+            // O CSS interpola o zoom por 1,8 s mesmo que o Play seja pausado.
+            if (zoomChanged) paxZoomUntil = performance.now() + CAM_ZOOM.dur * 1000 + 70;
+            requestPaxFrame();
+        }
+        function setActive(active) {
+            paxActive = !!active;
+            if (!paxActive && paxRaf) {
+                cancelAnimationFrame(paxRaf);
+                paxRaf = 0;
+            }
+            if (paxActive) invalidate();
+        }
+        window.addEventListener('resize', () => {
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            invalidate();
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && paxRaf) { cancelAnimationFrame(paxRaf); paxRaf = 0; }
+            if (!document.hidden) invalidate();
+        });
+        function animate(now) {
+            paxRaf = 0;
+            if (paxExporting || !paxActive || document.hidden) return;
             const tl = PAX_TIMELINE();
-            const z = cssZoom();                          // observar o zoom mesmo durante o Play pausado
-            if (!playing && !paxSceneDirty && tl === lastLiveTl && z === lastLiveZoom) return;
-            lastLiveTl = tl;
-            lastLiveZoom = z;
-            paxSceneDirty = false;
-            elapsed = Math.max(0, Math.min(MAX_ANIMATION_TIME, tl - PAX_START));
-            updateWalk();
-            OUTLINE_W.value = OUTLINE_PX * (FRUSTUM_H / camera.zoom) / Math.max(1, renderer.domElement.clientHeight) / rig1.root.scale.x / z;
-            renderer.render(scene, camera);
-            updateBalloonsLive(tl, z, labelAnchors());
+            const z = cssZoom();
+            const changed = paxSceneDirty || tl !== lastLiveTl || z !== lastLiveZoom;
+            if (changed) {
+                lastLiveTl = tl;
+                lastLiveZoom = z;
+                paxSceneDirty = false;
+                elapsed = Math.max(0, Math.min(MAX_ANIMATION_TIME, tl - PAX_START));
+                updateWalk();
+                OUTLINE_W.value = OUTLINE_PX * (FRUSTUM_H / camera.zoom) / Math.max(1, renderer.domElement.clientHeight) / rig1.root.scale.x / z;
+                renderer.render(scene, camera);
+                updateBalloonsLive(tl, z, labelAnchors());
+            }
+            if (playing || now < paxZoomUntil) requestPaxFrame();
         }
         // Exportação de vídeo: desenha os passageiros no instante tl da linha do tempo, com o contorno calculado para o zoom informado
         function renderAt(tl, zoom) {
@@ -4148,18 +4205,33 @@ function PAX_TIMELINE() { return time + (playing ? Math.min(0.1, (performance.no
             renderer.render(scene, camera);
             return renderer.domElement;
         }
-        function beginExport(bufferWidth) {            // resolução do canvas 3D adequada ao vídeo (largura em pixels)
-            paxExporting = true; paxSavedRatio = renderer.getPixelRatio();
-            renderer.setPixelRatio(bufferWidth / Math.max(1, container.clientWidth));
+        function beginExport(bufferWidth) {
+            if (paxExporting) throw new Error('Exportação PAX já ativa');
+            paxSavedRatio = renderer.getPixelRatio();
+            paxExporting = true;
+            if (paxRaf) { cancelAnimationFrame(paxRaf); paxRaf = 0; }
+            try {
+                renderer.setPixelRatio(bufferWidth / Math.max(1, container.clientWidth));
+            } catch (err) {
+                paxExporting = false;
+                try { renderer.setPixelRatio(paxSavedRatio); } catch (_) {}
+                invalidate();
+                throw err;
+            }
             paxSceneDirty = true;
         }
         function endExport() {
-            renderer.setPixelRatio(paxSavedRatio);
-            paxExporting = false;
-            paxSceneDirty = true;                         // redesenhar após a captura, mesmo com o Play pausado
+            if (!paxExporting) return;
+            try {
+                renderer.setPixelRatio(paxSavedRatio);
+            } finally {
+                paxExporting = false;
+                invalidate(); // restaura o quadro ao voltar da captura, inclusive em pausa
+            }
         }
-        window.PAX = { rig1, rig2, rig3, camera, renderer, scene, renderAt, labelAnchors, beginExport, endExport, get elapsed() { return elapsed; } };
-        requestAnimationFrame(animate);
+        window.PAX = { rig1, rig2, rig3, camera, renderer, scene, renderAt, labelAnchors,
+            beginExport, endExport, invalidate, setActive, get elapsed() { return elapsed; } };
+        requestPaxFrame();
 
 })();
 <\/script>
@@ -4170,7 +4242,8 @@ window.paxEmbed = {
   reset: () => { rig.style.transition = 'none'; document.getElementById('resetBtn').click(); void rig.offsetWidth; rig.style.transition = ''; },
   play: () => { if (!playing && !exportingVideo) togglePlay(); },
   pause: () => { if (playing) togglePlay(); },
-  done: () => time >= TOTAL_TIME,
+  setActive: on => { if (window.PAX) window.PAX.setActive(on); },
+  done: () => paxClockTime() >= TOTAL_TIME,
   setControls: on => { document.body.classList.toggle('no-ctl', !on); window.dispatchEvent(new Event('resize')); },
   xray: ms => xrayRun(ms || 1700),
   xrayReset: () => xrayReset()
@@ -4191,8 +4264,6 @@ const xrayLayers = () => [
 function xrayReset() {
   if (!xrayOn) return;
   xrayOn = false;
-  const ov = document.getElementById('xray-bags');
-  if (ov) ov.style.display = 'none';
   const layers = xrayLayers();
   layers.forEach(el => {
     el.style.transition = 'none';
@@ -4231,17 +4302,17 @@ function xrayRun(ms) {
             window.paxEnter = () => {
                 try {
                     const w = win(); if (!w) return;
-                    if (w.paxEmbed) { if (w.paxEmbed.xrayReset && !fr.closest('#tour-stage')) w.paxEmbed.xrayReset(); w.paxEmbed.setControls(!fr.closest('#tour-stage')); }
+                    if (w.paxEmbed) { if (w.paxEmbed.xrayReset && !fr.closest('#tour-stage')) w.paxEmbed.xrayReset(); w.paxEmbed.setControls(!fr.closest('#tour-stage')); w.paxEmbed.setActive(!!fr.getClientRects().length); }
                     else w.dispatchEvent(new w.Event('resize'));
                 } catch (e) {}
             };
-            window.paxPause = () => { const a = api(); if (a) a.pause(); };
-            window.paxTourReset = () => { t0 = 0; const a = api(); if (a) { if (a.xrayReset) a.xrayReset(); a.setControls(false); a.reset(); } };
+            window.paxPause = () => { const a = api(); if (a) { a.pause(); a.setActive(false); } };
+            window.paxTourReset = () => { t0 = 0; const a = api(); if (a) { if (a.xrayReset) a.xrayReset(); a.setControls(false); a.setActive(true); a.reset(); } };
             window.paxXray = ms => { const a = api(); return a && a.xray ? a.xray(ms) : Promise.resolve(); };
             window.paxTourStart = async () => {
                 const t = performance.now(); let a;
                 while (!(a = api()) && performance.now() - t < 10000) await new Promise(r => setTimeout(r, 100));
-                if (a) { if (a.xrayReset) a.xrayReset(); a.setControls(false); a.reset(); a.play(); }
+                if (a) { if (a.xrayReset) a.xrayReset(); a.setControls(false); a.setActive(true); a.reset(); a.play(); }
                 t0 = performance.now();
             };
             // terminou quando a linha do tempo chega a 14 s (TOTAL_TIME); se o iframe não responder, segue após 15 s
