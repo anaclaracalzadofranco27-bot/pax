@@ -178,7 +178,7 @@ assert(edge.sw>0&&edge.sh>0&&edge.sx+edge.sw<=640&&edge.sy+edge.sh<=480);
   assert(latestTrack.stopped>0);clean('MediaRecorder start');
   startFailure=false;
   await test.startRec(3);
-  assert(stage.classList.contains('rec'),'Recording not active');
+  assert(stage.classList.contains('rec'),'Recording not active; warnings: '+JSON.stringify(warnings)+'; alerts: '+JSON.stringify(alerts));
   assert(intervals.size===1);
   const rectReads=stage.rectReads;
   for(let i=0;i<5;i++)for(const fn of intervals.values())fn();
