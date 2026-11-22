@@ -5,12 +5,7 @@
             mode: 'alpha2',
             phase: 0,
             animating: false,
-            animDir: 1,
-            calcT_Emb: 9.9,
-            calcT_Alpha1: 7.9,
-            calcT_Alpha2: 12.1,
-            cardFrac: 0,
-            cardsShown: false
+            calcT_Emb: 9.9
         };
 
         // =========================================================================
@@ -127,17 +122,22 @@
             [83.46, 165.30], [93.58, 161.43]
         ];
 
+        // O lábio do teto possui um trecho com X decrescente: avaliar todos os
+        // segmentos que cruzam X e adotar a borda inferior, não o primeiro ramo.
         function ergoInterpCurveY(pts, x) {
             if (x <= pts[0][0]) return pts[0][1];
             if (x >= pts[pts.length - 1][0]) return pts[pts.length - 1][1];
+            let lower = Infinity;
             for (let i = 1; i < pts.length; i++) {
-                if (x <= pts[i][0]) {
-                    const dx = pts[i][0] - pts[i - 1][0];
-                    const t = dx > 1e-9 ? (x - pts[i - 1][0]) / dx : 0;
-                    return pts[i - 1][1] + t * (pts[i][1] - pts[i - 1][1]);
-                }
+                const a = pts[i - 1], b = pts[i];
+                if (x < Math.min(a[0], b[0]) - 1e-9 ||
+                    x > Math.max(a[0], b[0]) + 1e-9) continue;
+                const dx = b[0] - a[0];
+                const y = Math.abs(dx) < 1e-9 ? Math.min(a[1], b[1]) :
+                    a[1] + (x - a[0]) / dx * (b[1] - a[1]);
+                lower = Math.min(lower, y);
             }
-            return pts[pts.length - 1][1];
+            return Number.isFinite(lower) ? lower : pts[pts.length - 1][1];
         }
 
         function ergoBagCorners(cx, cy, w, h, angleDeg) {
@@ -192,7 +192,8 @@
             return { minFloor, minCeil };
         }
 
-        // Projeta a mala estritamente dentro do corredor de entrada do bin (sem clipping)
+        // Corrige apenas a altura. Se a seção estiver estreita demais para a mala,
+        // a posição não será forçada lateralmente sem validação de trajetória.
         function ergoClampBagToCavity(cx, cy, w, h, angleDeg, floorMargin = 0.30, ceilMargin = 0.45) {
             let y = cy;
             const c1 = ergoCavityClearance(cx, y, w, h, angleDeg);
@@ -581,23 +582,6 @@
             return outs;
         }
 
-        function toggleManikinAnimation() {
-            if (manikinState.animating) { manikinState.animating = false; return; }
-            cancelResultsSequence();
-            if (manikinState.phase >= 0.999) { manikinState.phase = aphaInitialManikinPhase(); hideCards(); }
-            manikinState.animating = true;
-            
-        }
-
-        function cancelResultsSequence() {
-            manikinState.seq = (manikinState.seq || 0) + 1;
-            manikinState.onCardsClosed = null;
-            if (manikinState.cleanup) { manikinState.cleanup(); manikinState.cleanup = null; }
-            if (!manikinState.swapped) { const e = document.getElementById('aba6-module-ergo'); if (e) { e.style.transition = ''; e.style.opacity = ''; } }
-            (manikinState.seqTimers || []).forEach(clearTimeout);
-            manikinState.seqTimers = [];
-        }
-
         addEventListener('keydown', e => { if (e.key === 'Escape' && window.__stopTourRec) window.__stopTourRec(); });
 
         // Frame inicial único do canvas, da apresentação completa e das capturas:
@@ -609,14 +593,12 @@
             return Math.min(0.95, APHA_BRIDGE_CFG.startOffsetSeconds / Math.max(0.001,t));
         }
         function showManikin() {
-            cancelResultsSequence();
             manikinState.phase = aphaInitialManikinPhase();
             manikinState.animating = false;
             
             const ergo = document.getElementById('aba6-module-ergo');
-            manikinState.swapped = false;
             ergo.style.display = ''; ergo.style.transition = ''; ergo.style.opacity = '';
-            requestAnimationFrame(() => updateErgonomics());
+            // O controlador chama updateErgonomics() uma única vez após definir a fase.
         }
 
 
@@ -655,7 +637,6 @@
                         } else {
                             // A Aba 6 autônoma reinicia sem acumular timers.
                             manikinState.phase = aphaInitialManikinPhase();
-                            hideCards();
                             updateErgonomics();
                         }
                     }
@@ -684,55 +665,22 @@
             };
         }
 
-        function writeCards(frac) {
-            const v = manikinState.cardVals; if (!v) return;
-            for (const id in v) {
-                const el = document.getElementById(id);
-                if (el) el.textContent = v[id][2] === '%' ? `−${(v[id][0] * frac).toFixed(v[id][1])}%` : `${(v[id][0] * frac).toFixed(v[id][1])} s`;
-            }
-        }
-
-
-        function hideCards() {
-            if (!manikinState.cardsShown) return;
-            manikinState.cardsShown = false;
-            manikinState.cardFrac = 0;
-            writeCards(0);
-        }
-
-        function updateErgonomics() {
-            const mass = 10.0;
-            const angleDeg = 17.0;
-            const phase = manikinState.phase;
-
-            
-
-            const Fg = mass * 9.81;
-            const rad = (angleDeg * Math.PI) / 180.0;
-            const Fn = Fg * Math.cos(rad);
-            const Ft = Fg * Math.sin(rad);
-
+        // Carga, ângulo e perfil antropométrico não mudam durante o ciclo.
+        // Calcular uma vez, não repetir a cada quadro de animação.
+        const ERGO_FIXED = (() => {
+            const mass = 10.0, angleDeg = 17.0, Fg = mass * 9.81;
+            const rad = angleDeg * Math.PI / 180;
+            const Fn = Fg * Math.cos(rad), Ft = Fg * Math.sin(rad);
             const times = ERGO_PERCENTILES.map(p => ergoTimes(p.h, mass, angleDeg));
-
-            // Cards e exportação para o Embarque usam o P5 feminino (59,8 pol) da cena.
-            const ref = times[0];
-            const tEmb = ref.tEmb, tAlpha1 = ref.tA1, tAlpha2 = ref.tA2;
-            const tAlphaAvg = (2 * tAlpha1 + 2 * tAlpha2) / 4.0;
-            manikinState.calcT_Emb = tEmb;
-            manikinState.calcT_Alpha1 = tAlpha1;
-            manikinState.calcT_Alpha2 = tAlpha2;
-            manikinState.cycleT = Math.max(...times.map(t => t.tA1 + t.tA2));
-
-            manikinState.cardVals = {
-                'card-t-alpha-mod': [tAlphaAvg * 4, 1], 'card-t-conv-mod': [tEmb * 4, 1]
-            };
-            writeCards(manikinState.cardFrac);
-
-            // Resultados só aparecem quando a simulação termina; ao reiniciar, somem de novo
-            if (phase < 0.999) hideCards();
-
-            manikinState.last = { mass, angleDeg, Fg, Fn, Ft, times };
-            drawManikinViewport(mass, angleDeg, Fg, Fn, Ft, phase, times);
+            return { mass, angleDeg, Fg, Fn, Ft, times,
+                cycleT: Math.max(...times.map(t => t.tA1 + t.tA2)) };
+        })();
+        manikinState.calcT_Emb = ERGO_FIXED.times[0].tEmb;
+        manikinState.cycleT = ERGO_FIXED.cycleT;
+        function updateErgonomics() {
+            manikinState.last = ERGO_FIXED;
+            const { mass, angleDeg, Fg, Fn, Ft, times } = ERGO_FIXED;
+            drawManikinViewport(mass, angleDeg, Fg, Fn, Ft, manikinState.phase, times);
         }
 
         // =========================================================================
@@ -768,8 +716,6 @@
 
         // Mãos abertas do PDF Sem_título-2 (CorelDRAW): silhueta preta recortada por mão + palma, punho e brilhos dos dedos.
         // Ao colocar a mala no bin a mão atual se transforma nelas (palma aberta, dedos abertos, fingers para cima).
-        const PDFN_SIL_D = ("M 420.578125 179.453125 C 424.894531 175.488281 431.632812 163.152344 436.628906 159.96875 C 442.054688 156.515625 437.402344 133.449219 447.488281 114.980469 C 449.167969 114.046875 450.367188 114.15625 452.433594 115.535156 C 454.15625 121.933594 451.375 123.078125 450.441406 128.898438 L 453.214844 125.8125 C 454.140625 124.578125 454.445312 124.003906 455.308594 122.496094 C 457.457031 118.824219 466.839844 96.167969 472.542969 103.867188 C 473.941406 105.757812 473.222656 106.972656 474.027344 109.007812 C 477.289062 100.558594 484.902344 99.46875 482.988281 111.085938 C 491.859375 106.621094 488.617188 116.707031 486.773438 120.953125 C 499.175781 115.898438 486.441406 135.265625 482.929688 140.769531 C 481.410156 142.253906 480.078125 143.941406 478.976562 145.789062 L 478.519531 145.734375 C 476.53125 149.5 473.105469 153.800781 470.738281 156.960938 C 464.890625 164.765625 464.527344 161.5 460.421875 165.652344 C 457.945312 168.15625 450.203125 185.703125 447.382812 190.605469 C 437.96875 206.960938 429.082031 222.339844 419.535156 237.871094 C 413.210938 248.160156 403.683594 266.890625 389.828125 265.65625 C 386.496094 265.359375 331.324219 244.292969 320.507812 242.03125 C 317.46875 259.3125 314.363281 276.140625 308.511719 292.433594 C 308.441406 292.628906 302.886719 307.070312 302.015625 305.320312 L 302.097656 322.234375 C 301.46875 329.84375 303.058594 329.054688 304.988281 335.554688 C 311.296875 356.796875 310.921875 386.335938 304.117188 407.511719 C 301.992188 414.128906 299.933594 412.941406 297.804688 416.3125 C 306.734375 440.539062 311.253906 466.359375 315.492188 493.425781 C 318.480469 512.503906 327.53125 558.988281 327.996094 574.644531 C 328.878906 604.558594 325.542969 634.191406 322.308594 663.457031 C 319.152344 691.980469 318.308594 722.773438 314.257812 750.671875 C 330.1875 750.019531 336.007812 752.433594 349.960938 756.570312 C 354.605469 757.949219 361.421875 760.109375 364.914062 762.484375 C 367.273438 764.09375 373.828125 775.644531 368.664062 776.914062 L 366.316406 777.417969 C 365.847656 777.46875 364.1875 777.472656 363.648438 777.472656 L 280.289062 777.359375 C 280 771.472656 280.429688 760.242188 282.527344 755.007812 L 289.460938 754.660156 C 285.113281 745.371094 284.335938 738.71875 284.742188 727.59375 C 285.839844 697.40625 283.882812 667.234375 283.449219 637.109375 C 283.171875 617.9375 285.898438 599.859375 289.023438 581.476562 C 290.027344 575.574219 288.128906 574.820312 286.253906 569.660156 L 274.917969 534.742188 C 271.453125 539.921875 269.488281 559.234375 268.1875 566.972656 C 267.226562 572.703125 266.363281 577.140625 263.984375 581.832031 C 261.386719 586.949219 259.300781 588.328125 256.972656 593.828125 C 254.15625 600.480469 246.246094 612 242.410156 617.261719 L 218.382812 650.230469 C 205 668.980469 173.628906 714.9375 162.152344 726.507812 C 166.898438 729.195312 172.226562 732.1875 176.230469 735.800781 C 180.394531 739.558594 183.363281 743.726562 186.761719 747.910156 C 195.09375 758.175781 203.234375 764.402344 195.582031 778.558594 C 191.453125 777.5 163.570312 759.113281 157.714844 755.234375 C 150.648438 750.554688 127.425781 734.742188 120.910156 732.5 C 122.5 725.242188 128.449219 718.539062 132.5 713.160156 C 136.214844 713.957031 136.824219 715.359375 140.121094 716.695312 C 140.167969 707.492188 142.796875 704.265625 146.679688 697.988281 L 174.371094 650.585938 C 187.539062 627.910156 196.945312 605.945312 212.132812 587.890625 C 227.542969 569.578125 226.472656 572.835938 227.695312 552.957031 C 228.675781 537.023438 229.054688 520.953125 229.671875 504.980469 C 231.347656 461.425781 232.53125 456.976562 239.261719 415.40625 C 233.398438 410.710938 233.617188 418.5 229.445312 404.769531 C 222.644531 382.390625 228.835938 355.773438 236.773438 334.730469 C 239.855469 326.554688 241.640625 329.136719 240.085938 320.046875 C 238.605469 311.433594 240.050781 308.4375 241.050781 300.945312 C 241.722656 295.917969 240.347656 299.824219 239.332031 293.421875 C 237.335938 280.855469 237.421875 256.054688 237.855469 243.476562 C 238.109375 236.082031 239.230469 230.679688 236.453125 224.007812 C 229.945312 208.375 232.101562 188.96875 243.304688 177.484375 C 246.980469 173.722656 249.261719 170.976562 254.550781 167.917969 L 268.355469 162.464844 C 273.128906 149.109375 266.875 146.609375 264.328125 133.765625 C 249.101562 56.890625 346.871094 58.9375 334.085938 122.648438 C 332.15625 132.257812 327.765625 140.773438 323.601562 148.269531 C 321.179688 152.628906 318.863281 155.46875 316.273438 159.042969 C 313.339844 163.097656 312.070312 164.90625 305.664062 166.238281 C 304.871094 176.910156 304.941406 172.566406 315.21875 186.902344 C 318.273438 191.164062 371.769531 213.589844 377.847656 215.960938 C 379.816406 211.269531 381.042969 203.960938 382.808594 198.453125 C 388.007812 182.214844 394.960938 166.527344 401.664062 151.25 L 409.234375 136.175781 C 410.132812 132.503906 408.824219 126.476562 410.855469 117.925781 C 412.003906 113.085938 414.34375 104.566406 416.308594 100.726562 C 418.3125 96.800781 423.429688 91.375 427.039062 89.726562 C 429.601562 88.558594 435.023438 87.929688 434.378906 93.148438 C 433.011719 97.429688 430.539062 123.296875 430.269531 129.402344 C 429.53125 146.019531 421.839844 170.195312 420.578125 179.453125 Z ");
-        const PDFN_SIL = new Path2D(PDFN_SIL_D);
         const PDFN = {
             near: { clip: [436, 95, 64, 76], palm: new Path2D("M 444.914062 149.367188 C 447.050781 152.597656 459.628906 159.707031 463.140625 160.269531 C 466.171875 157.921875 475.550781 146.570312 476.714844 142.128906 C 474.425781 139.082031 459.644531 129.28125 454.636719 128.265625 C 452.171875 134.359375 446.484375 141.910156 444.914062 149.367188"), cuff: new Path2D("M 442.347656 160.972656 C 444.28125 163.945312 450.191406 167.011719 454.09375 168.203125 C 456.050781 166.59375 456.664062 165.171875 457.707031 162.941406 C 455.835938 160.640625 455.4375 160.847656 452.5 159.105469 C 449.675781 157.433594 448.792969 156.890625 445.949219 155.722656 Z M 442.347656 160.972656"),
                    hl: [new Path2D("M 465.136719 130.097656 C 468.25 130.023438 466.132812 131.609375 469.933594 125.371094 C 472.519531 121.125 480.003906 109.546875 480.332031 106.144531 C 477.554688 107.164062 477.363281 108.652344 475.820312 111.390625 C 474.496094 113.746094 473.59375 115.441406 472.214844 117.75 C 470.140625 121.230469 465.632812 126.292969 465.136719 130.097656"),new Path2D("M 473.058594 133.515625 C 475.589844 133.453125 473.867188 134.742188 476.960938 129.667969 C 479.066406 126.210938 485.152344 116.789062 485.421875 114.019531 C 483.160156 114.851562 483.003906 116.0625 481.75 118.292969 C 480.671875 120.207031 479.9375 121.585938 478.816406 123.464844 C 477.128906 126.296875 473.460938 130.417969 473.058594 133.515625"),new Path2D("M 479.914062 137.644531 C 481.820312 137.597656 480.523438 138.566406 482.851562 134.75 C 484.433594 132.152344 489.011719 125.066406 489.214844 122.984375 C 487.511719 123.609375 487.398438 124.519531 486.453125 126.195312 C 485.644531 127.636719 485.089844 128.671875 484.246094 130.085938 C 482.976562 132.214844 480.21875 135.3125 479.914062 137.644531"),new Path2D("M 457.574219 126.714844 C 459.589844 128.023438 459.785156 127.488281 462.457031 122.277344 C 464.277344 118.730469 470.441406 106.839844 469.007812 106.011719 C 467.203125 104.304688 457.769531 124.914062 457.574219 126.714844"),new Path2D("M 442.550781 139.421875 C 447.566406 139.277344 451.453125 118.667969 449.753906 117.9375 C 446.128906 113.152344 442.808594 137.113281 442.550781 139.421875")],
@@ -874,10 +820,6 @@
 
 
 
-        window.ergoManikinRect = (W, H) => {   // onde o manequim (170 cm) fica no canvas: base dos pés, centro do corpo e altura em px
-            const scale = Math.min((W - 34) / 172, (H - 96) / 207), offX = Math.max(26, (W - 172 * scale) / 2 + 10);
-            return { cx: offX + (-17.5 + 32) * scale, floorY: H - 30, h: ERGO_PERCENTILES[0].h * scale, w: 34 * scale };
-        };
         // Carga nas mãos e torque no ombro em cada instante.
         //   Alpha: até a mala apoiar no bin, as mãos sustentam o peso (Fg); depois o bin assume o peso e só resta empurrar
         //          (Bag 2: componente do peso ao longo da rampa de 17° = Fg·sen17°; Bag 1: atrito na base plana, μ = 0,30).
@@ -901,23 +843,6 @@
             if (rest) return { st, isPush: false, isLift: false, rest, ls, F: 0, lbf: 0, d: 0, MO: 0, MOc: 0 };
             return { st, isPush, isLift, rest, ls, F, lbf: F / 4.4482216, d, MO: F * d, MOc: Fg * ls * d };
         }
-        // Curva completa (tempo simulado → torque Alpha e convencional), calculada uma vez por estatura
-        let ergoCurveCache = null;
-        function ergoTorqueCurve(H, Fg, Ft, tBack, tFront) {
-            const key = [H, Fg, Ft, tBack, tFront].join('|');
-            if (ergoCurveCache && ergoCurveCache.key === key) return ergoCurveCache;
-            const prof = ergoCADAlphaProfile(window.getUniAlphaGeometry());
-            const T = tBack + tFront, fb = tBack / T, N = 360, pts = [];
-            let pa = 0, pc = 0;
-            for (let i = 0; i <= N; i++) {
-                const p = i / N, inB = p < fb, mode = inB ? 'alpha2' : 'alpha1', lp = inB ? p / fb : (p - fb) / (1 - fb);
-                const plan = ergoStowPlan(mode, prof, H), pose = ergoSolvePosture(H, plan, lp), L = ergoLoad(mode, plan, pose, lp, Fg, Ft);
-                pts.push([p * T, L.MO, L.MOc]); pa = Math.max(pa, L.MO); pc = Math.max(pc, L.MOc);
-            }
-            return (ergoCurveCache = { key, T, pts, peakA: pa, peakC: pc, reduction: pc > 0 ? 1 - pa / pc : 0 });
-        }
-        window.ergoTorqueSummary = () => { const L = manikinState.last; if (!L) return null; const t = L.times[0]; return ergoTorqueCurve(ERGO_PERCENTILES[0].h, L.Fg, L.Ft, t.tA2, t.tA1); };
-
         // A Aba 6 mantém o manequim vetorial original (vermelho.pdf)
         // e usa apenas uma esfera de junta do modelo da Aba 5 no ombro.
 
@@ -1389,14 +1314,5 @@
             // Timer cards intentionally omitted; physics and animation timing stay active.
         }
 
-        const dismissCards = () => {
-            if (!manikinState.cardsShown) return;
-            hideCards();
-            const next = manikinState.onCardsClosed; manikinState.onCardsClosed = null;
-            if (next) next();
-        };
-
-
-        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') dismissCards(); });
 
                 
