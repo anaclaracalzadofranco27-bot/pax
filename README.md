@@ -23,7 +23,7 @@ HTML e recursos exclusivos ficam juntos:
 | Pasta | Conteúdo |
 | --- | --- |
 | `source/html/ABA1/` | `ABA1.html`, `index.template.html`, `styles.css`, `bridge.js`, scripts de avião/passageiros/controles em `js/` e duas ilustrações em `svg/` |
-| `source/html/ABA2/` | `ABA2.html` e `cad3d.js` (bin 3D, porta, malas e câmera) |
+| `source/html/ABA2/` | `ABA2.html`, CSS de HUD e gravação e manifesto `cad3d.js` com 11 arquivos em `cad3d/` |
 | `source/html/ABA3/` | `ABA3.html`, `bin-comparison-renderers.js` (desenho Alpha/convencional e cotas) e `export.js` (PNG) |
 | `source/html/ABA4/` | `ABA4.html`, `animation.js`, `export.js` e desenhos `*.svg.base64` da vista superior |
 | `source/html/ABA5/` | `ABA5.html`, `unified-simulation.js` e `door-addon.js` |
@@ -94,7 +94,7 @@ O `global.css` é o único ponto de entrada do CSS principal e conserva as regra
 
 **Consolidação do motor compartilhado (19/11/2026):** os sete fragmentos CAD antes armazenados separadamente foram reunidos em um único arquivo `source/js/engine/cabin-shared.js`, pois atendem às mesmas simulações: Abas 5 e 6, reutilizadas pela Aba 8. Esta alteração apenas expande as inclusões anteriores exatamente no mesmo ponto, sem modificar nenhuma fórmula ou alterar a ordem, de forma que o HTML montado permanece **idêntico, byte a byte**. As inclusões de `core/navigation.js`, `ABA6/controller.js` e `ABA6/manikin.js` continuam na posição original, dentro do mesmo `<script>`, e esses arquivos específicos permanecem em suas próprias pastas. `switchTab()` continua em `core/navigation.js`; não são usados módulos ES6, scripts externos adicionais nem novos pontos de entrada. `tools/verify_preservation.py` valida a organização monolítica e a ordem das dependências.
 
-**Dependência importante da Aba 3:** `bin-comparison-renderers.js` pertence à comparação visual (dois bins, cotas de 44″ e 56″), mas utiliza a geometria, os materiais, as malas e a cena do motor `ABA2/cad3d.js`. Por isso, `ABA2/cad3d.js` contém um `@@APHA_INCLUDE` para inserir esse arquivo **dentro da função `initCAD3DModule()`**, exatamente onde o código estava. Ele **não** deve ser incluído como `<script>` separado. O resultado montado permanece idêntico, sem duplicar motores Three.js.
+**Dependência importante da Aba 3:** `bin-comparison-renderers.js` utiliza a geometria e as malas da Aba 2 e é incorporado pelo manifesto `ABA2/cad3d.js` **dentro da função `initCAD3DModule()`**, depois dos controles e antes dos exportadores. Não o inclua como `<script>` separado: o escopo compartilhado e a ordem de execução são necessários.
 
 Códigos específicos de uma aba também podem ser **chamados pela Simulação Geral**
 (ABA8), mas ficam na pasta de origem. O diretor da ABA8 apenas os coordena.
@@ -103,6 +103,32 @@ A montagem pelo `tools/build.py` preserva os elementos `<script>` e `<style>`,
 a ordem de execução e os escopos. A Aba 1 mantém o `iframe srcdoc` isolado:
 seu conteúdo ainda é escapado corretamente pelo builder. Os SVGs e as imagens
 base64 permanecem embutidos no `FINALPROJECT_APHA.html`, independente de `source/`.
+
+## Aba 2 — CAD 3D modularizado
+
+`source/html/ABA2/cad3d.js` agora é um **manifesto**, expandido por `tools/build.py` na mesma função e no mesmo bloco `<script>` do HTML final. Os 11 fragmentos em `source/html/ABA2/cad3d/` são:
+
+| Fragmento | Responsabilidade |
+| --- | --- |
+| `01-bin-geometry.js` | Perfil, laterais, paredes e piso |
+| `02-tambour-door-and-hud.js` | Trilho, segmentos da porta e balão informativo |
+| `03-suitcase-model-and-dimensions.js` | Geometria IATA, contornos e cotas |
+| `04-placement-and-clearances.js` | Destinos das quatro malas, trajetória e folgas |
+| `05-camera-and-renderer.js` | Câmera, render, resize e aquecimento GPU |
+| `06-simulation.js` | Carregamento animado e preparação do roteiro |
+| `07-tour-transition.js` | Morfismo da Aba 2 para a Aba 3 |
+| `08-controls.js` | Botões, slider, mouse e zoom |
+| `09-export-common.js` | Viewport 4K, snapshot/restauração e download PNG |
+| `10-export-images.js` | Três exportações 4K principais |
+| `11-export-side.js` | Duas exportações laterais alternativas |
+
+**Ordem essencial:** o manifesto incorpora `ABA3/bin-comparison-renderers.js` entre `08-controls.js` e `09-export-common.js`, no mesmo escopo. Os fragmentos não são scripts independentes.
+
+**Etapa A:** eliminados a função `near()` sem chamada, o array vazio `topWall` e sua iteração, as constantes `LILAC` e `LILAC_D`, as vistas `front` e `top` sem uso, um índice desnecessário, um `forEach` de elemento único e a ramificação não chamada da vista lateral no exportador principal. Comentários de transição foram corrigidos.
+
+**Etapa B:** exportadores mantêm ângulos, visibilidade e materiais próprios, mas agora compartilham a criação dos PNGs, a configuração 3840 × 2160 e os snapshots/restaurações de câmera e malas. Permanecem os 72 segmentos da porta de 5 mm, as quatro malas IATA, a sequência de 5,9 s, as cotas e os cinco PNGs possíveis.
+
+**Testes:** o GitHub Actions reconstrói o HTML, executa `node --check` no CAD já expandido junto ao renderer da Aba 3 e verifica contratos em `tools/verify_preservation.py`. Também é necessária conferência visual WebGL da Aba 2, do Take 02 e dos PNGs 4K.
 
 ## Regras importantes
 

@@ -648,13 +648,60 @@ def verify_aba1_passengers(v: Checker) -> None:
 
 
 
+def verify_aba2(v: Checker) -> None:
+    """Aba 2: módulos CAD, exportadores e ordem compartilhada com a Aba 3."""
+    manifest = v.read("source/html/ABA2/cad3d.js")
+    if manifest is None:
+        return
+    prefix = "source/html/ABA2/cad3d/"
+    parts = (
+        "01-bin-geometry.js", "02-tambour-door-and-hud.js",
+        "03-suitcase-model-and-dimensions.js", "04-placement-and-clearances.js",
+        "05-camera-and-renderer.js", "06-simulation.js",
+        "07-tour-transition.js", "08-controls.js",
+        "09-export-common.js", "10-export-images.js", "11-export-side.js",
+    )
+    shared = "source/html/ABA3/bin-comparison-renderers.js"
+    expected = [f"@@APHA_INCLUDE:{prefix}{n}@@" for n in parts[:8]]
+    expected += [f"@@APHA_INCLUDE:{shared}@@"]
+    expected += [f"@@APHA_INCLUDE:{prefix}{n}@@" for n in parts[8:]]
+    v.check(manifest.splitlines() == expected, "Ordem das inclusões CAD alterada")
+    fragments = [v.read(prefix + n) for n in parts]
+    if any(fragment is None for fragment in fragments):
+        return
+    code = "\n".join(fragments)
+    for key in (
+        "const DIST=1157, TH=12;", "const DOOR_THICK = 5.0;",
+        "const NUM_SLATS  = 24 * SLAT_SUB;", "const BAG_PATHS = [",
+        "function sectionGap(", "function fitLowerBagToFloorAndRoof(",
+        "function runSimulationFrame(", "window.cad3dTourMorph",
+        "window.cad3dExportImages", "window.cad3dExportSideTransparent",
+        "const CAD3D_EXPORT_W = 3840, CAD3D_EXPORT_H = 2160;",
+        "function cad3dConfigureExport4K(", "function cad3dSnapshotExportState(",
+        "function cad3dRestoreExportBags(", "function cad3dRestoreExportView(",
+        "alpha_bin_3d_isometric_door_", "alpha_bin_side_wall_only_4k.png",
+        "side_isometric_with_two_rear_bags",
+    ):
+        v.check(key in code, "Contrato CAD 3D ausente: " + key)
+    for key in (
+        "const near=", "const O=SUBS[0]", "const topWall", "LILAC_D",
+        "plCol", "sideOp:", "views.front", "views.top",
+        "[FLOOR_SEAT].forEach", "state.bagData",
+    ):
+        v.check(key not in code, "Código morto reintroduzido: " + key)
+    v.check(code.count("cv.toDataURL('image/png')") == 1,
+            "Exportação PNG voltou a ser duplicada")
+    v.check(code.count("cad3dConfigureExport4K();") == 2,
+            "Exportadores não usam o mesmo viewport 4K")
+
+
 def verify_aba3(v: Checker) -> None:
     cad = v.read("source/html/ABA2/cad3d.js")
     render = v.read("source/html/ABA3/bin-comparison-renderers.js")
     include = "@@APHA_INCLUDE:source/html/ABA3/bin-comparison-renderers.js@@"
     if cad is not None:
         v.check(cad.count(include) == 1, "Inclusão dos renderers da Aba 3 ausente/duplicada")
-        v.order(cad, (include, "window.cad3dExportImages"),
+        v.order(cad, (include, "@@APHA_INCLUDE:source/html/ABA2/cad3d/10-export-images.js@@"),
                 "Ordem do renderer/exportador da Aba 3 alterada")
     if render is not None:
         for required in (
@@ -752,6 +799,7 @@ def verify_html_cleanup(v: Checker) -> None:
     top_js = v.read("source/html/ABA4/animation.js")
     manikin = v.read("source/html/ABA6/manikin.js")
     cad = v.read("source/html/ABA2/cad3d.js")
+    cad_export = v.read("source/html/ABA2/cad3d/10-export-images.js")
     hidden = v.read("source/html/ABA8/tour-controls-hidden.css")
     if pax is not None:
         v.check(pax.count("<div") == pax.count("</div>"),
@@ -773,9 +821,10 @@ def verify_html_cleanup(v: Checker) -> None:
                 "setAnimLabel(" not in manikin and
                 "dismissCards();" in manikin,
                 "Referencia DOM ausente ou controle Escape perdido na Aba 6")
-    if cad is not None:
+    if cad is not None and cad_export is not None:
         v.check("[data-cad3d-v]" not in cad and
-                "views.iso" in cad and "views.side" in cad,
+                "[data-cad3d-v]" not in cad_export and
+                "views.iso" in cad_export and "views.side" in cad_export,
                 "Handler morto voltou ou cameras reais da Aba 2 foram removidas")
     if hidden is not None:
         v.check("#cad3d-export-side" not in hidden and
@@ -797,6 +846,7 @@ def main() -> int:
         ("CSS de gravação", verify_recording_css),
         ("Aba 1: recursos", verify_aba1_assets),
         ("Aba 1: passageiros", verify_aba1_passengers),
+        ("Aba 2: CAD 3D", verify_aba2),
         ("Aba 3: comparação", verify_aba3),
         ("Aba 4: SVG", verify_aba4),
         ("Aba 6: controlador", verify_aba6_controller),

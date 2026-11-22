@@ -55,6 +55,16 @@ jobs:
               expand("source/html/ABA1/js/passengers.js"))
           PY
           node --check /tmp/apha-assembled-passengers.js
+      - name: Check assembled CAD 3D JavaScript syntax
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from tools.build import expand
+          Path("/tmp/apha-assembled-cad3d.js").write_bytes(
+              expand("source/html/ABA2/cad3d.js"))
+          PY
+          node --check /tmp/apha-assembled-cad3d.js
       - name: Verify eight tabs, CSS, passengers, assets, transitions and Full HD takes
         run: python3 tools/verify_preservation.py
       - name: Commit the generated HTML only if it changed
@@ -114,5 +124,15 @@ jobs:
               expand("source/html/ABA1/js/passengers.js"))
           PY
           node --check /tmp/apha-assembled-passengers.js
+      - name: Check assembled CAD 3D JavaScript syntax
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from tools.build import expand
+          Path("/tmp/apha-assembled-cad3d.js").write_bytes(
+              expand("source/html/ABA2/cad3d.js"))
+          PY
+          node --check /tmp/apha-assembled-cad3d.js
       - name: Verify eight tabs, CSS, passengers, assets, transitions and Full HD takes
         run: python3 tools/verify_preservation.py
