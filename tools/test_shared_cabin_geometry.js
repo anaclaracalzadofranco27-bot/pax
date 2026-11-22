@@ -57,6 +57,7 @@ vm.runInNewContext(`
     const APHA_CABIN_GEOMETRY = window.__geom.APHA_CABIN_GEOMETRY;
     const APHA_CABIN_PALETTE = {rgba: () => '#123456', shellOutline: '#9abcde'};
     const mapAphaCabinSection = window.__geom.mapAphaCabinSection;
+    const m4 = mapAphaCabinSection;
     const aphaCabinShellPoint = window.__geom.aphaCabinShellPoint;
     const aphaCabinShellEndAngle = window.__geom.aphaCabinShellEndAngle;
     ${aba5.slice(from,to)}`, context);
