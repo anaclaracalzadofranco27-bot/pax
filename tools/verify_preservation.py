@@ -648,7 +648,12 @@ def verify_aba1_assets(v: Checker) -> None:
         v.check("@@APHA_PAX:source/html/ABA1/index.template.html@@" in template,
                 "Inclusão do iframe PAX ausente")
     controls = v.read("source/html/ABA1/js/controls.js")
+    styles = v.read("source/html/ABA1/styles.css")
+    if styles is not None:
+        v.check("bag-detail" not in styles, "Aba 1: CSS da classe órfã bag-detail")
     if controls is not None:
+        v.check("xray-bags" not in controls and "paxClockTime() >= TOTAL_TIME" in controls,
+                "Aba 1: resíduo X-ray ou fim do tour dependente de intervalo de UI")
         v.check("const xrayLayers =" in controls and "xrayEls" not in controls and "const isBag =" not in controls,
                 "Transição X-ray voltou a percorrer paths ou contém auxiliares mortos")
 
@@ -667,6 +672,16 @@ def verify_aba1_aircraft(v: Checker) -> None:
     if any(chunk is None for chunk in chunks):
         return
     code = "\n".join(chunks)
+    v.check("['#4a3147', '#5e4156', '#623f59']" not in code and "bag-detail" not in code,
+            "Aba 1: classificador antigo de malas ou bag-detail foi reintroduzido")
+    v.check("function paxClockTime(" in code and "time = paxClockTime()" in code
+            and "playStart = performance.now() - time * 1000" in code,
+            "Aba 1: o relógio precisa usar tempo absoluto (sem acumular passos fixos)")
+    v.check(code.index("exportingVideo = true;") < code.index("await pickH264(")
+            and "if (beganExport)" in code
+            and "stream.getTracks().forEach(track => track.stop())" in code
+            and "if (enc.state !== 'closed') enc.close()" in code,
+            "Aba 1: regressão na exclusividade ou limpeza da exportação")
     for term in (
         "(function cadBlueprintPalette() {", "const rig = document.getElementById('camera-rig');",
         "const ZOOM_END = 10;", "const BIN_ON = ZOOM_END + 1.8;",
@@ -776,8 +791,12 @@ def verify_aba1_passengers(v: Checker) -> None:
         "side * (3.6 * S) * 0.94, -1.2 * S, 0",
         "hasLastPose && lastPose.equals(q)",
         "items.every(it => !it.m.geometry.attributes.aOutN || it.O0)",
-        "if (!playing && !paxSceneDirty && tl === lastLiveTl && z === lastLiveZoom) return;",
-        "paxSceneDirty = true;                         // redesenhar após a captura",
+        "function requestPaxFrame()",
+        "if (playing || now < paxZoomUntil) requestPaxFrame();",
+        "document.addEventListener('visibilitychange'",
+        "function setActive(active)",
+        "function endExport()",
+        "invalidate(); // restaura o quadro ao voltar da captura, inclusive em pausa",
     ):
         require(requirement in code, "Proteção anatômica/performance ausente: " + requirement)
 
