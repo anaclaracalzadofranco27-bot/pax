@@ -1,5 +1,5 @@
         // -------------------------------------------------------------------------
-        // MÓDULO 3: MANIKIN ANTROPOMÉTRICO ARTICULADO & TEMPO POR MALA
+        // ABA 6: MANEQUIM ANTROPOMÉTRICO ARTICULADO E TEMPO DE ESTIVA
         // -------------------------------------------------------------------------
         let manikinState = {
             mode: 'alpha2',
@@ -14,13 +14,15 @@
         };
 
         // =========================================================================
-        // CINEMÁTICA DE ESTIVA — baseada na sequência da Simulação CAD 3D (aba 6)
+        // CINEMÁTICA DE ESTIVA — utiliza a geometria CAD Alpha compartilhada
+        // com a Aba 5 para calcular trajetórias das malas e poses do manequim.
         //   1) Pega: mala segurada à frente do abdômen, joelhos levemente fletidos
         //   2) Elevação: mala sobe verticalmente, livre da quina do bin
         //   3) Alinhamento: atitude de entrada (em pé p/ Mala 1, "pé-na-frente" p/ Mala 2)
         //   4) Inserção: empurra pela abertura até a posição de projeto
         //   5) Soltura: mão larga a mala; braços retornam ao repouso
-        // A fase (0–1) é a mesma do slider "Fase Cinemática".
+        // A fase normalizada (0–1) vem do relógio da Aba 6 e da direção da Aba 8.
+        // Não existe slider de fase na interface atual.
         // =========================================================================
         const ergoClamp01 = aphaClamp01;
         const ergoSmooth = (t) => { t = ergoClamp01(t); return t * t * (3 - 2 * t); };
@@ -665,8 +667,8 @@
             manikinFrameId = requestAnimationFrame(tick);
         }
 
-        // Estatura original do manequim restaurada: 59,8" (referência P5 feminino).
-        // O rótulo visível "95th Percentile" permanece conforme solicitado anteriormente.
+        // Referência antropométrica: P5 feminino, 59,8" (151,892 cm).
+        // O título renderizado é "5th Percentile Female", não P95.
         const ERGO_PERCENTILES = [
             { h: 59.8 * 2.54, title: 'Female', sub: 'P5' }
         ];

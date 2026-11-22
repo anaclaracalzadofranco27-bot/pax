@@ -1,11 +1,13 @@
         /* Aba 6 individual: preserva o cabeçalho global, a navegação e a
            largura/padding do <main>, iguais aos das demais abas.
            Apenas o canvas biomecânico usa dimensões próprias abaixo do título. */
-        /* Cabeçalho exclusivo da Aba 6: mesma linguagem visual das demais abas,
-           ocupando 58 px acima da simulação sem sobrepor o manequim. */
-        #aba6-module-ergo {--aba6-header-height:58px;}
+        /* Cabeçalho individual de 58 px acima do viewport, sem sobreposição. */
+        #aba6-module-ergo {--aba6-header-height:58px;height:auto;}
         #aba6-header{height:var(--aba6-header-height);min-height:var(--aba6-header-height);display:flex;align-items:center;box-sizing:border-box;}
-        #aba6-module-ergo, #aba6-module-ergo .aba6-sim-card {margin:0 !important;padding:0 !important;width:100%;height:100%;min-height:0;box-sizing:border-box;}
+        /* Sem altura forçada de 100% sob o cabeçalho: cartão e contêiner
+           acompanham a altura real do viewport na aba individual. */
+        #aba6-module-ergo, #aba6-module-ergo .aba6-sim-card {margin:0 !important;padding:0 !important;width:100%;min-height:0;box-sizing:border-box;}
+        #aba6-module-ergo .aba6-sim-card {height:auto;}
         /* Aba individual: moldura CAD igual à dos demais canvases,
            separada 14 px do título; o desenho permanece no mesmo canvas. */
         #aba6-module-ergo .aba6-sim-card {
@@ -19,15 +21,23 @@
            Nunca altera a altura no #tour-stage, onde vale o palco 16:9. */
         #aba6-module-ergo .aba6-viewport {position:relative;width:100%;height:clamp(480px, 70vh, 740px);min-height:480px;overflow:hidden;}
         #aba6-manikinCanvas {display:block;width:100%;height:100%;}
+        /* O botão PNG conserva posição, cores e fonte antes definidas inline. */
+        #aba6-figure-export{
+            position:absolute;right:16px;bottom:16px;z-index:5;
+            padding:9px 14px;background:#0a1a3a;color:#d4dce6;
+            border:1px solid #5b7b9e;border-radius:8px;
+            font:600 11px "JetBrains Mono",monospace;cursor:pointer;
+        }
         #tour-stage #aba6-figure-export{display:none !important;}
         #aba6-figure-export:hover,#aba6-figure-export:focus-visible{background:#2f4a6b !important;}
-        /* Na Simulação Geral o cabeçalho interno é ocultado e o canvas
-           preenche o espaço emprestado pela Aba 8, sem mudar a gravação. */
+        /* No Take 03, a altura de 100% permanece explícita para o contêiner
+           e o viewport que a Aba 8 incorpora no palco 16:9. */
+        #tour-stage #aba6-module-ergo {height:100% !important;}
         #tour-stage #aba6-module-ergo .aba6-viewport {height:100% !important;min-height:0 !important;}
         /* Aba 8: remove somente o espaçamento/máscara acrescentados ao cartão
            individual, preservando a posição e os limites originais do take 03. */
         #tour-stage #aba6-module-ergo .sim-card {height:100% !important;margin-top:0 !important;overflow:visible !important;}
-        /* When the full presentation borrows Tab 6, fit its embedded canvas into the 16:9 frame. */
+        /* Ao incorporar a Aba 6, manter seu canvas dentro do palco 16:9. */
         #tour-stage.rec #module-sim { position:absolute !important; inset:2.2% !important; margin:0 !important; padding:0 !important; width:auto !important; height:auto !important; }
         #tour-stage.rec #module-sim > #aba6-module-ergo {display:block !important;width:100% !important;height:100% !important;min-height:0 !important;}
         /* A navegação superior continua acessível; o botão de retorno
