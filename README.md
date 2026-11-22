@@ -335,3 +335,36 @@ Foram mantidos os dois SVGs Base64, todas as APIs de sincronização da
 Aba 8, os cinco takes e as coordenadas da seção S. As verificações
 estáticas cobrem as três otimizações; a reprodução visual ainda requer
 teste em navegador.
+
+
+## Aba 5 — primeira fase de correção (22/11/2026)
+
+A simulação integrada continua no mesmo `uniCanvas` e usa a geometria CAD
+compartilhada, sem alterar a fuselagem, os quatro passageiros, as cotas, o
+zoom, a porta convencional de 82° ou a tambour Alpha. `uniEnter()` agora
+compara o tempo com `TOTAL` (a antiga propriedade `TL.total` era indefinida),
+permitindo Replay após o fim.
+
+`door-addon.js` centraliza a porcentagem, o slider e o texto do botão.
+Play, scrub, Replay e a direção da Aba 8 assumem modo automático e cancelam
+animação manual pendente; slider e botão assumem modo manual e não são mais
+sobrescritos em `refresh()`. `uniPause()` também interrompe o movimento
+manual ao deixar a aba. A velocidade de 950 ms e o easing do botão permanecem.
+
+`uniExport4K()` usa snapshot de relógio, estatura, modo da porta, flags
+temporárias e enquadramento, com restauração em `finally` mesmo após falha
+de desenho ou serialização. A opção `world_average` exporta 165 cm até
+mesmo após a última cena; o estado final das portas e o tamanho UHD 3840×2160
+permanecem. O PNG P95 mantém o fundo transparente/paleta escura solicitados.
+O controlador impede duas capturas simultâneas.
+
+Foram retirados `U.started` e `const act = phaseIdx()`, não utilizados,
+além de uma regra CSS de ocultação redundante. O botão Play não reconstrói
+o SVG/HTML quando seu estado permanece igual. Os comentários foram
+atualizados para distinguir camadas intencionais dos controladores legados.
+
+Testes: `node tools/test_aba5_controls.js` verifica animação manual,
+reprodução, sincronização, conteúdo/nomes dos PNGs e recuperação após falhas
+simuladas. `python3 tools/verify_preservation.py` cobre invariantes estáticos.
+Esses testes não substituem conferir os quatro passageiros, portas, zoom e
+a continuidade para a Aba 6 no Take 03 em navegador.

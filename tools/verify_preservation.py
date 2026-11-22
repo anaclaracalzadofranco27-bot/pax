@@ -424,6 +424,22 @@ def verify_bin_kinematics(v: Checker) -> None:
                      "__aphaTambourOrange", "cabinSectionReference"):
             v.check(flag in kinetics, f"Dependência de runtime ausente: {flag}")
     if aba5 is not None:
+        v.check("TL.total" not in aba5 and "U.t >= TOTAL - 0.05" in aba5,
+                "Reinício da Aba 5 voltou a consultar TL.total inexistente")
+        v.check("U.started" not in aba5 and "const act = phaseIdx();" not in aba5,
+                "Estados mortos voltaram ao loop da Aba 5")
+        for required in ("window.uniRefTimelineDoors", "window.uniRefUseTimelineDoors",
+                         "window.uniRefDoorSnapshot", "window.uniRefDoorRestore",
+                         "window.uniRefStopDoorMotion", "const previousPalette",
+                         "window.uniExport4K = opts =>", "width: 1920, height: 1080, dpr: 2",
+                         "finally {", "window.EXPORT_EN = prev.exportEn",
+                         "window.BIN_SOLID = prev.solid", "window.BIN_DARK = prev.dark",
+                         "U.customStature = statCm"):
+            v.check(required in aba5, "Contrato de controle/exportação Aba 5 ausente: " + required)
+        v.check(aba5.count("const playHTML =") == 1,
+                "Botão Play voltou a recriar HTML sem mudança")
+        v.check("const slider=document.getElementById('uni-bin-door-slider')" not in aba5,
+                "Sincronização da UI da porta voltou a ser duplicada na timeline/export")
         v.check("window.cabinSectionReference =" in aba5,
                 "Aba 5 não disponibiliza o mapa da cabine compartilhado")
         v.check("window.__uniRefDoorProgress" in aba5,
@@ -441,6 +457,11 @@ def verify_bin_kinematics(v: Checker) -> None:
     if door is not None:
         v.check("window.__uniRefDoorProgress =" in door,
                 "Controle de porta da Aba 5 não inicializa seu estado")
+        for name in ("uniRefTimelineDoors", "uniRefUseTimelineDoors",
+                     "uniRefStopDoorMotion", "uniRefDoorSnapshot", "uniRefDoorRestore",
+                     "uniRefSetDoors", "uniRefToggleDoors"):
+            v.check("window." + name + " =" in door,
+                    "Contrato do controlador único das portas ausente: " + name)
     if aba6 is not None:
         for name in ("getUniAlphaGeometry", "drawUniReferenceBins",
                      "cabinSectionReference"):
