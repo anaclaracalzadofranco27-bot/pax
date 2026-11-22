@@ -1,8 +1,10 @@
 'use strict';
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const vm = require('node:vm');
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
+import {fileURLToPath} from 'node:url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const base = path.join(__dirname, '..', 'source', 'html', 'ABA7');
 const read = name => fs.readFileSync(path.join(base, name), 'utf8');
 const js = read('animation.js'), css = read('closing-scenes.css');
