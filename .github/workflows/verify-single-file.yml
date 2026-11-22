@@ -85,6 +85,8 @@ jobs:
         run: node tools/test_aba6_clearance.js
       - name: Test Aba 6 PNG exporters and Canvas fallback failure recovery
         run: node tools/test_aba6_resilience.js
+      - name: Verify Aba 7 SVG vectors, replay, fonts and Takes 04/05
+        run: node tools/test_aba7_closing.js
       - name: Verify eight tabs, CSS, passengers, assets, transitions and Full HD takes
         run: python3 tools/verify_preservation.py
       - name: Commit the generated HTML only if it changed
@@ -174,5 +176,7 @@ jobs:
         run: node tools/test_aba6_clearance.js
       - name: Test Aba 6 PNG exporters and Canvas fallback failure recovery
         run: node tools/test_aba6_resilience.js
+      - name: Verify Aba 7 SVG vectors, replay, fonts and Takes 04/05
+        run: node tools/test_aba7_closing.js
       - name: Verify eight tabs, CSS, passengers, assets, transitions and Full HD takes
         run: python3 tools/verify_preservation.py

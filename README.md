@@ -462,3 +462,10 @@ Os ícones e o card da Cena 3 utilizam suas medidas efetivas via CSS
 foram substituídos pelas mesmas cores sólidas no SVG 01. Os caminhos,
 polígonos, máscaras, estrutura e tempos das animações foram preservados.
 Os Takes 04 (conclusão sem logo) e 05 (logo isolada) permanecem separados.
+
+A `animation.js` da Aba 7 pré-carrega Montserrat (500/800), aguarda a fonte
+ou até 1,2 s antes de iniciar o primeiro keyframe e invalida reproduções
+pendentes quando Replay/Reset é acionado. A escala e o relógio só escrevem
+no DOM quando o valor muda; o tamanho de referência e os três períodos
+permanecem iguais. `node tools/test_aba7_closing.js` verifica os vetores
+SVG, os estilos, os cinco contratos públicos e a separação dos Takes 04/05.

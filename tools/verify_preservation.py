@@ -1008,6 +1008,33 @@ def verify_aba7(v: Checker) -> None:
     for n in ("01", "02", "04", "06", "08", "10", "13"):
         v.check(f"@@APHA_INCLUDE:source/html/ABA7/svg/illustration-{n}.svg@@" in closing,
                 f"SVG da conclusão ausente: {n}")
+    script = v.read("source/html/ABA7/animation.js")
+    scenes = v.read("source/html/ABA7/closing-scenes.css")
+    comp = v.read("source/html/ABA7/svg/illustration-08.svg")
+    shared = v.read("source/css/global.css")
+    if script is not None:
+        for key in ("const DURATION = 30000", "const NO_LOGO_DURATION = 26400",
+                    "const LOGO_DURATION = 3600", "const fontsReady =",
+                    "function startSegment(request, mode)", "const request = version",
+                    "window.closingPlaySegment = playSegment", "window.closingDone ="):
+            v.check(key in script, "Reprodução da Aba 7 perdeu contrato: "+key)
+        v.check("cancelAnimationFrame(raf);\n        if (!t0) return;" not in script,
+                "Timer do encerramento voltou a cancelar seu próprio RAF")
+    if scenes is not None:
+        for forbidden in (".pill{", ".lbl{", ".lead{", ".ckd{", ".cw{",
+                          "s1-spin{", ".operator-benefits-workflow"):
+            v.check(forbidden not in scenes, "CSS antigo da Aba 7 retornou: "+forbidden)
+        v.check("#scene-2 .hcs{position:absolute;left:40px;" in scenes,
+                "Posição do compósito da Aba 7 não centralizada")
+        for dimension in ("#scene-3 .clip{width:92px;", "#scene-3 .stamp{width:96px;",
+                          "#scene-3 .sw{position:relative;width:115px;"):
+            v.check(dimension in scenes, "Dimensões da Cena 3 alteradas: "+dimension)
+    if comp is not None:
+        v.check(comp.count('style="') == 0 or 'style=' not in comp.split('>', 1)[0],
+                "SVG do compósito voltou a ter style inline duplicado")
+    if shared is not None:
+        v.check("closing-illustrations.css" not in shared,
+                "Folha obsoleta da Aba 7 voltou ao CSS global")
 
 
 def verify_takes(v: Checker) -> None:
