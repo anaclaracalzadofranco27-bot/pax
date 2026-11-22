@@ -132,6 +132,24 @@ base64 permanecem embutidos no `FINALPROJECT_APHA.html`, independente de `source
 
 ## Aba 3 — comparação Alpha × convencional
 
+**Limpeza pontual dos renderizadores (22/11/2026).** A estrutura de arquivos,
+os três fragmentos e o manifesto permanecem os mesmos. Em
+`renderers/03-conventional-top-view.js`, foram retiradas quatro atribuições
+redundantes que colocavam novamente a mesma referência de material nas malas
+clonadas; a ocultação dos contornos originais continua ativa. O renderizador
+convencional evita chamar `setPixelRatio` e `setSize` quando não houve
+mudança, e observa somente seu próprio painel para atualizações de tamanho.
+Em `renderers/02-alpha-top-view.js`, a resolução WebGL e a projeção só são
+reconfiguradas quando necessário; uma matriz temporária é reutilizada para
+posicionar os mesmos nove traços de contorno, com espessura e geometria
+inalteradas. Os comentários agora distinguem explicitamente compartilhamento
+de materiais e sobreposições visuais intencionais.
+
+As cotas de 44/56 polegadas, o SVG do convencional, as quatro malas, as
+transições para a Aba 3 e os estados de exportação permanecem conforme o
+modelo anterior. As verificações estáticas cobrem esses invariantes; a
+inspeção visual dos renders e do Take 02 ainda é recomendada.
+
 `source/html/ABA3/bin-comparison-renderers.js` é um **manifesto**, incorporado dentro da mesma função `initCAD3DModule()` da Aba 2, **sem criar scripts ou escopos adicionais**. Ordem dos fragmentos em `source/html/ABA3/renderers/`:
 
 1. `01-dimensions.js`: cotas compartilhadas (44″ Alpha; 56″ convencional).

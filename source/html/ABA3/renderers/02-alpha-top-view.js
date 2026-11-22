@@ -3,7 +3,9 @@
                 const nvCanvas = document.getElementById('novaCanvas'), nvBox = document.getElementById('nova-container');
                 if (!nvCanvas || !nvBox) return;
                 let nvRen = null, nvScene = null, nvCam = null;
-                const nvHosts = [], nvThick = [];   // tracejado grosso: linhas WebGL têm sempre 1 px, então o contorno é desenhado em cópias levemente deslocadas
+                let nvWidth = NaN, nvHeight = NaN, nvPixelRatio = NaN;
+                const nvHosts = [], nvThick = [];   // contorno tracejado espesso: cópias intencionais deslocadas em tela
+                const nvLineShift = new THREE.Matrix4(); // matriz temporária reutilizada, sem alterar os nove traços de cada contorno
                 const NV_FOV = 15, NV_T = new THREE.Vector3(DIST / 2, 360, -447);
                 const BACK_BAGS = [0, 1];   // malas deitadas, no fundo do bin (atrás das 2 da frente)
                 function build() {
@@ -68,9 +70,22 @@
                 function size() {
                     const r = nvBox.getBoundingClientRect();
                     if (r.width === 0 || r.height === 0) return false;
-                    nvRen.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-                    nvRen.setSize(r.width, r.height, false);
-                    nvCam.aspect = r.width / r.height; nvCam.updateProjectionMatrix();
+                    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+                    // O Three.js já redimensiona seu buffer ao alterar o pixelRatio.
+                    // Evitar recriar o buffer e recalcular a projeção se a área não mudou.
+                    if (nvPixelRatio !== ratio) {
+                        nvRen.setPixelRatio(ratio);
+                        nvPixelRatio = ratio;
+                    }
+                    if (nvWidth !== r.width || nvHeight !== r.height) {
+                        nvRen.setSize(r.width, r.height, false);
+                        nvWidth = r.width; nvHeight = r.height;
+                    }
+                    const aspect = r.width / r.height;
+                    if (nvCam.aspect !== aspect) {
+                        nvCam.aspect = aspect;
+                        nvCam.updateProjectionMatrix();
+                    }
                     return true;
                 }
                 function frame() {
@@ -87,8 +102,9 @@
                             }
                         });
                     }
-                    const off = 1.5 * (window.__novaK || 1) * (2 * Rr * tanV) / nvBox.getBoundingClientRect().height;   // ≈ 3 px de espessura na tela
-                    nvThick.forEach(t => { t.c.matrix.copy(t.base).premultiply(new THREE.Matrix4().makeTranslation(t.dx * off, 0, t.dy * off)); t.c.matrixWorldNeedsUpdate = true; });
+                    const off = 1.5 * (window.__novaK || 1) * (2 * Rr * tanV) / nvHeight;   // ≈ 3 px de espessura na tela
+                    // Mesma transformação e as nove cópias originais; evita alocar uma Matrix4 por cópia/quadro.
+                    nvThick.forEach(t => { t.c.matrix.copy(t.base).premultiply(nvLineShift.makeTranslation(t.dx * off, 0, t.dy * off)); t.c.matrixWorldNeedsUpdate = true; });
                     nvCam.up.set(0, 0, 1);   // vista de cima: fundo do bin para o topo da tela, abertura para baixo
                     nvCam.position.set(NV_T.x, NV_T.y + Rr, NV_T.z);
                     nvCam.lookAt(NV_T);

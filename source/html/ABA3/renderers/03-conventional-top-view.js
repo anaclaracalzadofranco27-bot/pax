@@ -26,27 +26,16 @@
                 const camera=new THREE.OrthographicCamera(-1,1,1,-1,10,25000);
                 const center=new THREE.Vector3(0,300,0);
                 let renderer=null;
-                // Mesmos materiais (referências exatas, não cores aproximadas)
-                // das malas azul-índigo do Alpha de 44" e a mesma luz Three.js.
-                const body=bags[2].mBody;  // #32407a
-                const ribs=mPl;            // nervuras #4c598e
-                const wheels=mBlk;         // rodas/alças #2a3358
-                const metal=mMet;          // peças metálicas #6c769c
+                const renderedSize = new THREE.Vector2(); // tamanho WebGL reutilizado para evitar resizes redundantes
+                // Os clones já compartilham os materiais reais da Aba 2; só a linha de acabamento é adicionada.
                 const trim=bagEdgeMat;     // chanfros ciano #38bdf8 (40%)
                 const caseModels=[];
                 for(let i=0;i<4;i++){
                     const b=bags[2].root.clone(true);
                     b.visible=true;
                     b.rotation.set(-Math.PI/2,0,0);
-                    b.traverse(o=>{
-                        if(o.isLineSegments||o.isLineLoop){o.visible=false;return;}
-                        if(o.isMesh){
-                            if(o.material===bags[2].mBody)o.material=body;
-                            else if(o.material===mPl)o.material=ribs;
-                            else if(o.material===mBlk)o.material=wheels;
-                            else if(o.material===mMet)o.material=metal;
-                        }
-                    });
+                    // Ocultar contornos originais; o clone já usa exatamente os mesmos materiais.
+                    b.traverse(o=>{ if(o.isLineSegments||o.isLineLoop)o.visible=false; });
                     const ch=bagShape.getPoints(20).map(p=>new THREE.Vector3(p.x*.97,p.y,127.5));
                     b.children[0].add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(ch),trim));
                     s3.add(b);caseModels.push(b);
@@ -103,7 +92,10 @@
                         renderer.setClearColor(0xffffff,0);
                     }
                     const dpr=Math.min(window.devicePixelRatio||1,2),geo=structure(W,H,dpr);
-                    renderer.setPixelRatio(dpr);renderer.setSize(W,H,false);
+                    // setPixelRatio já chama setSize internamente. Não realocar o canvas quando nada mudou.
+                    if(renderer.getPixelRatio()!==dpr)renderer.setPixelRatio(dpr);
+                    renderer.getSize(renderedSize);
+                    if(renderedSize.x!==W||renderedSize.y!==H)renderer.setSize(W,H,false);
                     // Escala da LARGURA EXTERNA ATUAL (inalterada) do SVG de 56":
                     // 56 in = B.x1-B.x0. As malas partem da referência IATA 14 × 22 in,
                     // mas sua largura visual é reduzida para caber no vão interno.
@@ -175,9 +167,9 @@
                         el.style.transition='';
                     }
                 };
+                // Basta observar a área que de fato determina o tamanho desta vista.
+                // O Alpha possui renderizador próprio e não modifica as dimensões deste painel.
                 new ResizeObserver(draw).observe(box);
-                const alphaBox=document.getElementById('nova-container');
-                if(alphaBox)new ResizeObserver(draw).observe(alphaBox);
                 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(draw);
                 draw();
             })();

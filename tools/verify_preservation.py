@@ -809,6 +809,34 @@ def verify_aba3(v: Checker) -> None:
             v.check(required in code, f"Função ou geometria da comparação ausente: {required}")
         v.check(code.count("new THREE.WebGLRenderer(") == 2,
                 "Quantidade de renderizadores Alpha/convencional alterada")
+        alpha = chunks[1]
+        conv = chunks[2]
+        for obsolete in (
+            "const body=bags[2].mBody;", "const ribs=mPl;", "const wheels=mBlk;",
+            "const metal=mMet;", "o.material=body;", "o.material=ribs;",
+            "o.material=wheels;", "o.material=metal;",
+            "new ResizeObserver(draw).observe(alphaBox);",
+        ):
+            v.check(obsolete not in conv, "Código redundante da Aba 3 retornou: " + obsolete)
+        v.check("b.traverse(o=>{ if(o.isLineSegments||o.isLineLoop)o.visible=false; });" in conv,
+                "Contornos originais da mala convencional deixaram de ser ocultados")
+        v.check("if(renderer.getPixelRatio()!==dpr)" in conv and
+                "renderer.getSize(renderedSize);" in conv and
+                "if(renderedSize.x!==W||renderedSize.y!==H)" in conv,
+                "Renderizador convencional voltou a redimensionar sem necessidade")
+        v.check("new ResizeObserver(draw).observe(box);" in conv,
+                "Observador da área convencional ausente")
+        v.check("const nvLineShift = new THREE.Matrix4();" in alpha and
+                "premultiply(nvLineShift.makeTranslation(" in alpha and
+                "for (let k = 0; k < 9; k++)" in alpha,
+                "Geometria/otimização do traçado Alpha alterada")
+        v.check("if (nvPixelRatio !== ratio)" in alpha and
+                "if (nvWidth !== r.width || nvHeight !== r.height)" in alpha,
+                "Aba 3 Alpha recria o buffer WebGL desnecessariamente")
+        v.check("const SHELL_HEIGHT_FACTOR=0.89;" in conv and
+                "const bagWidthFitted=Math.min(" in conv and
+                "const BACK_BAGS = [0, 1];" in alpha,
+                "Proporções/oclusões originais dos compartimentos alteradas")
     exp = v.read("source/html/ABA3/export.js")
     if exp is not None:
         for required in (
