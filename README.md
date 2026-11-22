@@ -469,3 +469,18 @@ pendentes quando Replay/Reset é acionado. A escala e o relógio só escrevem
 no DOM quando o valor muda; o tamanho de referência e os três períodos
 permanecem iguais. `node tools/test_aba7_closing.js` verifica os vetores
 SVG, os estilos, os cinco contratos públicos e a separação dos Takes 04/05.
+
+
+### Aba 7 — atributos internos dos SVGs (22/11/2026)
+
+A auditoria interna confirmou que os sete SVGs são utilizados. A limpeza
+pontual removeu cinco regras CSS de cor sem consumidores, o ID CAD exportado
+`_1883041856384`, os IDs dos três marcadores `s2-pin1/2/3`, a classe
+`pin` sem estilo e o ID `s1-workflow` sem referência. Os respectivos
+grupos, máscaras, textos, linhas, marcadores e `role=\"img\"/aria-label`
+foram preservados. O arquivo `illustration-10.svg` não possui mais
+`style` inline: o CSS passou a definir seus **valores efetivos anteriores**,
+`width:455px`, `height:190px` e `margin-right:4px`; `viewBox` e
+`preserveAspectRatio=\"none\"` não mudaram. Caminhos e animações dos
+Takes 04 e 05 continuam intactos. Testes estáticos e dinâmicos protegem
+os contratos alterados.

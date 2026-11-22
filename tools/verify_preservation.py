@@ -1032,6 +1032,29 @@ def verify_aba7(v: Checker) -> None:
     if comp is not None:
         v.check(comp.count('style="') == 0 or 'style=' not in comp.split('>', 1)[0],
                 "SVG do compósito voltou a ter style inline duplicado")
+        v.check('id="_1883041856384"' not in comp,
+                "Identificador CAD abandonado retornou ao compósito")
+    profile = v.read("source/html/ABA7/svg/illustration-10.svg")
+    workflow = v.read("source/html/ABA7/svg/illustration-01.svg")
+    pins = v.read("source/html/ABA7/svg/illustration-02.svg")
+    if profile is not None:
+        v.check('style="width:455px;height:190px;margin-right:4px"' not in profile and
+                'preserveAspectRatio="none"' in profile,
+                "Dimensões dos perfis devem vir do CSS, sem alterar proporções")
+    if workflow is not None:
+        v.check('id="s1-workflow"' not in workflow and
+                'role="img" aria-label="Operator Benefits and IP Connection: financial and passenger workflow"' in workflow,
+                "Grupo de benefícios perdeu acessibilidade ou recuperou ID inútil")
+    if pins is not None:
+        v.check(all('id="s2-pin'+str(i)+'"' not in pins for i in (1, 2, 3)) and
+                'class="pin"' not in pins,
+                "IDs ou classe não usados retornaram aos marcadores")
+    if scenes is not None:
+        v.check('#scene-2 .alus{width:455px;height:190px;flex:none;overflow:visible;margin-right:4px}' in scenes,
+                "Dimensões efetivas dos perfis de alumínio foram alteradas")
+        for color_rule in ('#scene-1 .fil0{', '#scene-2 .fil4{',
+                           '#scene-2 .fil9{', '#scene-2 .fil10{', '#scene-2 .fil11{'):
+            v.check(color_rule not in scenes, "Seletor de cor órfão retornou: " + color_rule)
     if shared is not None:
         v.check("closing-illustrations.css" not in shared,
                 "Folha obsoleta da Aba 7 voltou ao CSS global")

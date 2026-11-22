@@ -43,6 +43,26 @@ assert(css.includes('#scene-3 .ch{display:flex;align-items:center;gap:16px}'));
 assert(!html.includes('class="clip" viewBox="0 0 120 145" style='));
 assert(!html.includes('class="stamp" viewBox="0 0 120 135" style='));
 assert(!read('svg/illustration-01.svg').includes('<linearGradient'));
+assert(!css.includes('#scene-1 .fil0{') && !css.includes('#scene-2 .fil4{') &&
+       !css.includes('#scene-2 .fil9{') && !css.includes('#scene-2 .fil10{') &&
+       !css.includes('#scene-2 .fil11{'), 'Unused color declarations returned');
+assert(css.includes('#scene-2 .alus{width:455px;height:190px;flex:none;overflow:visible;margin-right:4px}'),
+    'Aluminum profiles must retain their effective 455 × 190 px and 4 px margin');
+const aluminum = read('svg/illustration-10.svg');
+assert(!aluminum.match(/<svg[^>]*\sstyle=/), 'Aluminum dimensions must be controlled by CSS');
+assert(aluminum.includes('preserveAspectRatio="none"'), 'Aluminum profile proportions changed');
+const operator = read('svg/illustration-01.svg');
+assert(!operator.includes('id="s1-workflow"'), 'Unused workflow ID returned');
+assert(operator.includes('role="img" aria-label="Operator Benefits and IP Connection: financial and passenger workflow"'),
+    'Accessible workflow grouping must be preserved');
+const pinSvg = read('svg/illustration-02.svg');
+for (const pinId of ['s2-pin1','s2-pin2','s2-pin3'])
+    assert(!pinSvg.includes('id="' + pinId + '"'), 'Orphan pin ID returned: ' + pinId);
+assert(!pinSvg.includes('class="pin"'), 'Unused generic pin class returned');
+assert.equal((pinSvg.match(/<g>/g) || []).length, 3, 'All three complete pin groups must remain');
+assert(read('svg/illustration-08.svg').includes('<g>') &&
+       !read('svg/illustration-08.svg').includes('id="_1883041856384"'),
+       'Unused exported CAD group ID returned');
 for (const [cls,color] of [['fil9','#00B4D8'],['fil11','#7C8B9E'],['fil10','#FF6B1A']])
     assert(css.includes('#scene-1 .'+cls+'{fill:'+color+'}'));
 for (const marker of [
