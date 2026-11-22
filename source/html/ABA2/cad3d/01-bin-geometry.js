@@ -108,7 +108,6 @@
                 group.add(new THREE.LineSegments(lg,lmat));
             }
 
-            const cp=[];[FLOOR_SEAT[0],FLOOR_SEAT[FLOOR_SEAT.length-1]].forEach(p=>cp.push(0,p[1],-p[0],DIST,p[1],-p[0]));
-            const cg=new THREE.BufferGeometry();cg.setAttribute('position',new THREE.Float32BufferAttribute(cp,3));
-            group.add(new THREE.LineSegments(cg,lmat));
+            // As duas arestas transversais já fazem parte do array e[] acima.
+            // Não criar outro LineSegments nas mesmas coordenadas: provocava sobreposição exata.
 
