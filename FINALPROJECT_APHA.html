@@ -8468,7 +8468,7 @@ window.drawUniReferenceBins = drawReferenceBins;
         };
 
         // -------------------------------------------------------------------------
-        // MÓDULO 6: SIMULAÇÃO CAD 3D (THREE.JS — PORTA ROLANTE 5MM & 4 MALAS IATA)
+        // ABA 2: SIMULAÇÃO CAD 3D (THREE.JS — PORTA ROLANTE 5MM & 4 MALAS IATA)
         // -------------------------------------------------------------------------
         (function initCAD3DModule() {
             const cv = document.getElementById('cad3dCanvas');
@@ -8550,8 +8550,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             const QS=WALL_SEAT.slice(1).map((p,i)=>[WALL_SEAT[i],p]);   // cada parede acompanha exatamente o assento verde do SVG
             const wm=new THREE.MeshBasicMaterial({color:0xa8aec8,side:THREE.DoubleSide,...po});   // paredes internas: lavanda média
             const bl=new THREE.LineBasicMaterial({color:0x1e293b});   // arestas das paredes internas (CAD)
-            const topWall=[];   // todas as paredes do novo perfil ficam fixas; nenhuma placa arbitrária é removida
-            QS.forEach((q,idx)=>{
+            QS.forEach(q=>{
                 const P=[[0,q[0]],[DIST,q[0]],[DIST,q[1]],[0,q[1]]].map(([x,p])=>[x,p[1],-p[0]]);
                 const gq=new THREE.BufferGeometry();
                 gq.setAttribute('position',new THREE.Float32BufferAttribute([...P[0],...P[1],...P[2],...P[0],...P[2],...P[3]],3));
@@ -8565,7 +8564,8 @@ window.drawUniReferenceBins = drawReferenceBins;
 
             // Piso do bin
             const fm=new THREE.MeshBasicMaterial({color:0x6c769c,side:THREE.DoubleSide,...po});   // piso do bin: azul-ardósia (render SVG)
-            [FLOOR_SEAT].forEach(pl=>{
+            {
+                const pl=FLOOR_SEAT;
                 const v=[];for(let i=0;i<pl.length-1;i++){const a=pl[i],b=pl[i+1];
                     const A0=[0,a[1],-a[0]],A1=[DIST,a[1],-a[0]],B1=[DIST,b[1],-b[0]],B0=[0,b[1],-b[0]];
                     v.push(...A0,...A1,...B1,...A0,...B1,...B0);}
@@ -8575,13 +8575,12 @@ window.drawUniReferenceBins = drawReferenceBins;
                 const a0=pl[0],a1=pl[pl.length-1];e.push(0,a0[1],-a0[0],DIST,a0[1],-a0[0],0,a1[1],-a1[0],DIST,a1[1],-a1[0]);
                 const lg=new THREE.BufferGeometry();lg.setAttribute('position',new THREE.Float32BufferAttribute(e,3));
                 group.add(new THREE.LineSegments(lg,lmat));
-            });
+            }
 
-            const O=SUBS[0];
-            const near=(y,z)=>O.reduce((a,p)=>Math.hypot(p[0]-y,p[1]-z)<Math.hypot(a[0]-y,a[1]-z)?p:a);
             const cp=[];[FLOOR_SEAT[0],FLOOR_SEAT[FLOOR_SEAT.length-1]].forEach(p=>cp.push(0,p[1],-p[0],DIST,p[1],-p[0]));
             const cg=new THREE.BufferGeometry();cg.setAttribute('position',new THREE.Float32BufferAttribute(cp,3));
             group.add(new THREE.LineSegments(cg,lmat));
+
 
             // Trilho e Porta Rolante Vertical (5 mm)
             // Linha central interpolada das DUAS bordas do trilho vermelho do SVG.
@@ -8645,7 +8644,6 @@ window.drawUniReferenceBins = drawReferenceBins;
             let openProgress = 0;
             function updateDoor(progress){
                 openProgress = Math.max(0, Math.min(1, progress));
-                topWall.forEach(o=>{ o.visible = false; });   // placa do teto (QS[0]) removida da vista em qualquer abertura
                 const startS = openProgress * MAX_TRAVEL;
                 for(let i=0; i<NUM_SLATS; i++){
                     const s = startS + (i + 0.5) * SLAT_PITCH;
@@ -8682,6 +8680,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 _bLine.setAttribute('stroke-width', Math.max(1.5, W * 2 / 1920).toFixed(2));   // linha de chamada fina (HUD)
                 _bDot.setAttribute('cx', x); _bDot.setAttribute('cy', y); _bDot.setAttribute('r', Math.max(3, W * 6 / 1920).toFixed(2));
             }
+
 
             // Modelo da Mala de Cabine IATA (22 x 14 x 10 in)
             const mPl=new THREE.MeshLambertMaterial({color:0x4c598e,...po});   // nervuras/placas das malas: azul médio (render SVG)
@@ -8834,6 +8833,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 createSuitcase(0x32407a, false), // 3a mala: em pe (frente esquerda)
                 createSuitcase(0x32407a, false)  // 4a mala: em pe (frente direita)
             ];
+
 
             const X_LEFT  = 292;
             const X_RIGHT = 865;
@@ -9021,6 +9021,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 if (bagIdx < 2 && s > 0.985) fitLowerBagToFloorAndRoof(b);
             }
 
+
             const slider = document.getElementById('cad3d-doorSlider');
             const pctLabel = document.getElementById('cad3d-doorPct');
             const btnToggle = document.getElementById('cad3d-toggleDoor');
@@ -9036,9 +9037,7 @@ window.drawUniReferenceBins = drawReferenceBins;
             let az = -2.25, el = 0.28, R = 3100;
             const views = {
                 iso: [-2.25, 0.28, 3100],
-                side: [0, 0, 2600],
-                front: [-Math.PI/2, 0, 2800],
-                top: [0, Math.PI/2 - 0.001, 2800]
+                side: [0, 0, 2600]
             };
 
             function upd(){
@@ -9074,6 +9073,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 upd();
             }
             window.resizeCAD3D = rs;
+
             let introSequenceId=0;
             function resetIntroSequence(){
                 introSequenceId++;
@@ -9224,10 +9224,11 @@ window.drawUniReferenceBins = drawReferenceBins;
             }
             window.startCAD3DSim = startSimulation;
 
-            // ---- Transição final aba 1 → aba 2 (roteiro) ----
+
+            // ---- Transição da Aba 2 (CAD 3D) para a Aba 3 (comparação), durante o roteiro ----
             // O bin Alpha sólido vai ficando translúcido (opacidades iguais às da aba 2) enquanto a câmera sobe para a vista de cima,
-            // o FOV converge para o da aba 2 (35° → 15°, "dolly zoom") e o bin desliza para a coluna da esquerda, tudo sincronizado.
-            const NV_FOV_M = 15, NV_T_M = new THREE.Vector3(DIST / 2, 360, -447);   // mesmos valores da câmera da aba 2
+            // o FOV converge para o da vista Alpha na Aba 3 (35° → 15°, "dolly zoom") e o bin desliza para a coluna da esquerda, tudo sincronizado.
+            const NV_FOV_M = 15, NV_T_M = new THREE.Vector3(DIST / 2, 360, -447);   // mesmos valores da câmera da vista Alpha na Aba 3
             const morphSaved = new Map();
             const morphSet = (m, to, k) => {
                 if (!morphSaved.has(m)) morphSaved.set(m, { t: m.transparent, o: m.opacity, d: m.depthWrite });
@@ -9250,7 +9251,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 if (!cw || !ch || !o || !o.colW || !o.colH) { resolve(); return; }
                 const colW = o.colW, colH = o.colH, D = o.ms || 1300;
                 const tanN = Math.tan(NV_FOV_M * Math.PI / 360);
-                const RrN = Math.max(1350 / (2 * tanN * (colW / colH)), 1080 / (2 * tanN));    // mesmo enquadramento da aba 2
+                const RrN = Math.max(1350 / (2 * tanN * (colW / colH)), 1080 / (2 * tanN));    // mesmo enquadramento da vista Alpha na Aba 3
                 const visEnd = 2 * RrN * tanN * ch / colH;                                     // altura (mundo) visível no canvas inteiro ao final
                 const az0 = az, el0 = el, fov0 = cam.fov, T0 = T.clone(), vis0 = 2 * R * Math.tan(fov0 * Math.PI / 360);
                 const dx = o.cx != null ? cw / 2 - o.cx : (cw - colW) / 2, dy = o.cy != null ? ch / 2 - o.cy : (ch - colH) / 2;   // o bin vai do centro do canvas ao centro da coluna ALPHA
@@ -9292,6 +9293,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 };
                 requestAnimationFrame(frame);
             });
+
 
             btnStartSim.onclick = startSimulation;
             btnResetSim.onclick = resetSimulation;
@@ -9339,6 +9341,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                 R = Math.max(600, Math.min(9000, R * (1 + e.deltaY * 0.001)));
                 upd();
             }, {passive:false});
+
 
 
 
@@ -9691,42 +9694,81 @@ window.drawUniReferenceBins = drawReferenceBins;
                 draw();
             })();
 
+
+
+            // Únicos utilitários compartilhados; as cenas específicas ficam nos dois exportadores.
+            const CAD3D_EXPORT_W = 3840, CAD3D_EXPORT_H = 2160;
+            function cad3dDownloadPNG(filename) {
+                const a = document.createElement('a');
+                a.href = cv.toDataURL('image/png');
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            }
+            function cad3dConfigureExport4K() {
+                ren.setPixelRatio(1);
+                ren.setSize(CAD3D_EXPORT_W, CAD3D_EXPORT_H, false);
+                cam.aspect = CAD3D_EXPORT_W / CAD3D_EXPORT_H;
+                cam.updateProjectionMatrix();
+                ren.setClearColor(0x000000, 0);
+            }
+            function cad3dSnapshotExportState() {
+                return {
+                    az, el, R, T: T.clone(), door: openProgress,
+                    pixelRatio: ren.getPixelRatio(), size: ren.getSize(new THREE.Vector2()),
+                    clear: ren.getClearColor(new THREE.Color()).clone(), clearAlpha: ren.getClearAlpha(),
+                    bags: bags.map(b => ({
+                        vis: b.root.visible, envVis: b.env ? b.env.visible : null,
+                        pos: b.root.position.clone(), quat: b.root.quaternion.clone(),
+                        col: b.mBody.color.getHex()
+                    }))
+                };
+            }
+            function cad3dRestoreExportBags(snapshot) {
+                bags.forEach((b, i) => {
+                    const sv = snapshot.bags[i];
+                    b.root.visible = sv.vis;
+                    if (b.env) b.env.visible = sv.envVis;
+                    b.root.position.copy(sv.pos);
+                    b.root.quaternion.copy(sv.quat);
+                    b.mBody.color.setHex(sv.col);
+                });
+            }
+            function cad3dRestoreExportView(snapshot) {
+                ren.setClearColor(snapshot.clear, snapshot.clearAlpha);
+                ren.setPixelRatio(snapshot.pixelRatio);
+                ren.setSize(snapshot.size.x, snapshot.size.y, false);
+                az = snapshot.az; el = snapshot.el; R = snapshot.R; T.copy(snapshot.T);
+                updateDoor(snapshot.door);
+                syncDoorUI();
+                rs();
+            }
+
+
             // ---- Exportação 4K (3840 × 2160): vista isométrica, laterais do bin transparentes, malas no mesmo lilás ----
             let exporting = false;
             window.cad3dExportImages = () => {
                 if (exporting) return;
                 exporting = true;
                 stopAllAnimations();
-                const EW = 3840, EH = 2160, LILAC = 0x9ba9b5, LILAC_D = 0x9ba9b5;
                 // estado atual (restaurado no final)
-                const saved = {
-                    az, el, R, T: T.clone(), door: openProgress,
-                    bags: bags.map(b => ({ vis: b.root.visible, envVis: b.env ? b.env.visible : null, pos: b.root.position.clone(), quat: b.root.quaternion.clone(), col: b.mBody.color.getHex() })),
-                    plCol: mPl.color.getHex(), sideOp: [mat.transparent, mat.opacity, mat.depthWrite],
-                    pr: ren.getPixelRatio(), size: ren.getSize(new THREE.Vector2()), aspect: cam.aspect
-                };
+                const saved = cad3dSnapshotExportState();
                 // cena de exportação
                 bags.forEach((b, i) => { b.root.visible = true; if (b.env) b.env.visible = false; setBagPoseAlongPath(i, 1); b.mBody.color.setHex(saved.bags[0].col); });   // todas as malas no mesmo roxo da 1a mala
-                mPl.color.setHex(saved.plCol);
                 const surfaceMats = [mat, wm, fm, ...profileBandMaterials];
                 const surfaceSaved = surfaceMats.map(m => [m, m.transparent, m.opacity, m.depthWrite]);
                 surfaceMats.forEach((m, i) => { m.transparent = true; m.opacity = i === 2 ? 0.39 : (i<2 ? 0.27 : 0.25); m.depthWrite = false; m.needsUpdate = true; });
                 solids.forEach(m => { if (m.material === mat) m.renderOrder = 10; });
                 az = views.iso[0]; el = views.iso[1]; R = 2400;   // vista isométrica (mesmo ângulo do botão), enquadrada para 16:9
-                ren.setPixelRatio(1); ren.setSize(EW, EH, false);
-                cam.aspect = EW / EH; cam.updateProjectionMatrix();
-                ren.setClearColor(0x000000, 0); // transparência alfa real
+                cad3dConfigureExport4K(); // transparência alfa real
 
                 const shots = [['closed', 0], ['80pct_open', 0.8]];
-                const grab = (name, prog, view = 'isometric') => {
-                    if (view === 'side') { az = views.side[0]; el = views.side[1]; R = 2400; }   // vista lateral (mesmo ângulo do botão Side), enquadrada para 16:9
-                    else { az = views.iso[0]; el = views.iso[1]; R = 2400; }
+                const grab = (name, prog) => {
+                    az = views.iso[0]; el = views.iso[1]; R = 2400;
                     updateDoor(prog);
                     upd();   // renderiza em 4K com fundo liso (sem o quadriculado da tela)
-                    const url = cv.toDataURL('image/png');
-                    const a = document.createElement('a');
-                    a.href = url; a.download = `alpha_bin_3d_${view}_door_${name}_4k.png`;
-                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    cad3dDownloadPNG(`alpha_bin_3d_isometric_door_${name}_4k.png`);
                 };
                 // Terceira imagem: só a parede lateral voltada para a câmera Side.
                 const grabSideWall = () => {
@@ -9743,10 +9785,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                         ren.setClearColor(0x000000, 0);  // PNG transparente
                         updateDoor(0);
                         upd();
-                        const a = document.createElement('a');
-                        a.href = cv.toDataURL('image/png');
-                        a.download = 'alpha_bin_side_wall_only_4k.png';
-                        document.body.appendChild(a); a.click(); a.remove();
+                        cad3dDownloadPNG('alpha_bin_side_wall_only_4k.png');
                     } finally {
                         group.children.forEach((o, i) => { o.visible = groupVisibility[i]; });
                         bags.forEach((b, i) => { b.root.visible = bagVisibility[i]; });
@@ -9762,19 +9801,15 @@ window.drawUniReferenceBins = drawReferenceBins;
                     setTimeout(() => {
                     grabSideWall();   // terceira imagem 4K: parede lateral sem malas, porta ou outras peças
                     // restaura tudo
-                    bags.forEach((b, i) => { const sv = saved.bags[i]; b.root.visible = sv.vis; if (b.env) b.env.visible = sv.envVis; b.root.position.copy(sv.pos); b.root.quaternion.copy(sv.quat); b.mBody.color.setHex(sv.col); });
-                    mPl.color.setHex(saved.plCol);
+                    cad3dRestoreExportBags(saved);
                     surfaceSaved.forEach(([m, tr, op, dw]) => { m.transparent = tr; m.opacity = op; m.depthWrite = dw; m.needsUpdate = true; });
                     solids.forEach(m => { if (m.material === mat) m.renderOrder = 0; });
-                    ren.setClearColor(0xffffff, 0);
-                    ren.setPixelRatio(saved.pr);
-                    az = saved.az; el = saved.el; R = saved.R; T.copy(saved.T);
-                    updateDoor(saved.door); syncDoorUI();
-                    rs();
+                    cad3dRestoreExportView(saved);
                     exporting = false;
                     }, 700);
                 }, 700);
             };
+
 
 
             // Duas imagens 4K dedicadas à visualização das malas através da lateral:
@@ -9783,15 +9818,8 @@ window.drawUniReferenceBins = drawReferenceBins;
                 if (exporting) return;
                 exporting = true;
                 stopAllAnimations();
-                const EW = 3840, EH = 2160;
                 const state = {
-                    az, el, R, T: T.clone(), door: openProgress,
-                    pixelRatio: ren.getPixelRatio(), size: ren.getSize(new THREE.Vector2()),
-                    clear: ren.getClearColor(new THREE.Color()).clone(), clearAlpha: ren.getClearAlpha(),
-                    bagData: bags.map(b => ({
-                        vis: b.root.visible, env: b.env && b.env.visible,
-                        pos: b.root.position.clone(), quat: b.root.quaternion.clone()
-                    })),
+                    ...cad3dSnapshotExportState(),
                     surfaces: [mat, wm, fm, ...profileBandMaterials].map(m => [m, m.transparent, m.opacity, m.depthWrite, m.color.getHex()])
                 };
                 // Tudo abaixo existe somente durante a SEGUNDA captura (lateral isométrica).
@@ -9898,30 +9926,16 @@ window.drawUniReferenceBins = drawReferenceBins;
                     az = angle; el = elevation; R = radius;
                     updateDoor(0.84);
                     upd();
-                    const a = document.createElement('a');
-                    a.href = cv.toDataURL('image/png');
-                    a.download = 'alpha_bin_' + name + '_acrylic_4k.png';
-                    document.body.appendChild(a); a.click(); a.remove();
+                    cad3dDownloadPNG('alpha_bin_' + name + '_acrylic_4k.png');
                 };
                 const restore = () => {
                     resetIsometricAppearance();
-                    state.bagData.forEach((b, i) => {
-                        bags[i].root.visible = b.vis;
-                        bags[i].root.position.copy(b.pos);
-                        bags[i].root.quaternion.copy(b.quat);
-                        if (bags[i].env) bags[i].env.visible = b.env;
-                    });
+                    cad3dRestoreExportBags(state);
                     state.surfaces.forEach(([m, tr, op, dw, color]) => {
                         m.color.setHex(color);
                         m.transparent = tr; m.opacity = op; m.depthWrite = dw; m.needsUpdate = true;
                     });
-                    ren.setClearColor(state.clear, state.clearAlpha);
-                    ren.setPixelRatio(state.pixelRatio);
-                    ren.setSize(state.size.x, state.size.y, false);
-                    az = state.az; el = state.el; R = state.R; T.copy(state.T);
-                    updateDoor(state.door);
-                    syncDoorUI();
-                    rs();
+                    cad3dRestoreExportView(state);
                     exporting = false;
                 };
                 try {
@@ -9936,9 +9950,7 @@ window.drawUniReferenceBins = drawReferenceBins;
                         m.depthWrite = false;
                         m.needsUpdate = true;
                     });
-                    ren.setPixelRatio(1); ren.setSize(EW, EH, false);
-                    cam.aspect = EW / EH; cam.updateProjectionMatrix();
-                    ren.setClearColor(0x000000, 0);
+                    cad3dConfigureExport4K();
                     exportShot('lateral_with_four_bags', 0, 0.08, 2600); // primeira imagem SEM alterações
                     setTimeout(() => {
                         try {
@@ -9964,7 +9976,8 @@ window.drawUniReferenceBins = drawReferenceBins;
             setTimeout(rs, 60);
         })();
 
-    </script>
+    
+</script>
     <script>
     // Exporta os dois bins da aba 2 (Alpha + Convencional, com as malas) num único PNG de fundo transparente, sem as cotas.
     window.exportBinsPNG = function (K, which) {   // which: 'alpha' | 'conv' | undefined (os dois)
