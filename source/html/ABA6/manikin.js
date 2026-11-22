@@ -484,66 +484,93 @@
 
 
 
-        // Exporta os 3 momentos (Step 1 / 2 / 3) lado a lado em PNG com fundo transparente, como na figura de referência.
-        // Se noDownload = true, apenas devolve o canvas (usado para gerar o arquivo fora da página).
+        // Recorte transparente compartilhado pelas duas saídas PNG.
+        // Evita criar dimensões negativas quando o quadro está inteiramente vazio.
+        function cropManikinTransparentCanvas(source, marginPx) {
+            const w = source.width, h = source.height;
+            const context = source.getContext('2d', {willReadFrequently:true});
+            if (!context) throw new Error('Contexto Canvas indisponível na exportação.');
+            const pixels = context.getImageData(0, 0, w, h).data;
+            let x0=w, y0=h, x1=-1, y1=-1;
+            for (let y=0; y<h; y++) for (let x=0; x<w; x++) {
+                if (pixels[(y*w+x)*4+3] <= 8) continue;
+                x0=Math.min(x0,x); y0=Math.min(y0,y);
+                x1=Math.max(x1,x); y1=Math.max(y1,y);
+            }
+            if (x1 < x0 || y1 < y0) return null;
+            const margin = Math.max(0, Math.round(marginPx));
+            x0=Math.max(0,x0-margin); y0=Math.max(0,y0-margin);
+            x1=Math.min(w-1,x1+margin); y1=Math.min(h-1,y1+margin);
+            const result=document.createElement('canvas');
+            result.width=x1-x0+1; result.height=y1-y0+1;
+            const dest=result.getContext('2d',{alpha:true});
+            if (!dest) throw new Error('Canvas de recorte indisponível.');
+            dest.drawImage(source,x0,y0,result.width,result.height,0,0,result.width,result.height);
+            return result;
+        }
 
-        // Camada vetorial separada: somente boneco, uma mala e o bin Alpha aberto.
-        // A fase escolhida é a de entrada da primeira mala, sem tocar no playback.
-        function exportAphaFigure() {
-            if (!manikinState.last) updateErgonomics();
-            const L=manikinState.last;
-            if (!L || !L.times || !L.times.length) return;
-            const C=APHA_BRIDGE_CFG,W=C.figureW,H=C.figureH,S=C.figureScale;
-            // 83% da trajetória da primeira mala (alpha2), não 83% do ciclo
-            // global de duas malas. Não altera autoplay, cronômetro nem pose ao vivo.
-            const ref=L.times[0],firstCycle=ref.tA2/(ref.tA2+ref.tA1);
-            const output=document.createElement('canvas');
-            output.width=Math.round(W*S);output.height=Math.round(H*S);
-            const g=output.getContext('2d',{alpha:true,willReadFrequently:true});
-            const prev=[window.__mkExport,window.__aphaBridgeDoorU,
-                        window.__aphaOnlyCabin,window.__aphaShowConventional,
-                        window.__aphaBridgeMinimalHUD];
+        // A serialização é assíncrona: erros do callback também são tratados.
+        function saveManikinPNG(canvas, name) {
             try {
-                window.__mkExport=true;
-                // Nesta fase (antes da soltura), a porta ainda está aberta.
-                window.__aphaBridgeDoorU=1;
-                window.__aphaOnlyCabin=false;
-                window.__aphaShowConventional=false;
-                window.__aphaBridgeMinimalHUD=true;
-                g.clearRect(0,0,output.width,output.height);
-                g.setTransform(S,0,0,S,0,0);
-                drawManikinPanel(g,W,H,ERGO_PERCENTILES[0].h,L.mass,L.angleDeg,
-                    L.Fg,L.Fn,L.Ft,C.figurePhase*firstCycle,ref.tA2,ref.tA1,'');
+                canvas.toBlob(blob => {
+                    if (!blob) {
+                        console.error('Aba 6: serialização PNG vazia:',name);
+                        return;
+                    }
+                    let url = null;
+                    try {
+                        url=URL.createObjectURL(blob);
+                        const a=document.createElement('a');
+                        a.href=url; a.download=name;
+                        document.body.appendChild(a);
+                        try { a.click(); } finally { a.remove(); }
+                    } catch (err) {
+                        console.error('Aba 6: falha ao baixar PNG:',err);
+                    } finally {
+                        if (url) setTimeout(() => URL.revokeObjectURL(url),5000);
+                    }
+                },'image/png');
+            } catch (err) {
+                console.error('Aba 6: falha ao gerar PNG:',err);
+            }
+        }
+
+        // Figura única: manequim vetorial, mala e bin aberto, sem alterar o playback.
+        function exportAphaFigure() {
+            try {
+                if (!manikinState.last) updateErgonomics();
+                const L=manikinState.last;
+                if (!L || !L.times || !L.times.length) return;
+                const C=APHA_BRIDGE_CFG,W=C.figureW,H=C.figureH,S=C.figureScale;
+                const ref=L.times[0],firstCycle=ref.tA2/(ref.tA2+ref.tA1);
+                const output=document.createElement('canvas');
+                output.width=Math.round(W*S); output.height=Math.round(H*S);
+                const g=output.getContext('2d',{alpha:true,willReadFrequently:true});
+                if (!g) throw new Error('Canvas de figura indisponível.');
+                const prev=[window.__mkExport,window.__aphaBridgeDoorU,
+                    window.__aphaOnlyCabin,window.__aphaShowConventional,
+                    window.__aphaBridgeMinimalHUD];
+                try {
+                    window.__mkExport=true;
+                    window.__aphaBridgeDoorU=1;
+                    window.__aphaOnlyCabin=false;
+                    window.__aphaShowConventional=false;
+                    window.__aphaBridgeMinimalHUD=true;
+                    g.clearRect(0,0,output.width,output.height);
+                    g.setTransform(S,0,0,S,0,0);
+                    drawManikinPanel(g,W,H,ERGO_PERCENTILES[0].h,L.mass,L.angleDeg,
+                        L.Fg,L.Fn,L.Ft,C.figurePhase*firstCycle,ref.tA2,ref.tA1,'');
+                } finally {
+                    [window.__mkExport,window.__aphaBridgeDoorU,window.__aphaOnlyCabin,
+                     window.__aphaShowConventional,window.__aphaBridgeMinimalHUD]=prev;
+                }
+                const cropped=cropManikinTransparentCanvas(output,C.figureMargin*S);
+                if (!cropped) throw new Error('Figura PNG vazia.');
+                saveManikinPNG(cropped,'boneco-mala-bin.png');
             } catch(err) {
                 console.error('Export figure PNG:',err);
-                alert('Could not render the transparent figure.');
-                return;
-            } finally {
-                [window.__mkExport,window.__aphaBridgeDoorU,window.__aphaOnlyCabin,
-                 window.__aphaShowConventional,window.__aphaBridgeMinimalHUD]=prev;
+                if (typeof alert === 'function') alert('Could not render the transparent figure.');
             }
-            const pixels=g.getImageData(0,0,output.width,output.height).data;
-            let x0=output.width,y0=output.height,x1=-1,y1=-1;
-            for(let y=0;y<output.height;y++)for(let x=0;x<output.width;x++){
-                if(pixels[(y*output.width+x)*4+3]>8){
-                    if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;
-                }
-            }
-            if(x1<0){alert('The figure was empty.');return;}
-            const margin=Math.round(C.figureMargin*S);
-            x0=Math.max(0,x0-margin);y0=Math.max(0,y0-margin);
-            x1=Math.min(output.width-1,x1+margin);y1=Math.min(output.height-1,y1+margin);
-            const crop=document.createElement('canvas');
-            crop.width=x1-x0+1;crop.height=y1-y0+1;
-            crop.getContext('2d',{alpha:true}).drawImage(
-                output,x0,y0,crop.width,crop.height,0,0,crop.width,crop.height);
-            crop.toBlob(blob=>{
-                if(!blob){alert('PNG export failed.');return;}
-                const url=URL.createObjectURL(blob),a=document.createElement('a');
-                a.href=url;a.download='boneco-mala-bin.png';
-                document.body.appendChild(a);a.click();a.remove();
-                setTimeout(()=>URL.revokeObjectURL(url),5000);
-            },'image/png');
         }
         window.exportAphaFigure=exportAphaFigure;
         ['aba6-figure-export','tour-figure-export'].forEach(id=>{
@@ -551,34 +578,36 @@
             if(el)el.addEventListener('click',exportAphaFigure);
         });
 
+        // Exportação opcional das três etapas: preservada para chamadas externas.
         function exportManikinSteps(noDownload) {
-            const L = manikinState.last;
+            const L=manikinState.last;
             if (!L) return null;
-            const t = L.times[0], fracBack = t.tA2 / (t.tA2 + t.tA1);
-            const moments = [0.07, 0.48, 0.78];   // fase local da mala 2: elevação (1), apoio na borda (2), deslize (3)
-            const Wl = 1120, Hl = 740, S = 2;
-            const prev = window.__mkExport; window.__mkExport = true;
-            const outs = [];
+            const t=L.times[0],fracBack=t.tA2/(t.tA2+t.tA1);
+            const moments=[0.07,0.48,0.78], Wl=1120,Hl=740,S=2;
+            const prev=window.__mkExport,outs=[];
             try {
-                moments.forEach(lp => {
-                    const c = document.createElement('canvas'); c.width = Wl * S; c.height = Hl * S;
-                    const g = c.getContext('2d'); g.scale(S, S);
-                    drawManikinPanel(g, Wl, Hl, ERGO_PERCENTILES[0].h, L.mass, L.angleDeg, L.Fg, L.Fn, L.Ft, lp * fracBack, t.tA2, t.tA1, '');
-                    // recorta as bordas vazias, mantendo o fundo transparente
-                    const w = c.width, h = c.height, d = g.getImageData(0, 0, w, h).data;
-                    let x0 = w, x1 = 0, y0 = h, y1 = 0;
-                    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-                    const m = 16; x0 = Math.max(0, x0 - m); y0 = Math.max(0, y0 - m); x1 = Math.min(w - 1, x1 + m); y1 = Math.min(h - 1, y1 + m);
-                    const crop = document.createElement('canvas'); crop.width = x1 - x0 + 1; crop.height = y1 - y0 + 1;
-                    crop.getContext('2d').drawImage(c, x0, y0, crop.width, crop.height, 0, 0, crop.width, crop.height);
-                    outs.push(crop);
-                });
-            } finally { window.__mkExport = prev; }
+                window.__mkExport=true;
+                for (const lp of moments) {
+                    const output=document.createElement('canvas');
+                    output.width=Wl*S; output.height=Hl*S;
+                    const g=output.getContext('2d');
+                    if (!g) throw new Error('Canvas da etapa indisponível.');
+                    g.scale(S,S);
+                    drawManikinPanel(g,Wl,Hl,ERGO_PERCENTILES[0].h,L.mass,L.angleDeg,
+                        L.Fg,L.Fn,L.Ft,lp*fracBack,t.tA2,t.tA1,'');
+                    const cropped=cropManikinTransparentCanvas(output,16);
+                    if (!cropped) throw new Error('Etapa PNG vazia.');
+                    outs.push(cropped);
+                }
+            } catch(err) {
+                console.error('Export manikin steps:',err);
+                return null;
+            } finally {
+                window.__mkExport=prev;
+            }
             if (noDownload) return outs;
-            outs.forEach((cv, i) => setTimeout(() => cv.toBlob(b => {   // 3 arquivos PNG transparentes: step 1, 2 e 3
-                const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `overhead_bin_alpha_step${i + 1}.png`;
-                document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-            }, 'image/png'), i * 400));
+            outs.forEach((canvas,i)=>setTimeout(()=>
+                saveManikinPNG(canvas,`overhead_bin_alpha_step${i+1}.png`),i*400));
             return outs;
         }
 
