@@ -31,7 +31,6 @@ CSS_REQUIRED = (
     "source/html/ABA8/tour-closing.css",
     "source/html/ABA7/closing-scenes.css",
     "source/html/ABA3/presentation.css",
-    "source/html/ABA7/closing-illustrations.css",
 )
 
 

@@ -69,7 +69,7 @@ HTML e recursos exclusivos ficam juntos:
 - `source/html/ABA4/`: `tour-layout.css` (vista superior dentro do roteiro).
 - `source/html/ABA5/`: `viewport-theme.css` e `tour-layout.css` (seção da cabine).
 - `source/html/ABA6/`: `viewport-theme.css`, `tour-layout.css` e `fullscreen.css` (viewport e manequim).
-- `source/html/ABA7/`: `closing-frame.css`, `closing-scenes.css` e `closing-illustrations.css` (encerramento).
+- `source/html/ABA7/`: `closing-frame.css` e `closing-scenes.css` (encerramento).
 - `source/html/ABA8/`: `tour-frame.css`, `tour-controls-hidden.css`, `tour-pax.css`, `tour-buttons.css` e `tour-closing.css` (direção e montagem das cenas).
 
 O `global.css` é o único ponto de entrada do CSS principal e conserva as regras gerais. Ele referencia os novos arquivos por meio de `@@APHA_INCLUDE`, **sem mudar a ordem original das declarações**; o `tools/build.py` gera exatamente o mesmo HTML autossuficiente, com as mesmas prioridades CSS. `ABA5/viewport-theme.css` também guarda a regra exclusiva que oculta o painel de título legado da Aba 5, enquanto `source/css/recording-and-transitions.css` concentra os estilos gerais do modo de gravação. **Não** importe os arquivos novamente com `<link>` ou outras tags `<style>`: eles já são embutidos pelo montador.
@@ -449,3 +449,16 @@ ser conferida no navegador.
 Os exportadores e o fallback passaram a ter também o teste independente
 `node tools/test_aba6_resilience.js`, que injeta falhas no desenho, leitura
 de pixels, PNG vazio, Blob, download e no estado do Canvas.
+
+
+## Aba 7 — limpeza da conclusão (22/11/2026)
+
+Removidos os seletores CSS sem elementos (pill, lbl, lead, ckd e cw), a folha
+`closing-illustrations.css` sem consumidores e os comentários HTML/CSS/SVG
+antigos da Aba 7. Em `illustration-08.svg`, a posição existente de 40 px
+passa a vir somente do CSS, eliminando a duplicação de `style`.
+Os ícones e o card da Cena 3 utilizam suas medidas efetivas via CSS
+(92/96 px e 115 px), sem sobrescrita inline. Três gradientes constantes
+foram substituídos pelas mesmas cores sólidas no SVG 01. Os caminhos,
+polígonos, máscaras, estrutura e tempos das animações foram preservados.
+Os Takes 04 (conclusão sem logo) e 05 (logo isolada) permanecem separados.
