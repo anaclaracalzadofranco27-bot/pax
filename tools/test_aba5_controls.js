@@ -153,7 +153,7 @@ equalSnapshot(saved, 'falha de toBlob deve restaurar todo estado');
 failBlob = false;
 window.uniExport4K({stat:'p95',transparent:true,palette:'dark'});
 equalSnapshot(saved, 'nova captura após falha deve funcionar');
-assert.equal(seenStatures.at(-1), 190);
+assert.equal(seenStatures.at(-1), 190, JSON.stringify({warnings, seenStatures, filenames, offscreenFrames}));
 assert.equal(filenames.at(-1),
     'alpha_bin_integrated_simulation_p95_male_transparent_dark_palette_4k.png');
 assert.deepEqual(offscreenFrames.at(-1), {w:1920,h:1080,dpr:2,bg:null});
