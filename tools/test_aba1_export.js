@@ -111,5 +111,44 @@ function section(start, end) {
   await assert.rejects(task,/draw-failed/);
   assert.equal(stoppedTracks,1);
   assert.equal(stoppedRecorder,1);
-  console.log('Aba 1: exclusividade e recuperação da exportação MP4/WebM validadas.');
+  // Captura real-time bem-sucedida: o último quadro é gravado e as trilhas fecham.
+  let now=0, next=0, successStops=0, successRecorderStops=0;
+  const frames=new Map(),timeouts=new Map();
+  const successTrack={stop(){successStops++;},requestFrame(){}};
+  const successStream={getVideoTracks:()=>[successTrack],getTracks:()=>[successTrack]};
+  const successEnv={
+    TOTAL_TIME:14,Blob,Promise,console,
+    MediaRecorder:class {
+      constructor(){this.state='inactive';}
+      start(){this.state='recording';}
+      stop(){
+        this.state='inactive';successRecorderStops++;
+        this.ondataavailable({data:new Blob(['video-frame'])});
+        this.onstop();
+      }
+    },
+    performance:{now:()=>now},
+    requestAnimationFrame(fn){const id=++next;frames.set(id,fn);return id;},
+    cancelAnimationFrame(id){frames.delete(id);},
+    setTimeout(fn){const id=++next;timeouts.set(id,fn);return id;},
+    clearTimeout(id){timeouts.delete(id);},
+    drawExportFrame(){},showExportProgress(){}
+  };
+  vm.createContext(successEnv);
+  vm.runInContext(section('async function recordRealtime(', 'function showExportProgress('),successEnv);
+  const successTask=successEnv.recordRealtime({captureStream:()=>successStream},{},{},30,'video/webm');
+  now=14000;
+  const currentFrames=[...frames.values()];frames.clear();
+  currentFrames.forEach(fn=>fn(now));
+  for(let i=0;i<2;i++){
+    const [id,fn]=timeouts.entries().next().value;
+    timeouts.delete(id);fn();
+  }
+  const webm=await successTask;
+  assert.equal(webm.type,'video/webm');
+  assert(webm.size>0);
+  assert.equal(successStops,1);
+  assert.equal(successRecorderStops,1);
+  assert.equal(timeouts.size,0);
+  console.log('Aba 1: exclusividade, captura WebM normal e recuperação MP4/WebM validadas.');
 })().catch(err=>{console.error(err);process.exitCode=1;});
