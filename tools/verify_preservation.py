@@ -719,7 +719,7 @@ def verify_aba3(v: Checker) -> None:
             "window.__novaRender =", "window.__convDraw=draw;",
             "window.__convCapture=", "window.novaShowHeader=",
             "const SHELL_HEIGHT_FACTOR=0.89;", "const bagWidthFitted=Math.min(",
-            "const bagHeightSvg=22*inchSvg;", "drawTopDimension(dx, xa, xb",
+            "bagHeightSvg=22*inchSvg;", "drawTopDimension(dx, xa, xb",
             "drawTopDimension(c,a[0],b[0]",
         ):
             v.check(required in code, f"Função ou geometria da comparação ausente: {required}")
