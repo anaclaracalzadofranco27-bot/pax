@@ -6,7 +6,7 @@ window.paxEmbed = {
   play: () => { if (!playing && !exportingVideo) togglePlay(); },
   pause: () => { if (playing) togglePlay(); },
   setActive: on => { if (window.PAX) window.PAX.setActive(on); },
-  done: () => time >= TOTAL_TIME,
+  done: () => paxClockTime() >= TOTAL_TIME,
   setControls: on => { document.body.classList.toggle('no-ctl', !on); window.dispatchEvent(new Event('resize')); },
   xray: ms => xrayRun(ms || 1700),
   xrayReset: () => xrayReset()
