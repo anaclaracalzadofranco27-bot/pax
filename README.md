@@ -445,3 +445,7 @@ do contorno CAD exibido, cuja correspondência ainda precisa ser checada.
 Os testes estáticos cobrem a remoção dos resíduos e a existência das
 rotinas de exportação/fallback. A equivalência visual do Take 03 deve
 ser conferida no navegador.
+
+Os exportadores e o fallback passaram a ter também o teste independente
+`node tools/test_aba6_resilience.js`, que injeta falhas no desenho, leitura
+de pixels, PNG vazio, Blob, download e no estado do Canvas.
