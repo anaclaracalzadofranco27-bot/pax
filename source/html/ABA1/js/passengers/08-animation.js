@@ -469,15 +469,19 @@
             } catch (err) {
                 paxExporting = false;
                 try { renderer.setPixelRatio(paxSavedRatio); } catch (_) {}
+                invalidate();
                 throw err;
             }
             paxSceneDirty = true;
         }
         function endExport() {
             if (!paxExporting) return;
-            renderer.setPixelRatio(paxSavedRatio);
-            paxExporting = false;
-            invalidate(); // restaura o quadro ao voltar da captura, inclusive em pausa
+            try {
+                renderer.setPixelRatio(paxSavedRatio);
+            } finally {
+                paxExporting = false;
+                invalidate(); // restaura o quadro ao voltar da captura, inclusive em pausa
+            }
         }
         window.PAX = { rig1, rig2, rig3, camera, renderer, scene, renderAt, labelAnchors,
             beginExport, endExport, invalidate, setActive, get elapsed() { return elapsed; } };
