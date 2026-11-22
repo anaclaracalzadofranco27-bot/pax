@@ -1,15 +1,8 @@
-            // Duas imagens 4K dedicadas à visualização das malas através da lateral:
-            // 1) lateral Y-Z fiel à referência; 2) lateral isométrica pouco inclinada.
-            window.cad3dExportSideTransparent = () => {
+            // Duas imagens laterais 4K com intervalo de 400 ms, preservando o efeito acrílico.
+            window.cad3dExportSideTransparent = async () => {
                 if (exporting) return;
                 exporting = true;
-                stopAllAnimations();
-                const state = {
-                    ...cad3dSnapshotExportState(),
-                    surfaces: [mat, wm, fm, ...profileBandMaterials].map(m => [m, m.transparent, m.opacity, m.depthWrite, m.color.getHex()])
-                };
-                // Tudo abaixo existe somente durante a SEGUNDA captura (lateral isométrica).
-                // A imagem ortográfica e os materiais acrílicos da cena principal permanecem intactos.
+                let state = null; // snapshot comum de câmera, WebGL, materiais e malas
                 const isoVisibilityStates = new Map();
                 const isoMaterialSwaps = [];
                 const isoTemporaryMaterials = new Map();
@@ -114,48 +107,31 @@
                     upd();
                     cad3dDownloadPNG('alpha_bin_' + name + '_acrylic_4k.png');
                 };
-                const restore = () => {
-                    resetIsometricAppearance();
-                    cad3dRestoreExportBags(state);
-                    state.surfaces.forEach(([m, tr, op, dw, color]) => {
-                        m.color.setHex(color);
-                        m.transparent = tr; m.opacity = op; m.depthWrite = dw; m.needsUpdate = true;
-                    });
-                    cad3dRestoreExportView(state);
-                    exporting = false;
-                };
                 try {
+                    stopAllAnimations();
+                    state = cad3dSnapshotExportState();
                     bags.forEach((b, i) => {
                         b.root.visible = true;
                         if (b.env) b.env.visible = false;
                         setBagPoseAlongPath(i, 1);
                     });
-                    state.surfaces.forEach(([m], i) => {
-                        m.transparent = true;
-                        m.opacity = i === 2 ? 0.37 : (i < 2 ? 0.23 : 0.25);
-                        m.depthWrite = false;
-                        m.needsUpdate = true;
-                    });
+                    cad3dSetExportSurfaces(0.23, 0.37);
                     cad3dConfigureExport4K();
-                    exportShot('lateral_with_four_bags', 0, 0.08, 2600); // primeira imagem SEM alterações
-                    setTimeout(() => {
-                        try {
-                            // A câmera vê X_RIGHT: ocultar as malas 1 e 3 somente neste PNG.
-                            isoNearBagIndices.forEach(i => { bags[i].root.visible = false; });
-                            highlightIsometricInterior();
-                            exportShot('side_isometric_with_two_rear_bags', -0.47, 0.17, 2650);
-                        } catch (err) {
-                            console.warn('Side isometric export:', err);
-                        } finally {
-                            // Revela novamente a fileira frontal após o PNG (também em erro);
-                            // restore() recupera, por fim, a visibilidade original da tela.
-                            isoNearBagIndices.forEach(i => { bags[i].root.visible = true; });
-                            restore(); // devolve imediatamente materiais, contornos e pose
-                        }
-                    }, 400);
+                    exportShot('lateral_with_four_bags', 0, 0.08, 2600);
+                    await cad3dExportDelay(400);
+                    // Segundo PNG vê X_RIGHT; ocultar as malas dianteiras 1 e 3.
+                    isoNearBagIndices.forEach(i => { bags[i].root.visible = false; });
+                    highlightIsometricInterior();
+                    exportShot('side_isometric_with_two_rear_bags', -0.47, 0.17, 2650);
                 } catch (err) {
                     console.warn('Side transparent export:', err);
-                    restore();
+                } finally {
+                    // Limpar cópias de materiais, normais temporárias e estado, mesmo em falha.
+                    try { resetIsometricAppearance(); }
+                    catch (err) { console.warn('CAD3D isometric restore:', err); }
+                    try { if (state) cad3dRestoreExportState(state); }
+                    catch (err) { console.warn('CAD3D side state restore:', err); }
+                    finally { exporting = false; }
                 }
             };
 
