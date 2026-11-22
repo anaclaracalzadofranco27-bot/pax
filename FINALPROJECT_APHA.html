@@ -8448,75 +8448,106 @@ window.drawUniReferenceBins = drawReferenceBins;
                 return { box, paxX: m.toX(-99.5), floorY: m.toY(0), headY: m.toY(head), paxW: 46 * m.scale, axisY: m.toY(FC), scale: m.scale };
             };
 
-            // opts.stat = 'p95' → estatura P95 Male (fim da fase de estatura); padrão = Média Mundial.  opts.transparent = true → PNG sem fundo.
-            window.uniExport4K = (opts) => {
+            // Exportação isolada: a estatura escolhida define o conteúdo e o nome do arquivo.
+            // A câmera e as portas ainda seguem o enquadramento esperado em 3840 × 2160.
+            window.uniExport4K = opts => {
+                if (U.exporting) return; // bloquear reentrância no mesmo canvas
                 const o = (opts && typeof opts === 'object' && !opts.target) ? opts : {};
                 const isP95 = o.stat === 'p95';
                 const statCm = isP95 ? window.SEATED_STAT.max : WORLD_MEAN_CM;
                 const statName = isP95 ? 'P95 MALE' : 'WORLD AVERAGE';
-                // Posiciona a simulação exatamente na estatura exportada (Média Mundial 165,0 cm / 65,0" ou P95 Male)
-                const prev = { t: U.t, custom: U.customStature, playing: U.playing, door: window.__uniRefDoorProgress, wide: U.exportCabinWideFrame };
-                U.exporting = true; U.exportCabinWideFrame = isP95; window.EXPORT_EN = true;
-                U.playing = false;
-                cancelAnimationFrame(U.raf);
-                const exportFinalDoorState=prev.t>=TOTAL-.01;
-                // P95: enquadramento aberto com os dois bins abertos e os manequins visíveis.
-                // Evita a câmera de zoom final, que ocultaria assentos e passageiros.
-                U.t=isP95?TOTAL:(exportFinalDoorState?TOTAL:T_WORLD_MEAN);
-                U.customStature=isP95?statCm:(exportFinalDoorState?window.SEATED_STAT.max:statCm);
-                refresh();
-
-                // Cria canvas offscreen em resolução 4K UHD (3840 × 2160 = 1920×1080 com dpr=2 para nitidez proporcional perfeita)
-                const offscreen = document.createElement('canvas');
-                U.g = U.g || computeAllGeometries();
-                const T1=Math.min(4,U.t/UNI_CAD_SEC);
-                if(U.playing && U.t<TL.open)window.__uniRefDoorProgress=0;
-                if(U.t>=TL.open)window.__uniRefDoorProgress=doorAmount();
-                const slider=document.getElementById('uni-bin-door-slider'),pct=document.getElementById('uni-bin-door-pct');
-                if(U.t>=TL.open){if(slider)slider.value=Math.round(100*window.__uniRefDoorProgress);if(pct)pct.textContent=Math.round(100*window.__uniRefDoorProgress)+'%'}
-                window.BIN_SOLID = true; window.BIN_DARK = o.palette === 'dark';
+                const prev = {
+                    t: U.t, custom: U.customStature, playing: U.playing,
+                    doors: window.uniRefDoorSnapshot && window.uniRefDoorSnapshot(),
+                    door: window.__uniRefDoorProgress, wide: U.exportCabinWideFrame,
+                    exporting: U.exporting, exportEn: window.EXPORT_EN,
+                    solid: window.BIN_SOLID, dark: window.BIN_DARK
+                };
                 try {
-                drawCADCanvas(U.g, {
-                    canvas: offscreen,
-                    width: 1920,
-                    height: 1080,
-                    dpr: 2,
-                    bgFill: o.transparent ? null : '#f5f5f5',   // null → PNG com fundo transparente
-                    T: T1,
-                    map: m1,
-                    camera:cinematicCamera,
-                    before,
-                    after: (ctx, m) => {
-                        after(ctx, m);
-                        // Selo discreto no canto inferior direito indicando a estatura exportada
-                        ctx.save();
-                        ctx.font = 'bold 13px "JetBrains Mono", monospace';
-                        ctx.textAlign = 'right';
-                        ctx.fillStyle = '#0e7490';
-                        if(!exportFinalDoorState)ctx.fillText(`STATURE: ${statName} (${fmtIn(statCm, 1)})`, m.W - 20, m.H - 14);
-                        ctx.restore();
-                        drawSeatbackLeader(ctx,m.W,m.H,ph(TL.seats,0.6)*(1-cameraAmount()));
-                    }
-                });
+                    U.exporting = true;
+                    U.exportCabinWideFrame = isP95;
+                    U.playing = false;
+                    cancelAnimationFrame(U.raf);
+                    if (window.uniRefUseTimelineDoors) window.uniRefUseTimelineDoors();
+                    window.EXPORT_EN = true;
+                    const finalDoors = prev.t >= TOTAL - 0.01;
+                    // Preservar o enquadramento final e a abertura das portas, mas não trocar
+                    // silenciosamente a estatura Média Mundial pelo P95 ao exportar no fim.
+                    U.t = isP95 || finalDoors ? TOTAL : T_WORLD_MEAN;
+                    U.customStature = statCm;
+                    refresh();
 
-                } finally { window.BIN_DARK = false; }
-                window.BIN_SOLID = false;
-                U.exporting = false; window.EXPORT_EN = false;
-                // devolve a tela ao estado em que estava antes da exportação
-                U.t = prev.t; U.customStature = prev.custom; U.exportCabinWideFrame = prev.wide;
-                window.__uniRefDoorProgress=prev.door; refresh();
-                if (prev.playing) play(U.t);
-                offscreen.toBlob(blob => {
-                    if (!blob) return;
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'alpha_bin_integrated_simulation_' + (isP95 ? 'p95_male' : 'world_average') + (o.transparent ? '_transparent' : '') + (o.palette === 'dark' ? '_dark_palette' : '') + '_4k.png';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    setTimeout(() => URL.revokeObjectURL(url), 1500);
-                }, 'image/png');
+                    const offscreen = document.createElement('canvas');
+                    U.g = U.g || computeAllGeometries();
+                    window.BIN_SOLID = true;
+                    window.BIN_DARK = o.palette === 'dark';
+                    drawCADCanvas(U.g, {
+                        canvas: offscreen,
+                        width: 1920, height: 1080, dpr: 2,
+                        bgFill: o.transparent ? null : '#f5f5f5',
+                        T: Math.min(4, U.t / UNI_CAD_SEC),
+                        map: m1, camera: cinematicCamera,
+                        before,
+                        after: (ctx, m) => {
+                            after(ctx, m);
+                            ctx.save();
+                            ctx.font = 'bold 13px "JetBrains Mono", monospace';
+                            ctx.textAlign = 'right';
+                            ctx.fillStyle = '#0e7490';
+                            if (!finalDoors)
+                                ctx.fillText(`STATURE: ${statName} (${fmtIn(statCm, 1)})`, m.W - 20, m.H - 14);
+                            ctx.restore();
+                            drawSeatbackLeader(ctx, m.W, m.H,
+                                ph(TL.seats, 0.6) * (1 - cameraAmount()));
+                        }
+                    });
+
+                    offscreen.toBlob(blob => {
+                        if (!blob) {
+                            console.warn('Aba 5: PNG 4K vazio.');
+                            return;
+                        }
+                        let url = null;
+                        try {
+                            url = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = 'alpha_bin_integrated_simulation_' +
+                                (isP95 ? 'p95_male' : 'world_average') +
+                                (o.transparent ? '_transparent' : '') +
+                                (o.palette === 'dark' ? '_dark_palette' : '') + '_4k.png';
+                            document.body.appendChild(link);
+                            link.click();
+                            link.remove();
+                        } catch (err) {
+                            console.warn('Aba 5: falha ao salvar PNG:', err);
+                        } finally {
+                            if (url) setTimeout(() => URL.revokeObjectURL(url), 1500);
+                        }
+                    }, 'image/png');
+                } catch (err) {
+                    console.warn('Aba 5: falha na exportação 4K:', err);
+                } finally {
+                    // Proteger relógio, estados globais, cores, câmera e porta em toda falha.
+                    U.t = prev.t;
+                    U.customStature = prev.custom;
+                    U.exportCabinWideFrame = prev.wide;
+                    U.exporting = prev.exporting;
+                    U.playing = prev.playing;
+                    window.EXPORT_EN = prev.exportEn;
+                    window.BIN_SOLID = prev.solid;
+                    window.BIN_DARK = prev.dark;
+                    if (prev.doors && window.uniRefDoorRestore)
+                        window.uniRefDoorRestore(prev.doors);
+                    else window.__uniRefDoorProgress = prev.door;
+                    try { refresh(); }
+                    catch (err) { console.warn('Aba 5: falha ao restaurar a tela:', err); }
+                    if (prev.playing) {
+                        U.last = performance.now();
+                        cancelAnimationFrame(U.raf);
+                        U.raf = requestAnimationFrame(tick);
+                    }
+                }
             };
         })();
 
