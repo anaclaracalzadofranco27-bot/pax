@@ -26,8 +26,6 @@ const xrayLayers = () => [
 function xrayReset() {
   if (!xrayOn) return;
   xrayOn = false;
-  const ov = document.getElementById('xray-bags');
-  if (ov) ov.style.display = 'none';
   const layers = xrayLayers();
   layers.forEach(el => {
     el.style.transition = 'none';
